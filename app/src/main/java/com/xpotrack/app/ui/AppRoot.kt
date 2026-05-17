@@ -27,6 +27,8 @@ import com.xpotrack.app.ui.notes.NotesEditorScreen
 import com.xpotrack.app.ui.notes.NotesEditorViewModel
 import com.xpotrack.app.ui.notes.NotesListScreen
 import com.xpotrack.app.ui.notes.NotesViewModel
+import com.xpotrack.app.ui.tasks.TaskCreateSheet
+import com.xpotrack.app.ui.tasks.TaskCreateViewModel
 import com.xpotrack.app.ui.tasks.TasksTimelineScreen
 import com.xpotrack.app.ui.tasks.TasksViewModel
 import com.xpotrack.app.ui.theme.XpTokens
@@ -70,15 +72,32 @@ private fun TabsScaffold(onOpenNote: (Int) -> Unit) {
     val tasks by tasksVm.tasks.collectAsStateWithLifecycle()
 
     var active by rememberSaveable { mutableStateOf(XpTab.Notes) }
+    var sheetTaskId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var sheetToken by rememberSaveable { mutableStateOf(0) }
+
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
             when (active) {
                 XpTab.Notes -> NotesListScreen(notes = notes, onOpenNote = onOpenNote)
-                XpTab.Tasks -> TasksTimelineScreen(tasks = tasks)
+                XpTab.Tasks -> TasksTimelineScreen(
+                    tasks = tasks,
+                    onOpenTask = {
+                        sheetToken += 1
+                        sheetTaskId = it
+                    },
+                )
                 XpTab.Vault -> VaultStubScreen()
                 XpTab.More  -> MoreStubScreen()
             }
         }
         XpBottomTabs(active = active, onSelect = { active = it })
+    }
+
+    sheetTaskId?.let { id ->
+        val vm: TaskCreateViewModel = viewModel(
+            key = "task-create-$id-$sheetToken",
+            factory = TaskCreateViewModel.Factory(app.tasksRepo, id),
+        )
+        TaskCreateSheet(vm = vm, onDismiss = { sheetTaskId = null })
     }
 }

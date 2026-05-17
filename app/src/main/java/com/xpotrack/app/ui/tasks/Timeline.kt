@@ -2,14 +2,13 @@ package com.xpotrack.app.ui.tasks
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -35,73 +34,37 @@ import com.xpotrack.app.ui.components.XpReminderPill
 import com.xpotrack.app.ui.components.styleFor
 import com.xpotrack.app.ui.theme.XpTokens
 
-private const val NowTime = "09:41"
-
 @Composable
-fun TimelineView(tasks: List<TaskRow>, modifier: Modifier = Modifier) {
-    val totalHeight = ((TimelineEndHour - TimelineStartHour) * HourHeightDp + 40).dp
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(totalHeight)
-            .padding(top = 8.dp),
-    ) {
-        HourGrid()
-        tasks.forEach { TaskPill(it) }
-        NowIndicator()
+fun TimelineView(
+    tasks: List<TaskRow>,
+    onTaskTap: (Long) -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
+    val sorted = tasks.sortedBy {
+        val (h, m) = parseHHmm(it.time); h * 60 + m
+    }
+    Column(modifier = modifier.padding(start = 22.dp, end = 22.dp, top = 12.dp)) {
+        sorted.forEachIndexed { i, task ->
+            TaskRowItem(task = task, onClick = { onTaskTap(task.id) })
+            if (i < sorted.lastIndex) Spacer(Modifier.height(10.dp))
+        }
     }
 }
 
 @Composable
-private fun HourGrid() {
-    for (i in 0..(TimelineEndHour - TimelineStartHour)) {
-        val h = TimelineStartHour + i
-        val y = (i * HourHeightDp).dp
-        val label = formatHour(h)
-        Text(
-            label,
-            modifier = Modifier
-                .offset(x = 22.dp, y = y)
-                .width(48.dp),
-            style = MaterialTheme.typography.labelMedium.copy(fontSize = 10.5.sp),
-            color = XpTokens.Ink3,
-        )
-        Box(
-            modifier = Modifier
-                .offset(x = 76.dp, y = y + 6.dp)
-                .padding(end = 22.dp)
-                .fillMaxWidth()
-                .height(0.5.dp)
-                .background(XpTokens.Hair)
-        )
-    }
-}
-
-private fun formatHour(h: Int): String = when {
-    h == 0 -> "12 AM"
-    h == 12 -> "12 PM"
-    h > 12 -> "${h - 12} PM"
-    else -> "$h AM"
-}
-
-@Composable
-private fun TaskPill(task: TaskRow) {
+private fun TaskRowItem(task: TaskRow, onClick: () -> Unit) {
     val style = styleFor(task.level)
-    val y = (timeToOffsetDp(task.time) - 4).dp
-    val h = maxOf(36f, task.durationMin * MinHeightPx).dp
     Row(
         modifier = Modifier
-            .offset(x = 78.dp, y = y)
-            .padding(end = 18.dp)
             .fillMaxWidth()
-            .height(h)
-            .alpha(if (task.done) 0.45f else 1f),
-        verticalAlignment = Alignment.Top,
+            .alpha(if (task.done) 0.45f else 1f)
+            .clickable(onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             Modifier
                 .width(3.dp)
-                .height(h)
+                .height(44.dp)
                 .clip(CircleShape)
                 .background(style.accent.copy(alpha = if (task.done) 0.3f else 1f))
         )
@@ -138,36 +101,3 @@ private fun TaskPill(task: TaskRow) {
         }
     }
 }
-
-@Composable
-private fun NowIndicator() {
-    val y = timeToOffsetDp(NowTime).dp + 6.dp
-    Row(
-        modifier = Modifier
-            .offset(x = 22.dp, y = y)
-            .padding(end = 22.dp)
-            .fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Text(
-            "NOW",
-            modifier = Modifier.width(48.dp),
-            style = MaterialTheme.typography.labelMedium.copy(fontSize = 10.5.sp),
-            color = XpTokens.Teal,
-        )
-        Box(
-            modifier = Modifier
-                .size(8.dp)
-                .clip(CircleShape)
-                .background(XpTokens.Teal)
-        )
-        Box(
-            modifier = Modifier
-                .height(1.dp)
-                .fillMaxWidth()
-                .background(XpTokens.Teal.copy(alpha = 0.6f))
-        )
-    }
-}
-

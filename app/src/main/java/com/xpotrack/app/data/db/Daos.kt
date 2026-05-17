@@ -32,8 +32,17 @@ interface TaskDao {
     @Query("SELECT * FROM tasks ORDER BY time ASC")
     fun observeAll(): Flow<List<TaskEntity>>
 
+    @Query("SELECT * FROM tasks WHERE id = :id LIMIT 1")
+    suspend fun getById(id: Long): TaskEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(rows: List<TaskEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(row: TaskEntity): Long
+
+    @Query("UPDATE tasks SET reminderAt = :at WHERE id = :id")
+    suspend fun setReminderAt(id: Long, at: Long)
 
     @Query("SELECT COUNT(*) FROM tasks")
     suspend fun count(): Int

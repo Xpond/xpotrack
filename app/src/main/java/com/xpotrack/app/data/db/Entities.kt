@@ -19,11 +19,13 @@ data class NoteEntity(
 data class TaskEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val title: String,
-    val time: String,           // "HH:mm"
-    val level: String,          // "SILENT" / "NOTIFY" / "ALARM"
+    val time: String,           // "HH:mm" — local clock for display
+    val level: String,          // ReminderLevel enum name
     val durationMin: Int,
     val isDone: Boolean = false,
+    val reminderAt: Long = 0L,  // absolute epoch ms; 0 = unscheduled (set in 8b)
     val createdAt: Long,
+    val updatedAt: Long,
 )
 
 @Entity(tableName = "meta")

@@ -164,18 +164,89 @@ Write / Preview segmented toggle in the editor topbar. Write mode is unchanged (
 
 ---
 
+## Milestone 8a — Task create + edit, chronological timeline
+
+The MVP-2 headline split into two passes. **8a (this milestone):** sheet + write path + tap-to-edit. **8b (next):** `AlarmManager` + receivers + ringing activity. Splitting keeps each pass to one verify-on-device cycle.
+
+**Domain model surfaced:** `data/model/Task.kt` (pure data class, no UI / Room imports) anchors the layer line in advance of 8b — the alarm scheduler will live under `data/` and can't see `TaskRow`. Repository now emits `Task`; the UI mapping `Task.toRow()` moved to `ui/tasks/TasksData.kt`, called inside `TasksViewModel`. This resolves the layering exception flagged in the post-milestone-5 audit — repos no longer import `ui/`.
+
+**Schema bumped v2 → v3.** `TaskEntity` gains `updatedAt: Long` and `reminderAt: Long` (absolute epoch ms; 0 until 8b sets it). `fallbackToDestructiveMigrationFrom(1, 2)` — pre-release installs wipe and re-seed. Native lib lock log fires once on first v3 launch (the seed running). `TaskDao` gains `getById` + `upsert`; the speculative `setDone`/`delete` we wrote on the way through got pulled out for being uncalled — they'll come back with milestone 9.
+
+**Bottom-sheet variant A from `task-create.jsx`:** `ModalBottomSheet` (Material 3) with grabber, "NEW TASK" / "EDIT TASK" label, single-line title field, time wheel (HH / MM / AM-PM), Silent/Notify/Alarm chip row, display-only "Repeat — Never" row, full-width teal Schedule button that shows the live time in its label. FAB on Tasks opens it for new tasks; tapping a timeline pill opens it prefilled.
+
+**Course-corrections that cost real cycles in this milestone — write them down so we don't repeat them:**
+
+- **Auto-focus + auto-keyboard on sheet open was a foot-gun.** First pass requested focus inside a `LaunchedEffect`, which fought the sheet's expand animation (laggy entrance) *and* meant system back hit the keyboard before the sheet (double-back to dismiss). Cut entirely. Sheet opens calm; user taps the title field when they want to type.
+- **`viewModel(key = "task-create-$id")` reused stale state.** Saving a new task (id=0), dismissing, then opening again returned the *cached* VM instance with the just-saved title still in state. Fixed with a `sheetToken: Int` that increments on every open, baked into the key (`"task-create-$id-$sheetToken"`). Every open gets a fresh VM.
+- **Fixed pixel-per-minute timeline grid was unsalvageable.** `HourHeightDp = 56` made a 15-min slot 14dp tall — smaller than the pill's own padding. Tried clamping pill height to next-task offset (with a 28dp floor that lied and let pills overflow anyway), tried bumping to 120dp/hour (wasted space on empty hours, still cramped clusters), tried side-by-side overlap columns (calendar-app correct but the user wanted a list). **The final design is a chronological list:** tasks sorted by minute, each rendered at natural height, stacked top-to-bottom. No hour grid, no fixed vertical scale, no possible cramping. Hour-grid scaffolding (`HourHeightDp`, `MinHeightPx`, `timeToOffsetDp`, `TimelineStartHour/EndHour`) deleted from `TasksData.kt`. The mockup's pixel-grid was a calendar metaphor that doesn't survive a real schedule with closely-spaced tasks.
+- **Hand-rolled wheel was broken.** First attempt: custom `pointerInput` + `detectVerticalDragGestures` + manual step accumulator. Jittered on every step, didn't fling, snapped weirdly. Rewrote as `LazyColumn` + `rememberSnapFlingBehavior` — real momentum, real snap. Then made it **infinite-loop** per spec: render `LoopSpan * 2 = 20,000` virtual slots, map slot `i → values[i mod size]`, anchor initial scroll near the middle. Scroll past 59 minutes → wraps to 00 and keeps going. External state changes (e.g. AM/PM swap rewriting the hour) use a `nearestSlotFor` helper that picks the nearest wrap so the wheel never jumps far across the loop boundary.
+- **`ModalBottomSheet` ate the wheel's vertical drags as drag-to-dismiss.** A fling on the wheel propagated through nested-scroll once it hit its (effectively endless) bounds and triggered the sheet's dismiss handler — sheet shook and closed mid-spin. Fixed with a `NestedScrollConnection` on the LazyColumn that consumes `available.y` in `onPostScroll` + `onPostFling`, so vertical motion never reaches the sheet.
+
+**Final file shape (tasks/ surface):**
+
+```
+ui/tasks/
+├── TaskCreateSheet.kt        # sheet chrome + title/chips/repeat/schedule helpers
+├── TaskCreateViewModel.kt    # loads by id (0=new), exposes TaskEditState, save()
+├── TimeWheel.kt              # 3-column hour:minute AM/PM wheel composed of WheelPickers
+├── WheelPicker.kt            # generic infinite-loop snap-to-item wheel
+├── TasksData.kt              # TaskRow, Task.toRow(), parseHHmm
+├── TasksTimelineScreen.kt    # header + day chips + Timeline + FAB
+├── TasksViewModel.kt         # repo.observeAll().map { it.toRow() }
+├── Timeline.kt               # chronological list, no grid
+└── DayChips.kt               # unchanged
+```
+
+**Verified on device:** v2→v3 destructive migration runs cleanly (JNI lock log + re-seed). FAB opens sheet calmly without keyboard. Title + time wheel + chips work — minute wheel scrolls past 59 and wraps to 00 mid-fling, AM/PM swap rewrites the hour without yanking the wheel. Save returns to the timeline with the new row sorted into place at its minute. Tap an existing pill → sheet opens prefilled. Second FAB tap after save gets a blank slate (not the previous task's data). Chronological timeline shows every task at its exact time with no cramping regardless of spacing.
+
+**Deferred to 8b (shipped — see below):** `AlarmScheduler`, `AlarmReceiver`, `BootCompletedReceiver`, `AlarmRingingActivity` — the full alarm side-effects.
+
+**Also deferred (carry-forward):** repeat-row picker (currently display-only "Never"), category chip on the sheet, task-done toggle (needs milestone 9 detail screen), delete flow (same).
+
+---
+
+## Milestone 8b — Alarms
+
+The side-effects half of milestone 8. Sheet + DB already wrote the task in 8a; this pass arms the OS, fires on time, and takes over the lock screen for Alarm-level reminders.
+
+**Files added under `data/alarm/`:** `AlarmScheduler.kt` (wraps `setExactAndAllowWhileIdle`, computes next HH:mm occurrence in the device's local zone, rolls to tomorrow if today's slot has passed), `AlarmReceiver.kt` (routes by level — Notify posts a notification, Alarm posts a full-screen-intent notification), `BootCompletedReceiver.kt` (re-arms every Notify/Alarm task after reboot since Android drops exact alarms on restart), `NotificationChannels.kt` (two channels, `.v2` suffix because Android won't honor edits to an existing channel's importance/sound). Plus `ui/alarm/{AlarmRingingActivity, AlarmRingingScreen}.kt` for the full-screen takeover.
+
+**Repository wiring:** `TasksRepository` now takes an `AlarmScheduler` constructor arg; `upsert` recomputes `reminderAt` from `time` (Silent → 0L, others → next occurrence) and calls `scheduler.schedule()` every write. `TaskDao.setReminderAt(id, at)` added for the boot path. `XpApp` constructs the scheduler, ensures channels exist once at process start, and arms anything Notify/Alarm in the seeded table on first launch (seed inserts bypass `upsert`, so the arming has to happen explicitly).
+
+**Permissions in the manifest:** `USE_EXACT_ALARM` + `SCHEDULE_EXACT_ALARM` (alarm scheduling), `POST_NOTIFICATIONS` (Android 13+ runtime), `USE_FULL_SCREEN_INTENT` (lock-screen takeover), `RECEIVE_BOOT_COMPLETED`, `WAKE_LOCK`, `VIBRATE`. `AlarmRingingActivity` declared with `showOnLockScreen="true"`, `turnScreenOn="true"`, `singleInstance`, `excludeFromRecents`. The two receivers registered with explicit `intent-filter`s. `MainActivity` requests `POST_NOTIFICATIONS` once at first launch, and on every resume checks `NotificationManager.canUseFullScreenIntent()` — on Android 14+, if it's denied, bounces to Settings → Special Access with a Toast explainer until the user grants it.
+
+**The course-corrections that cost real time, write them down so we don't repeat them:**
+
+- **Direct `context.startActivity()` from a BroadcastReceiver works unlocked, silently fails locked.** First implementation posted the full-screen-intent notification *and* called `context.startActivity(alarmActivity)` defensively. With the screen on, the direct call won the race and the activity appeared. With the screen locked, Android's background-activity-start restriction (API 29+) silently dropped the call, and although the notification with `setFullScreenIntent(pi, true)` was still posted, we never noticed because the redundant `startActivity()` had masked the test on every prior unlocked verification. The fix: delete the `startActivity()` call. The notification's full-screen-intent is the OS-blessed path for waking a locked device into an activity; nothing else is needed. Lesson: when adding a "fallback" path, verify which path is actually carrying the load — a working unlocked test means nothing about locked behavior if both paths were running.
+- **`rememberInfiniteTransition` didn't tick when the activity was launched from a locked-screen BroadcastReceiver.** Pulse rings rendered with constant alpha at the first animation frame and never re-rendered. The `animateFloat` State was being read in the outer Composable scope and captured into the Canvas lambda, but the recomposition trigger somewhere along the path wasn't firing. Switched to an explicit `LaunchedEffect { while (true) t = withFrameNanos { it } - start }` driving a `mutableStateOf<Long>` — direct frame-clock readout, no animation framework. Math for scale/alpha matches the mockup's `@keyframes xp-pulse` (0%/60% breakpoints, scale 0.92→1.18→1.22, alpha 0.8→0). Two rings offset by ⅓ of the 2.4s cycle.
+- **Pulse rings were invisible at first because z-order put the radial-glow Box on top of the smaller ring.** Compose paints children in declaration order. The 160dp glow gradient was declared after the Canvas, so it covered the inner ring's draw area. Inverted the order — glow first, Canvas on top — and the rings appeared. (Found this only after first using a constant-alpha magenta diagnostic ring to confirm the Canvas was drawing at all; the diagnostic itself was visible, isolating the issue to the alpha math + z-order.)
+- **Notification channels are write-once.** Setting `lockscreenVisibility = PUBLIC` + the alarm sound on an existing channel had no effect — the channel was already created from a previous install. Suffixed both channel IDs with `.v2` to force a fresh creation. Bump the suffix any time channel config changes.
+- **Vivo/FuntouchOS overrides `lockscreenVisibility`.** Even with the channel correctly set to `PUBLIC`, the OS shows `mLockscreenVisibility=-1000` in `dumpsys notification`. This is OEM behavior on the test device and can't be worked around in code — the user has to allow lock-screen previews in the device's notification settings. Same OEM gotcha applies to autostart / pop-up-from-background permissions on Vivo, Xiaomi, Oppo etc.
+
+**Final file shape (alarm surface):**
+
+```
+data/alarm/
+├── AlarmScheduler.kt          # nextOccurrence + schedule/cancel via AlarmManager
+├── AlarmReceiver.kt           # routes Notify → notification, Alarm → FSI notification
+├── BootCompletedReceiver.kt   # re-arm on boot
+└── NotificationChannels.kt    # .v2 channels, lockscreenVisibility=PUBLIC
+ui/alarm/
+├── AlarmRingingActivity.kt    # showWhenLocked + turnScreenOn, MediaPlayer + Vibrator
+└── AlarmRingingScreen.kt      # pulse rings, big mono time, snooze chips (no-op), slide-to-dismiss
+```
+
+**Verified on device:** Notify-level task fires a teal-accented heads-up notification at the scheduled minute (lock screen + unlocked). Alarm-level task with phone locked wakes the screen, plays the system alarm sound on loop, vibrates, and brings up the full-screen takeover above the keyguard. Pulse rings animate continuously. Slide-to-dismiss kills sound + finishes the activity and cancels the notification. Re-tested with the screen on — same flow lands. Repository edits to the task's time correctly re-target the scheduler. Seed data on first install arms all 4 non-Silent tasks immediately.
+
+**Carry-forward deferrals:**
+- Snooze chips render but no-op per goal §6 ("dismiss only" was the original answer).
+- No repeat support — `reminderAt` only handles next-single-occurrence. When milestone 9 adds the detail screen with repeat picker, the receiver will need to re-schedule the next occurrence inside `onReceive`.
+- Mark-done from the alarm screen — needs the detail screen's `markDone(id)` repo call (milestone 9).
+- Lock-screen content visibility on Vivo/Xiaomi-class OEMs requires manual user setup; document in onboarding when we have one.
+
+---
+
 ## Remaining roadmap
-
-### Milestone 8 — Task create + alarms  *(MVP-2, the headline feature from the plan §4)*
-
-The whole reason for the app. FAB on Tasks opens the **bottom-sheet variant** from `task-create.jsx` (variant A — locked in `docs/design-spec.md` §6). Saving a task with `level = Alarm` schedules an exact alarm. When it fires, the **`alarm.jsx` full-screen takeover** shows — pulse rings, big time, snooze chips, slide-to-dismiss (user chose dismiss-only at the start; "snooze" chips render but no-op for now, or get cut).
-
-- `TaskCreateSheet.kt` (bottom sheet, time wheel, reminder chips)
-- `TasksRepository.upsert(task: TaskRow): Long`
-- `AlarmScheduler` wrapping `AlarmManager.setExactAndAllowWhileIdle()` + `USE_EXACT_ALARM` permission in the manifest
-- `AlarmReceiver: BroadcastReceiver` — either posts a notification or launches the alarm activity full-screen, per `alarmType`
-- `BootCompletedReceiver` to reschedule alarms after a reboot (Android drops them on restart)
-- `AlarmRingingActivity` — full-screen, wakes the screen, plays sound + vibrate. Mockup says "calm but unmissable"; that's the design target
 
 ### Milestone 9 — Task detail  *(MVP-2)*
 

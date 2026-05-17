@@ -6,11 +6,13 @@ import androidx.lifecycle.viewModelScope
 import com.xpotrack.app.data.repo.TasksRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
-class TasksViewModel(repo: TasksRepository) : ViewModel() {
+class TasksViewModel(private val repo: TasksRepository) : ViewModel() {
 
     val tasks: StateFlow<List<TaskRow>> = repo.observeAll()
+        .map { list -> list.map { it.toRow() } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     class Factory(private val repo: TasksRepository) : ViewModelProvider.Factory {

@@ -55,14 +55,14 @@ object SeedData {
     }
 
     fun tasks(now: Long): List<TaskEntity> = listOf(
-        TaskEntity(title = "Morning pages",          time = "07:00", level = Silent, durationMin = 30, isDone = true,  createdAt = now),
-        TaskEntity(title = "Stretch + coffee",       time = "08:30", level = Silent, durationMin = 25, isDone = true,  createdAt = now),
-        TaskEntity(title = "Stand-up — design crit", time = "09:15", level = Notify, durationMin = 30, createdAt = now),
-        TaskEntity(title = "Review Anya's draft",    time = "11:00", level = Notify, durationMin = 60, createdAt = now),
-        TaskEntity(title = "Lunch — Marin Sun",      time = "13:00", level = Silent, durationMin = 60, createdAt = now),
-        TaskEntity(title = "Dentist · 18 Hawthorne", time = "14:30", level = Alarm,  durationMin = 45, createdAt = now),
-        TaskEntity(title = "Call Dad",               time = "16:00", level = Alarm,  durationMin = 20, createdAt = now),
-        TaskEntity(title = "Bike — Marin loop",      time = "17:30", level = Notify, durationMin = 90, createdAt = now),
-        TaskEntity(title = "Read — Cosmicomics",     time = "20:30", level = Silent, durationMin = 45, createdAt = now),
+        TaskEntity(title = "Morning pages",          time = "07:00", level = Silent, durationMin = 30, isDone = true,  createdAt = now, updatedAt = now),
+        TaskEntity(title = "Stretch + coffee",       time = "08:30", level = Silent, durationMin = 25, isDone = true,  createdAt = now, updatedAt = now),
+        TaskEntity(title = "Stand-up — design crit", time = "09:15", level = Notify, durationMin = 30, createdAt = now, updatedAt = now),
+        TaskEntity(title = "Review Anya's draft",    time = "11:00", level = Notify, durationMin = 60, createdAt = now, updatedAt = now),
+        TaskEntity(title = "Lunch — Marin Sun",      time = "13:00", level = Silent, durationMin = 60, createdAt = now, updatedAt = now),
+        TaskEntity(title = "Dentist · 18 Hawthorne", time = "14:30", level = Alarm,  durationMin = 45, createdAt = now, updatedAt = now),
+        TaskEntity(title = "Call Dad",               time = "16:00", level = Alarm,  durationMin = 20, createdAt = now, updatedAt = now),
+        TaskEntity(title = "Bike — Marin loop",      time = "17:30", level = Notify, durationMin = 90, createdAt = now, updatedAt = now),
+        TaskEntity(title = "Read — Cosmicomics",     time = "20:30", level = Silent, durationMin = 45, createdAt = now, updatedAt = now),
     )
 }

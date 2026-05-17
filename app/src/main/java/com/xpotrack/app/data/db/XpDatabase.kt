@@ -9,7 +9,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 
 @Database(
     entities = [NoteEntity::class, TaskEntity::class, MetaEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class XpDatabase : RoomDatabase() {
@@ -33,7 +33,7 @@ abstract class XpDatabase : RoomDatabase() {
             val factory = SupportOpenHelperFactory(passphrase)
             return Room.databaseBuilder(appContext, XpDatabase::class.java, "xpotrack.db")
                 .openHelperFactory(factory)
-                .fallbackToDestructiveMigrationFrom(1)
+                .fallbackToDestructiveMigrationFrom(1, 2)
                 .build()
         }
     }
