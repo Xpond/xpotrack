@@ -8,20 +8,9 @@ data class NoteRow(
     val id: Int,
     val title: String,
     val preview: String,
-    val category: String,
+    val categoryId: Long,        // 0 = uncategorized
+    val categoryName: String,    // resolved at repo edge; falls back to "Uncategorized"
     val when_: String,
     val words: Int,
     val isPinned: Boolean = false,
-)
-
-data class Category(val name: String, val isCustom: Boolean)
-
-val Categories: List<Category> = listOf(
-    Category("Personal", isCustom = false),
-    Category("Work", isCustom = false),
-    Category("Ideas", isCustom = false),
-    Category("Inbox", isCustom = false),
-    Category("Trip", isCustom = true),
-    Category("Essay", isCustom = true),
-    Category("Recipe", isCustom = true),
 )

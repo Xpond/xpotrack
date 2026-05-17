@@ -48,7 +48,7 @@ import com.xpotrack.app.ui.theme.XpTokens
 import kotlinx.coroutines.launch
 
 @Composable
-fun NotesEditorScreen(vm: NotesEditorViewModel, onBack: () -> Unit) {
+fun NotesEditorScreen(vm: NotesEditorViewModel, onBack: () -> Unit, onPickCategory: () -> Unit) {
     val s by vm.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val titleFocus = remember { FocusRequester() }
@@ -65,7 +65,10 @@ fun NotesEditorScreen(vm: NotesEditorViewModel, onBack: () -> Unit) {
                 .padding(horizontal = if (s.previewMode) 26.dp else 24.dp),
         ) {
             Spacer(Modifier.height(8.dp))
-            Text(metaLine(s), style = MaterialTheme.typography.labelMedium, color = XpTokens.Ink3)
+            Text(
+                metaLine(s), style = MaterialTheme.typography.labelMedium, color = XpTokens.Ink3,
+                modifier = Modifier.clickable(onClick = onPickCategory),
+            )
             Spacer(Modifier.height(if (s.previewMode) 14.dp else 16.dp))
             if (s.previewMode) {
                 if (s.title.isNotBlank()) {
@@ -95,9 +98,9 @@ fun NotesEditorScreen(vm: NotesEditorViewModel, onBack: () -> Unit) {
 private fun metaLine(s: EditorState): String {
     val words = s.body.split(Regex("\\s+")).count { it.isNotBlank() }
     return when {
-        s.previewMode -> "${s.category} · $words words"
-        s.id == 0 -> "New note · just now"
-        else -> "${s.category} · $words words"
+        s.previewMode -> "${s.categoryName} · $words words"
+        s.id == 0 -> "${s.categoryName} · new note"
+        else -> "${s.categoryName} · $words words"
     }
 }
 

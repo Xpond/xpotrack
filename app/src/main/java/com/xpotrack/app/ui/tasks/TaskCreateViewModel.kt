@@ -19,7 +19,6 @@ data class TaskEditState(
     val level: ReminderLevel = ReminderLevel.Alarm,
     val durationMin: Int = 30,
     val notes: String = "",
-    val category: String = "General",
     val isDone: Boolean = false,
 ) {
     val timeHHmm: String get() = "%02d:%02d".format(hour, minute)
@@ -57,7 +56,6 @@ class TaskCreateViewModel(
                 level = s.level,
                 durationMin = s.durationMin,
                 notes = s.notes,
-                category = s.category,
                 isDone = s.isDone,
                 createdAt = 0L,         // repo preserves existing / sets now
                 updatedAt = 0L,
@@ -85,7 +83,6 @@ private fun Task.toEditState(): TaskEditState {
         level = level,
         durationMin = durationMin,
         notes = notes,
-        category = category,
         isDone = isDone,
     )
 }

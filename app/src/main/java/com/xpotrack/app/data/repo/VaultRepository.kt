@@ -9,11 +9,12 @@ import javax.crypto.SecretKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-// Vault-side view of the notes table. Locked rows store title + category plaintext
-// (so the list can render previews) and the body encrypted in encryptedBlob.
-//
+// Vault-side view of the notes table. Locked rows stay outside the category
+// table (categoryId = null) and display the synthetic "Vault" label.
 // The vault key is held by VaultSession while unlocked; we require it as an arg
 // rather than reaching into the session, so the repo stays pure and unit-testable.
+
+private const val VAULT_LABEL = "Vault"
 
 class VaultRepository(private val dao: NoteDao) {
 
@@ -27,7 +28,7 @@ class VaultRepository(private val dao: NoteDao) {
         return LockedNote(
             id = e.id,
             title = e.title,
-            category = e.category,
+            category = VAULT_LABEL,
             body = body,
             updatedAt = e.updatedAt,
         )
@@ -41,7 +42,7 @@ class VaultRepository(private val dao: NoteDao) {
             id = note.id,
             title = note.title,
             bodyMarkdown = "",
-            category = note.category,
+            categoryId = null,
             isPinned = false,
             isLocked = true,
             encryptedBlob = blob,
@@ -56,7 +57,7 @@ class VaultRepository(private val dao: NoteDao) {
     private fun toRow(e: NoteEntity): LockedNoteRow = LockedNoteRow(
         id = e.id,
         title = e.title,
-        category = e.category,
+        category = VAULT_LABEL,
         when_ = formatWhen(e.updatedAt),
     )
 }

@@ -159,8 +159,6 @@ private fun FieldsCard(task: Task, style: ReminderStyle, onAnyRow: () -> Unit) {
         )
         Divider()
         FieldRow(R.drawable.ic_repeat, "REPEAT", "Never", onClick = onAnyRow)
-        Divider()
-        FieldRow(R.drawable.ic_tag, "CATEGORY", task.category, onClick = onAnyRow)
     }
 }
 

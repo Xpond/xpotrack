@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -33,12 +32,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.xpotrack.app.R
+import com.xpotrack.app.data.model.Category
 import com.xpotrack.app.ui.theme.XpTokens
 
 @Composable
 fun NotesListScreen(
     notes: List<NoteRow>,
+    categories: List<Category>,
     onOpenNote: (Int) -> Unit,
+    onManageCategories: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var mode by remember { mutableStateOf(NotesMode.Category) }
@@ -49,14 +51,19 @@ fun NotesListScreen(
     ) {
         TopHalo()
         Column(Modifier.fillMaxSize()) {
-            NotesHeader(notes = notes, mode = mode, onToggle = { mode = it })
-            ModeStrip(notes = notes, mode = mode)
+            NotesHeader(notes = notes, categories = categories, mode = mode, onToggle = { mode = it })
+            ModeStrip(notes = notes, categories = categories, mode = mode)
             Column(
                 Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
             ) {
-                if (mode == NotesMode.Category) NotesCategoryContent(notes, onOpenNote)
+                if (mode == NotesMode.Category) NotesCategoryContent(
+                    notes = notes,
+                    categories = categories,
+                    onOpenNote = onOpenNote,
+                    onManageCategories = onManageCategories,
+                )
                 else NotesChronoContent(notes, onOpenNote)
                 Spacer(Modifier.height(100.dp))
             }
@@ -84,7 +91,7 @@ private fun TopHalo() {
 }
 
 @Composable
-private fun NotesHeader(notes: List<NoteRow>, mode: NotesMode, onToggle: (NotesMode) -> Unit) {
+private fun NotesHeader(notes: List<NoteRow>, categories: List<Category>, mode: NotesMode, onToggle: (NotesMode) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -142,9 +149,9 @@ private fun IconBtn(
 }
 
 @Composable
-private fun ModeStrip(notes: List<NoteRow>, mode: NotesMode) {
+private fun ModeStrip(notes: List<NoteRow>, categories: List<Category>, mode: NotesMode) {
     val text = when (mode) {
-        NotesMode.Category -> "${Categories.count { c -> notes.any { it.category == c.name } }} categories · ${notes.size} notes"
+        NotesMode.Category -> "${categories.count { c -> notes.any { it.categoryId == c.id } }} categories · ${notes.size} notes"
         NotesMode.Chrono -> "${notes.size} notes · newest first"
     }
     Row(

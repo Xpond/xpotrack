@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -21,6 +22,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.xpotrack.app.XpApp
+import com.xpotrack.app.ui.categories.CategoryManagerSheet
+import com.xpotrack.app.ui.categories.CategoryManagerViewModel
+import com.xpotrack.app.ui.categories.CategoryPickerSheet
 import com.xpotrack.app.ui.components.XpBottomTabs
 import com.xpotrack.app.ui.components.XpTab
 import com.xpotrack.app.ui.more.MoreStubScreen
@@ -46,6 +50,13 @@ fun AppRoot() {
 
     var activeTab by rememberSaveable { mutableStateOf(XpTab.Notes) }
 
+    // Picker + manager state — both live at the root so they can stack from any
+    // tab/editor. Picker holds a lambda so it can't be saveable — losing it on
+    // process death is fine.
+    var pickerSelected by remember { mutableStateOf<Long?>(null) }
+    var pickerOnPick by remember { mutableStateOf<((Long) -> Unit)?>(null) }
+    var managerOpen by rememberSaveable { mutableStateOf(false) }
+
     Box(
         Modifier
             .fillMaxSize()
@@ -61,6 +72,7 @@ fun AppRoot() {
                     onOpenTask = { id -> nav.navigate("task/$id") },
                     onNewTask = { openSheet(0L) },
                     onLockExit = { activeTab = XpTab.Notes },
+                    onManageCategories = { managerOpen = true },
                 )
             }
             composable(
@@ -71,9 +83,15 @@ fun AppRoot() {
                 val id = entry.arguments?.getInt("id") ?: 0
                 val vm: NotesEditorViewModel = viewModel(
                     key = "editor-$id",
-                    factory = NotesEditorViewModel.Factory(app.notesRepo, id),
+                    factory = NotesEditorViewModel.Factory(app.notesRepo, app.categoryRepo, id),
                 )
-                NotesEditorScreen(vm = vm, onBack = { nav.popBackStack() })
+                NotesEditorScreen(
+                    vm = vm, onBack = { nav.popBackStack() },
+                    onPickCategory = {
+                        pickerSelected = vm.state.value.categoryId
+                        pickerOnPick = vm::setCategory
+                    },
+                )
             }
             composable(
                 route = "task/{id}",
@@ -102,12 +120,38 @@ fun AppRoot() {
                 key = "task-create-$id-$sheetToken",
                 factory = TaskCreateViewModel.Factory(app.tasksRepo, id),
             )
-            TaskCreateSheet(vm = vm, onDismiss = {
-                sheetTaskId = null
-                // Refresh any visible detail screen so edits land immediately.
-                (nav.currentBackStackEntry?.destination?.route ?: "")
-                    .let { if (it.startsWith("task/")) sheetToken += 1 }
-            })
+            TaskCreateSheet(
+                vm = vm,
+                onDismiss = {
+                    sheetTaskId = null
+                    (nav.currentBackStackEntry?.destination?.route ?: "")
+                        .let { if (it.startsWith("task/")) sheetToken += 1 }
+                },
+            )
+        }
+
+        if (pickerSelected != null && pickerOnPick != null) {
+            val app = LocalContext.current.applicationContext as XpApp
+            val cats by app.categoryRepo.observeAll().collectAsStateWithLifecycle(emptyList())
+            CategoryPickerSheet(
+                categories = cats,
+                selectedId = pickerSelected ?: 0L,
+                onPick = { chosen ->
+                    pickerOnPick?.invoke(chosen)
+                    pickerSelected = null; pickerOnPick = null
+                },
+                onManage = { pickerSelected = null; pickerOnPick = null; managerOpen = true },
+                onDismiss = { pickerSelected = null; pickerOnPick = null },
+            )
+        }
+
+        if (managerOpen) {
+            val app = LocalContext.current.applicationContext as XpApp
+            val vm: CategoryManagerViewModel = viewModel(
+                key = "category-manager",
+                factory = CategoryManagerViewModel.Factory(app.categoryRepo),
+            )
+            CategoryManagerSheet(vm = vm, onDismiss = { managerOpen = false })
         }
     }
 }
@@ -120,17 +164,23 @@ private fun TabsScaffold(
     onOpenTask: (Long) -> Unit,
     onNewTask: () -> Unit,
     onLockExit: () -> Unit,
+    onManageCategories: () -> Unit,
 ) {
     val app = LocalContext.current.applicationContext as XpApp
-    val notesVm: NotesViewModel = viewModel(factory = NotesViewModel.Factory(app.notesRepo))
+    val notesVm: NotesViewModel = viewModel(factory = NotesViewModel.Factory(app.notesRepo, app.categoryRepo))
     val tasksVm: TasksViewModel = viewModel(factory = TasksViewModel.Factory(app.tasksRepo))
     val notes by notesVm.notes.collectAsStateWithLifecycle()
     val tasks by tasksVm.tasks.collectAsStateWithLifecycle()
+    val cats by notesVm.categories.collectAsStateWithLifecycle()
 
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
             when (active) {
-                XpTab.Notes -> NotesListScreen(notes = notes, onOpenNote = onOpenNote)
+                XpTab.Notes -> NotesListScreen(
+                    notes = notes, categories = cats,
+                    onOpenNote = onOpenNote,
+                    onManageCategories = onManageCategories,
+                )
                 XpTab.Tasks -> TasksTimelineScreen(
                     tasks = tasks,
                     onOpenTask = { id -> if (id == 0L) onNewTask() else onOpenTask(id) },

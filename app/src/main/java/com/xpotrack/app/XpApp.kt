@@ -5,6 +5,7 @@ import com.xpotrack.app.data.alarm.AlarmScheduler
 import com.xpotrack.app.data.alarm.NotificationChannels
 import com.xpotrack.app.data.db.XpDatabase
 import com.xpotrack.app.data.model.ReminderLevel
+import com.xpotrack.app.data.repo.CategoryRepository
 import com.xpotrack.app.data.repo.NotesRepository
 import com.xpotrack.app.data.repo.SeedData
 import com.xpotrack.app.data.repo.TasksRepository
@@ -24,6 +25,8 @@ class XpApp : Application() {
         private set
     lateinit var tasksRepo: TasksRepository
         private set
+    lateinit var categoryRepo: CategoryRepository
+        private set
     lateinit var alarmScheduler: AlarmScheduler
         private set
     lateinit var vaultRepo: VaultRepository
@@ -40,7 +43,8 @@ class XpApp : Application() {
         NotificationChannels.ensure(this)
         val db = XpDatabase.get(this)
         alarmScheduler = AlarmScheduler(this)
-        notesRepo = NotesRepository(db.noteDao())
+        categoryRepo = CategoryRepository(db.categoryDao(), db.noteDao())
+        notesRepo = NotesRepository(db.noteDao(), categoryRepo)
         tasksRepo = TasksRepository(db.taskDao(), alarmScheduler)
         vaultRepo = VaultRepository(db.noteDao())
         vaultMeta = VaultMetaStore(this)

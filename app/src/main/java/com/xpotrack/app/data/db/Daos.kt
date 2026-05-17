@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -26,8 +27,14 @@ interface NoteDao {
     @Query("DELETE FROM notes WHERE id = :id")
     suspend fun delete(id: Long)
 
+    @Query("UPDATE notes SET categoryId = NULL WHERE categoryId = :fromId")
+    suspend fun clearCategory(fromId: Long)
+
     @Query("SELECT COUNT(*) FROM notes WHERE isLocked = 0")
     suspend fun count(): Int
+
+    @Query("SELECT COUNT(*) FROM notes WHERE categoryId = :id AND isLocked = 0")
+    suspend fun countInCategory(id: Long): Int
 }
 
 @Dao
@@ -55,6 +62,42 @@ interface TaskDao {
 
     @Query("SELECT COUNT(*) FROM tasks")
     suspend fun count(): Int
+}
+
+@Dao
+interface CategoryDao {
+    @Query("SELECT * FROM categories ORDER BY sortOrder ASC, id ASC")
+    fun observeAll(): Flow<List<CategoryEntity>>
+
+    @Query("SELECT * FROM categories ORDER BY sortOrder ASC, id ASC")
+    suspend fun all(): List<CategoryEntity>
+
+    @Query("SELECT * FROM categories WHERE id = :id LIMIT 1")
+    suspend fun getById(id: Long): CategoryEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(rows: List<CategoryEntity>): List<Long>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(row: CategoryEntity): Long
+
+    @Query("DELETE FROM categories WHERE id = :id")
+    suspend fun delete(id: Long)
+
+    @Query("UPDATE categories SET name = :name WHERE id = :id")
+    suspend fun rename(id: Long, name: String)
+
+    @Query("UPDATE categories SET colorHex = :colorHex WHERE id = :id")
+    suspend fun recolor(id: Long, colorHex: String)
+
+    @Query("SELECT COUNT(*) FROM categories")
+    suspend fun count(): Int
+
+    @Transaction
+    suspend fun deleteAndUncategorize(id: Long, noteDao: NoteDao) {
+        noteDao.clearCategory(id)
+        delete(id)
+    }
 }
 
 @Dao

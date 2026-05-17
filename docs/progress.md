@@ -342,16 +342,61 @@ ui/vault/
 
 ---
 
+## Milestone 11 — Category manager + custom categories
+
+The MVP-4 category cut. `category-manager.jsx` lands as a bottom sheet — create, rename, recolor, delete. Notes gain a real foreign key to a `categories` table, so renames survive on every screen instead of requiring an O(n) string rewrite. Tasks lose category entirely — it never belonged on a reminder.
+
+**Design decisions locked up front (some after a first-pass course-correction):**
+- **Notes own categories. Tasks don't.** First pass mirrored the mockup and put a Category row in `TaskCreateSheet` + a Category field-row in `TaskDetailScreen`. After landing it: the user pushed back — a reminder isn't filed under "Work" the way a note is. Stripped category from `Task`, `TaskEntity`, `TaskRow`, `TaskEditState`, `TaskDetailState`, both sheets, and the alarm path (which never read it anyway). The field is dead from the data model up.
+- **No built-in categories.** Mockup ships 4 built-ins (Personal/Work/Ideas/Inbox) + 3 customs. After landing: dropped all of them. The seeded list felt presumptuous — every category in the app is now user-created. First-launch state is an empty manager and an "Uncategorized" group on the notes list.
+- **Delete reassigns to Uncategorized**, not a protected Inbox category. `NoteEntity.categoryId` is nullable; the `@Transaction` `deleteAndUncategorize` clears it on every note in the deleted category, then drops the row. No `isProtected`, no fallback target. Reversible by editing any orphaned note and picking a new category.
+- **Locked vault notes stay outside the category table.** `VaultRepository` writes `categoryId = null` and continues to display the synthetic "Vault" label. The partition holds.
+
+**Schema v5 → v6 → v7.** Two destructive bumps in one milestone because the model changed twice: v6 added the `categories` table + `categoryId` columns on notes + tasks; v7 dropped `categoryId` from tasks. `fallbackToDestructiveMigrationFrom(1, 2, 3, 4, 5, 6)` so any pre-release install lands clean on first v7 launch (JNI lock log + reseed runs the seed inserts, which now ship Uncategorized notes + plain tasks).
+
+**New files (`ui/categories/`):** `CategoryManagerSheet.kt` (207 lines — the inline rename/create row plus header + delete confirm), `CategoryManagerViewModel.kt` (Setup/Edit/PendingDelete state machine), `CategoryPickerSheet.kt` (the small picker shared by note editor), `CategoryDeleteDialog.kt` (Dialog-based confirm so the chrome matches), `CategoryColor.kt` (`#RRGGBB` → Compose `Color`). New `data/model/Category.kt` + `data/repo/CategoryRepository.kt`. One drawable: `ic_pencil`. One drawable removed: `ic_tag` (was for the killed task category field row).
+
+**Wiring (notes side only):**
+- `NotesEditorScreen` — tap the category meta line (`"Uncategorized · N words"`) to open the picker. The picker exposes a `Manage categories…` tail row that swaps in the manager sheet.
+- `NotesCategoryView` — `+ New category` button at the end of the list opens the manager; long-press on any category header opens it too. A live `Uncategorized` group renders at the bottom when there are orphaned notes (so they're never invisible after a delete).
+- `AppRoot` hosts the manager + picker sheets at the root level so they can stack from any editor.
+
+**Repository-side join.** `NotesRepository.observeAll()` `combine`s the note flow with the category flow and resolves `categoryId → name` per emission. Renames and recolors propagate live without cache invalidation. `NoteRow` carries `categoryId` + `categoryName`; `categoryColor` was on the row in the first pass and got cut during cleanup — the UI reads the live `Category.colorHex` from the categories list, not a stale snapshot on the row.
+
+**Course-corrections worth keeping (write them down so we don't repeat them):**
+- **Lambdas can't go through `rememberSaveable`.** First pass at `AppRoot` modeled the picker target as a sealed interface `PickerOwner` carrying an `onPick: (Long) -> Unit` lambda, persisted with `rememberSaveable(stateSaver = autoSaver())`. The autoSaver tried to bundle a function reference and crashed on first picker open. Replaced with plain `remember { mutableStateOf<((Long) -> Unit)?>(null) }` — picker state is transient by nature; losing it on process death is fine.
+- **A category color baked into `NoteRow` lies after a recolor.** Initial repo mapping snapshotted `cat.colorHex` into `NoteRow.categoryColor`. Worked, but then a recolor in the manager only updated rows after the next `combine` emission, and any UI that read from a held-on-to `NoteRow` instance would show the old color until the next recomposition. Fixed by reading `Category.colorHex` directly from the live `categories` list in `NotesCategoryView`, and dropping `categoryColor` from `NoteRow` entirely. The lesson — denormalizing live-mutable fields onto downstream models is a cache, and a cache without invalidation is just a bug waiting to fire.
+- **A second wipe in one milestone is fine if the data shape changed twice.** First pass shipped v6 with task categories; second pass stripped them. Rather than try to migrate the in-flight v6 install, bumped to v7 and added `fallbackToDestructiveMigrationFrom(1..6)`. Pre-release wipes cost nothing and avoid carrying a junk column for one install cycle.
+
+**Final file shape (categories surface):**
+
+```
+data/model/Category.kt                # pure domain, no UI / Room
+data/repo/CategoryRepository.kt       # observeAll / add / rename / recolor / deleteAndUncategorize
+data/db/Entities.kt :: CategoryEntity # name + colorHex + sortOrder
+data/db/Daos.kt :: CategoryDao        # @Transaction deleteAndUncategorize(noteDao)
+ui/categories/
+├── CategoryManagerSheet.kt           # add/rename/recolor/delete sheet + inline editor row
+├── CategoryManagerViewModel.kt       # Edit / PendingDelete state machine
+├── CategoryPickerSheet.kt            # tap-to-pick + Manage… tail row
+├── CategoryDeleteDialog.kt           # confirm-then-uncategorize
+└── CategoryColor.kt                  # hex → Compose Color
+```
+
+**Verified on device:** v5 → v7 destructive migration runs cleanly (JNI lock log + reseed). Fresh install lands on Notes tab with all seeded notes under Uncategorized + the "New category" dashed button at the bottom. Tap it → manager sheet opens calmly without keyboard. `New` reveals the inline-create row; pick a color, type a name, `Create` → row appears + sheet stays open for the next one. Pencil → inline rename + color swap; `Save` → row updates everywhere (list group rename propagates instantly via the `combine` join). Trash → confirm dialog with the right `N notes will become uncategorized` summary; confirm → category disappears, orphaned notes fall into the Uncategorized group. Editor's meta-line tap opens the picker prefilled with the current selection; `Manage categories…` tail row swaps sheets; back from manager returns to the picker target (the editor's category updates on next pick). Tasks tab has no category UI anywhere — sheet doesn't show a Category row, detail card doesn't show a Category field, picker can't open from a task.
+
+**Carry-forward deferrals:**
+- Reorder. The manager's drag-handle from the mockup is unrendered; sort order is fixed at create time. `CategoryEntity.sortOrder` is in place for when reorder lands.
+- Per-category icons (mockup only uses color dots — same here).
+- Moving a category between built-in / custom sections — there are no sections now.
+- The locked-note category picker (still display-only "Vault").
+- `NotesChronoView`'s category prefix renders as the resolved name but doesn't take the category color (the chrono view was never tinted per-category in the mockup either — leaving it).
+
+**Project shape after this milestone:** ~6175 lines of Kotlin across 65 source files. Largest file `NotesEditorScreen.kt` at 251, then `CategoryManagerSheet.kt` at 207, then `NotesCategoryView.kt` at 220 (up from 219 with the Uncategorized group).
+
+---
+
 ## Remaining roadmap
-
-### Milestone 11 — Category manager + custom categories  *(MVP-4)*
-
-`category-manager.jsx` bottom sheet: built-in vs custom sections, add / rename / reorder, color picker per custom category. Replaces the hardcoded `Categories` list.
-
-- `category` table in Room
-- `CategoryManagerSheet.kt`
-- `NotesRepository.observeCategories()`
-- Note model gains a foreign key to category (we currently store the category name as a string on the note — works but doesn't survive renames)
 
 ### Milestone 12 — Quick notes (24h ephemeral)  *(MVP-4)*
 

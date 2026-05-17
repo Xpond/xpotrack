@@ -8,7 +8,9 @@ data class NoteEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val title: String,
     val bodyMarkdown: String,
-    val category: String,
+    // categoryId is null for vault rows (they stay on the synthetic "Vault" label,
+    // outside the category table). All non-locked rows must have a non-null id.
+    val categoryId: Long? = null,
     val isPinned: Boolean = false,
     val isLocked: Boolean = false,
     // Vault: when isLocked, bodyMarkdown is "" and ciphertext lives here.
@@ -26,11 +28,18 @@ data class TaskEntity(
     val level: String,          // ReminderLevel enum name
     val durationMin: Int,
     val notes: String = "",
-    val category: String = "General",
     val isDone: Boolean = false,
     val reminderAt: Long = 0L,  // absolute epoch ms; 0 = unscheduled (set in 8b)
     val createdAt: Long,
     val updatedAt: Long,
+)
+
+@Entity(tableName = "categories")
+data class CategoryEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val colorHex: String,       // "#5EEAD4" etc.
+    val sortOrder: Int,
 )
 
 @Entity(tableName = "meta")

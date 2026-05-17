@@ -3,6 +3,7 @@ package com.xpotrack.app.ui.notes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.xpotrack.app.data.repo.CategoryRepository
 import com.xpotrack.app.data.repo.NotesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,6 +16,7 @@ import kotlinx.coroutines.launch
 // the ViewModel's own teardown on back navigation.
 class NotesEditorViewModel(
     private val repo: NotesRepository,
+    private val categories: CategoryRepository,
     private val noteId: Int,
 ) : ViewModel() {
 
@@ -22,27 +24,39 @@ class NotesEditorViewModel(
     val state: StateFlow<EditorState> = _state.asStateFlow()
 
     init {
-        if (noteId > 0) {
-            viewModelScope.launch {
+        viewModelScope.launch {
+            if (noteId > 0) {
                 repo.getById(noteId)?.let { existing ->
                     _state.value = EditorState(
                         id = existing.id,
                         title = existing.title,
                         body = existing.preview,
-                        category = existing.category,
+                        categoryId = existing.categoryId,
+                        categoryName = existing.categoryName,
                         isPinned = existing.isPinned,
                         loaded = true,
                     )
                 } ?: run { _state.value = _state.value.copy(loaded = true) }
+            } else {
+                _state.value = EditorState(loaded = true, categoryId = 0L, categoryName = "Uncategorized")
             }
-        } else {
-            _state.value = EditorState(loaded = true)
         }
     }
 
     fun onTitleChange(s: String) { _state.value = _state.value.copy(title = s) }
     fun onBodyChange(s: String)  { _state.value = _state.value.copy(body = s) }
     fun setPreview(on: Boolean)  { _state.value = _state.value.copy(previewMode = on) }
+
+    fun setCategory(id: Long) {
+        viewModelScope.launch {
+            if (id <= 0L) {
+                _state.value = _state.value.copy(categoryId = 0L, categoryName = "Uncategorized")
+                return@launch
+            }
+            val name = categories.getById(id)?.name ?: return@launch
+            _state.value = _state.value.copy(categoryId = id, categoryName = name)
+        }
+    }
 
     suspend fun save() {
         val s = _state.value
@@ -55,7 +69,8 @@ class NotesEditorViewModel(
                 id = s.id,
                 title = s.title.ifBlank { "Untitled" },
                 preview = s.body,
-                category = s.category,
+                categoryId = s.categoryId,
+                categoryName = s.categoryName,  // ignored on write — repo reads from FK
                 when_ = "",
                 words = 0,
                 isPinned = s.isPinned,
@@ -63,10 +78,14 @@ class NotesEditorViewModel(
         )
     }
 
-    class Factory(private val repo: NotesRepository, private val noteId: Int) : ViewModelProvider.Factory {
+    class Factory(
+        private val repo: NotesRepository,
+        private val categories: CategoryRepository,
+        private val noteId: Int,
+    ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            NotesEditorViewModel(repo, noteId) as T
+            NotesEditorViewModel(repo, categories, noteId) as T
     }
 }
 
@@ -74,7 +93,8 @@ data class EditorState(
     val id: Int = 0,
     val title: String = "",
     val body: String = "",
-    val category: String = "Inbox",
+    val categoryId: Long = 0L,
+    val categoryName: String = "Uncategorized",
     val isPinned: Boolean = false,
     val loaded: Boolean = false,
     val previewMode: Boolean = false,

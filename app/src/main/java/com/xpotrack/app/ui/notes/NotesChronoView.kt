@@ -36,7 +36,7 @@ private fun ChronoNoteRow(note: NoteRow, isLast: Boolean, onOpenNote: (Int) -> U
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Text(
-                note.category.uppercase(),
+                note.categoryName.uppercase(),
                 style = MaterialTheme.typography.labelSmall,
                 color = XpTokens.TealDim,
             )

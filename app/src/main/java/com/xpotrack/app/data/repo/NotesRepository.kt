@@ -2,9 +2,10 @@ package com.xpotrack.app.data.repo
 
 import com.xpotrack.app.data.db.NoteDao
 import com.xpotrack.app.data.db.NoteEntity
+import com.xpotrack.app.data.model.Category
 import com.xpotrack.app.ui.notes.NoteRow
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -12,11 +13,24 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 
-class NotesRepository(private val dao: NoteDao) {
+class NotesRepository(
+    private val dao: NoteDao,
+    private val categories: CategoryRepository,
+) {
 
-    fun observeAll(): Flow<List<NoteRow>> = dao.observeAll().map { rows -> rows.map(::toUi) }
+    // Joins the live note stream against the live category stream so renames /
+    // recolors propagate without manual cache invalidation.
+    fun observeAll(): Flow<List<NoteRow>> =
+        dao.observeAll().combine(categories.observeAll()) { rows, cats ->
+            val byId = cats.associateBy { it.id }
+            rows.map { toUi(it, byId) }
+        }
 
-    suspend fun getById(id: Int): NoteRow? = dao.getById(id.toLong())?.let(::toUi)
+    suspend fun getById(id: Int): NoteRow? {
+        val e = dao.getById(id.toLong()) ?: return null
+        val byId = categories.all().associateBy { it.id }
+        return toUi(e, byId)
+    }
 
     suspend fun upsert(row: NoteRow): Long {
         val now = System.currentTimeMillis()
@@ -25,7 +39,7 @@ class NotesRepository(private val dao: NoteDao) {
             id = row.id.toLong(),
             title = row.title,
             bodyMarkdown = row.preview,
-            category = row.category,
+            categoryId = row.categoryId.takeIf { it > 0L },
             isPinned = row.isPinned,
             isLocked = existing?.isLocked ?: false,
             createdAt = existing?.createdAt ?: now,
@@ -40,15 +54,19 @@ class NotesRepository(private val dao: NoteDao) {
         if (dao.count() == 0) dao.insertAll(seed)
     }
 
-    private fun toUi(e: NoteEntity): NoteRow = NoteRow(
-        id = e.id.toInt(),
-        title = e.title,
-        preview = e.bodyMarkdown,
-        category = e.category,
-        when_ = formatWhen(e.updatedAt),
-        words = e.bodyMarkdown.split(Regex("\\s+")).filter { it.isNotBlank() }.size,
-        isPinned = e.isPinned,
-    )
+    private fun toUi(e: NoteEntity, byId: Map<Long, Category>): NoteRow {
+        val cat = e.categoryId?.let { byId[it] }
+        return NoteRow(
+            id = e.id.toInt(),
+            title = e.title,
+            preview = e.bodyMarkdown,
+            categoryId = cat?.id ?: 0L,
+            categoryName = cat?.name ?: "Uncategorized",
+            when_ = formatWhen(e.updatedAt),
+            words = e.bodyMarkdown.split(Regex("\\s+")).filter { it.isNotBlank() }.size,
+            isPinned = e.isPinned,
+        )
+    }
 }
 
 private val zone: ZoneId = ZoneId.systemDefault()

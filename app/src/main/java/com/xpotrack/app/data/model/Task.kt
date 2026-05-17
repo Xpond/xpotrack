@@ -10,7 +10,6 @@ data class Task(
     val level: ReminderLevel,
     val durationMin: Int,
     val notes: String = "",
-    val category: String = "General",
     val isDone: Boolean = false,
     val reminderAt: Long = 0L,  // absolute epoch ms; 0 = unscheduled
     val createdAt: Long,

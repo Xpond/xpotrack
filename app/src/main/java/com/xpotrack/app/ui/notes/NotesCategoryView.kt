@@ -3,6 +3,7 @@ package com.xpotrack.app.ui.notes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,27 +23,41 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xpotrack.app.R
+import com.xpotrack.app.data.model.Category
+import com.xpotrack.app.ui.categories.parseHexColor
 import com.xpotrack.app.ui.theme.XpTokens
 
 @Composable
-fun NotesCategoryContent(notes: List<NoteRow>, onOpenNote: (Int) -> Unit) {
+fun NotesCategoryContent(
+    notes: List<NoteRow>,
+    categories: List<Category>,
+    onOpenNote: (Int) -> Unit,
+    onManageCategories: () -> Unit,
+) {
     QuickEntryStrip()
     val pinned = notes.filter { it.isPinned }
     if (pinned.isNotEmpty()) PinnedStrip(pinned, onOpenNote)
     Spacer(Modifier.height(20.dp))
-    val groups = Categories
-        .map { cat -> cat to notes.filter { it.category == cat.name && !it.isPinned } }
+    val groups = categories
+        .map { cat -> cat to notes.filter { it.categoryId == cat.id && !it.isPinned } }
         .filter { (_, n) -> n.isNotEmpty() }
-    groups.forEach { (cat, rows) -> CategoryGroup(cat, rows, onOpenNote) }
-    NewCategoryButton()
+    groups.forEach { (cat, rows) ->
+        CategoryGroup(cat, rows, onOpenNote = onOpenNote, onManageCategories = onManageCategories)
+    }
+    val uncategorized = notes.filter { it.categoryId == 0L && !it.isPinned }
+    if (uncategorized.isNotEmpty()) {
+        UncategorizedGroup(uncategorized, onOpenNote = onOpenNote, onManageCategories = onManageCategories)
+    }
+    NewCategoryButton(onClick = onManageCategories)
 }
 
 @Composable
@@ -82,7 +97,7 @@ private fun PinnedCard(note: NoteRow, onOpenNote: (Int) -> Unit) {
             .clickable { onOpenNote(note.id) }
             .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
-        Text(note.category.uppercase(), style = MaterialTheme.typography.labelSmall, color = XpTokens.TealDim)
+        Text(note.categoryName.uppercase(), style = MaterialTheme.typography.labelSmall, color = XpTokens.TealDim)
         Spacer(Modifier.height(6.dp))
         Text(
             note.title,
@@ -100,12 +115,22 @@ private fun PinnedCard(note: NoteRow, onOpenNote: (Int) -> Unit) {
     }
 }
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
-private fun CategoryGroup(cat: Category, notes: List<NoteRow>, onOpenNote: (Int) -> Unit) {
+private fun CategoryGroup(cat: Category, notes: List<NoteRow>, onOpenNote: (Int) -> Unit, onManageCategories: () -> Unit) {
     val visible = notes.take(3)
     val moreCount = notes.size - visible.size
     Column(Modifier.padding(start = 22.dp, end = 22.dp, bottom = 22.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.pointerInput(cat.id) {
+                detectTapGestures(onLongPress = { onManageCategories() })
+            },
+        ) {
+            Box(
+                Modifier.size(8.dp).clip(CircleShape).background(parseHexColor(cat.colorHex)),
+            )
+            Spacer(Modifier.size(8.dp))
             Text(
                 cat.name,
                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.5.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
@@ -113,10 +138,6 @@ private fun CategoryGroup(cat: Category, notes: List<NoteRow>, onOpenNote: (Int)
             )
             Spacer(Modifier.size(10.dp))
             CountChip(notes.size)
-            if (cat.isCustom) {
-                Spacer(Modifier.size(8.dp))
-                Text("· custom".uppercase(), style = MaterialTheme.typography.labelMedium, color = XpTokens.TealDim.copy(alpha = 0.7f))
-            }
             Spacer(Modifier.weight(1f))
             Icon(
                 painter = painterResource(R.drawable.ic_chevron_right),
@@ -124,6 +145,39 @@ private fun CategoryGroup(cat: Category, notes: List<NoteRow>, onOpenNote: (Int)
                 tint = XpTokens.Ink3,
                 modifier = Modifier.size(13.dp),
             )
+        }
+        Spacer(Modifier.height(10.dp))
+        visible.forEachIndexed { i, note ->
+            CategoryNoteRow(note, isLast = i == visible.size - 1 && moreCount == 0, onOpenNote = onOpenNote)
+        }
+        if (moreCount > 0) {
+            Spacer(Modifier.height(10.dp))
+            Text("+ $moreCount more", style = MaterialTheme.typography.labelMedium, color = XpTokens.Ink3)
+        }
+    }
+}
+
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+private fun UncategorizedGroup(notes: List<NoteRow>, onOpenNote: (Int) -> Unit, onManageCategories: () -> Unit) {
+    val visible = notes.take(3)
+    val moreCount = notes.size - visible.size
+    Column(Modifier.padding(start = 22.dp, end = 22.dp, bottom = 22.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.pointerInput(Unit) {
+                detectTapGestures(onLongPress = { onManageCategories() })
+            },
+        ) {
+            Box(Modifier.size(8.dp).clip(CircleShape).background(XpTokens.Ink3))
+            Spacer(Modifier.size(8.dp))
+            Text(
+                "Uncategorized",
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.5.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
+                color = XpTokens.Ink2,
+            )
+            Spacer(Modifier.size(10.dp))
+            CountChip(notes.size)
         }
         Spacer(Modifier.height(10.dp))
         visible.forEachIndexed { i, note ->
@@ -194,13 +248,14 @@ private fun CategoryNoteRow(note: NoteRow, isLast: Boolean, onOpenNote: (Int) ->
 }
 
 @Composable
-private fun NewCategoryButton() {
+private fun NewCategoryButton(onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 22.dp, vertical = 6.dp)
             .clip(RoundedCornerShape(12.dp))
             .border(0.5.dp, XpTokens.Hair2, RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
