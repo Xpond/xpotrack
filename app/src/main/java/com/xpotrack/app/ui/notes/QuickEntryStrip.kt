@@ -2,6 +2,7 @@ package com.xpotrack.app.ui.notes
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -28,13 +29,20 @@ import com.xpotrack.app.R
 import com.xpotrack.app.ui.theme.XpTokens
 
 @Composable
-fun QuickEntryStrip() {
+fun QuickEntryStrip(count: Int = 0, oldestLeft: String? = null, onClick: () -> Unit = {}) {
+    val subtitle = when {
+        count == 0 -> "Disappearing notes · tap to jot"
+        oldestLeft == null -> "Disappearing notes"
+        else -> "Disappearing notes · oldest expires in $oldestLeft"
+    }
+    val pillText = if (count == 0) "24H" else "$count · 24H"
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 18.dp)
             .clip(RoundedCornerShape(14.dp))
             .border(0.5.dp, Color(0x595EEAD4), RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -61,11 +69,11 @@ fun QuickEntryStrip() {
                     color = XpTokens.Ink,
                 )
                 Spacer(Modifier.width(8.dp))
-                CountPill(text = "5 · 24H")
+                CountPill(text = pillText)
             }
             Spacer(Modifier.height(2.dp))
             Text(
-                "Disappearing notes · oldest expires in 2h",
+                subtitle,
                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.5.sp),
                 color = XpTokens.Ink3,
             )

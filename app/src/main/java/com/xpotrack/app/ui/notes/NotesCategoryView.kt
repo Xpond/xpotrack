@@ -40,10 +40,12 @@ import com.xpotrack.app.ui.theme.XpTokens
 fun NotesCategoryContent(
     notes: List<NoteRow>,
     categories: List<Category>,
+    quick: QuickSummary,
     onOpenNote: (Int) -> Unit,
     onManageCategories: () -> Unit,
+    onOpenQuick: () -> Unit,
 ) {
-    QuickEntryStrip()
+    QuickEntryStrip(count = quick.count, oldestLeft = quick.oldestLeft, onClick = onOpenQuick)
     val pinned = notes.filter { it.isPinned }
     if (pinned.isNotEmpty()) PinnedStrip(pinned, onOpenNote)
     Spacer(Modifier.height(20.dp))

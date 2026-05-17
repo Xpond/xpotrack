@@ -396,15 +396,70 @@ ui/categories/
 
 ---
 
+## Milestone 12 — Quick notes (24h ephemeral)
+
+The disappearing-notes surface from `quick-notes.jsx`. The strip at the top of the notes list graduates from static placeholder to live count + live "oldest expires in …" subtitle. Tap it → the dedicated Quick screen with an inline-expand compose row, per-row countdown chip + progress ring, **Keep** action that promotes to the regular notes table, **Clear all**, and the post-save dialog. Rows live for exactly 24h and disappear via a sweep on screen open + a 24h `WorkManager` periodic best-effort sweep.
+
+**Design decisions locked up front:**
+- **Separate table** `quick_notes` (`id`, `text`, `createdAt`, `expiresAt`). Keeps the partition clean — the regular notes flow never sees them, same pattern as `isLocked` for vault.
+- **No category, no title, no markdown** on quick notes. The mockup shows a single text body per entry; don't speculate.
+- **Inline-expand compose row** instead of a new editor screen or modal sheet. Tap the dashed row → it morphs into a `BasicTextField` with the keyboard up + Save/Cancel inline. No new route, no sheet chrome — calmest path.
+- **Keep = move + delete** in a single `withTransaction`: insert into `notes` as Uncategorized (`categoryId = null`), delete the quick row. First line becomes the note title; whole text becomes the body. Row can't end up in both lists.
+- **Sweep model**: a single source of truth on screen open via the VM (`repo.sweepExpired()` in `init`). The `WorkManager` `PeriodicWorkRequest` (24h, `KEEP` policy) is best-effort, so the strip on the notes list stays fresh even if the user never visits Quick. Cron jobs aren't reliable on OEM-restricted devices anyway.
+- **No "Don't show again" preference** for the post-save dialog yet — DataStore lands in milestone 13 (Settings). The checkbox from the mockup is documented as deferred.
+
+**Schema v7 → v8.** New `quick_notes` table + `QuickNoteDao` + `quickNoteDao()` on `XpDatabase`. `fallbackToDestructiveMigrationFrom(1, 2, 3, 4, 5, 6, 7)`. Pre-release installs wipe and re-seed (JNI lock log + reseed runs once on first v8 launch).
+
+**Files added:**
+
+```
+data/db/Entities.kt :: QuickNoteEntity
+data/db/Daos.kt :: QuickNoteDao            # observe(now), getById, upsert, delete, deleteExpired, deleteAll
+data/repo/QuickNotesRepository.kt          # observe, add, sweepExpired, deleteAll, keep (@Transaction)
+data/quick/QuickNoteSweepWorker.kt         # 24h periodic, KEEP policy, calls repo.sweepExpired
+ui/quick/
+├── QuickNotesViewModel.kt                 # rows + justSaved + 30s tick; sweep on init
+├── QuickNotesScreen.kt                    # header + inline-expand compose row + section meta + list + bottom strip
+├── QuickNoteEntry.kt                      # row chrome + countdown chip + progress ring (drawArc)
+└── QuickSavedDialog.kt                    # post-save dialog + Clear-all confirm
+```
+
+**Wiring:**
+- `XpApp` constructs `QuickNotesRepository(db, db.quickNoteDao())` and calls `QuickNoteSweepWorker.enqueue(this)` once per process start (Worker's own `KEEP` policy prevents duplicate registrations).
+- `NotesViewModel` takes the repo and exposes `quickSummary: StateFlow<QuickSummary>` (count + oldest-left label). The label is derived from the live `observe()` flow via `map`, recomputed on every emission.
+- `QuickEntryStrip` was a static placeholder before this milestone; now takes `count`, `oldestLeft`, and `onClick`. Threaded through `NotesListScreen → NotesCategoryContent / NotesChronoContent` so both list modes light up.
+- `AppRoot` registers a `quick` route with `viewModel(key = "quick-notes", factory = QuickNotesViewModel.Factory(app.quickNotesRepo))`. Strip tap → `nav.navigate("quick")`. Back from Quick `popBackStack()` returns to the notes tab preserving tab state.
+
+**Course-corrections worth keeping:**
+- **`flatMapLatest` was theater.** First pass wrote `flow { emit(now) }.flatMapLatest { dao.observe(it) }` to "freshen" the `now` parameter on each subscription. The outer flow only ever emits once, so this is identical to `dao.observe(System.currentTimeMillis())` plus an unused opt-in suppression. Cut it. The expiry semantics still hold: `now` is captured at subscribe time, and the DAO's `expiresAt > :now` filter only re-emits when the table mutates — so the sweep on screen open + the periodic worker do the work, exactly as designed.
+- **Verification window vs the mockup-faithful copy.** During verification the lifetime briefly went to 1 minute with a 2s tick and a generic "expires at H:mm" string so the full cycle (create → countdown → expire → sweep → row gone) could be observed in under two minutes. Restored to 24h + 30s tick + the mockup's "expires tomorrow, h:mm a" line before commit. The `remainingLabel` helper still has the `< 1 minute → seconds` fall-through from the test pass; harmless and useful for the final-minute strip subtitle.
+- **`SavedDialog` carries the just-saved id.** First attempt for "Move to Notes" in the dialog tried `rows.value.firstOrNull()` — racing the `combine` re-emission. Replaced with `SavedDialog(id, expiresAt)` so the dialog knows exactly which row to promote. No race, no ordering assumption.
+- **`Dialog`'s `onDismissRequest` already covers outside-tap dismiss.** First pass added an explicit `.clickable` on the dialog scrim with a `remember { MutableInteractionSource() }` to suppress ripple. Redundant + ugly. The platform Dialog fires `onDismissRequest` on outside-tap and on back, both of which we already route to `onGotIt`. Cut.
+- **File-size discipline.** `QuickNotesScreen.kt` finished at 271 lines — over the 200-line target. Tried splitting Header / ComposeRow / SectionMeta / BottomStrip into a `QuickNotesChrome.kt` file but every piece is single-purpose and only called from this screen; the file split was pure churn. Documented overage; accept.
+
+**Verified on device:** v7→v8 destructive migration runs cleanly (JNI lock log + reseed). Tap the **Quick** strip on the notes list → Quick screen with empty state and the dashed compose row. Tap the row → it expands inline with keyboard up. Type → **Save** → post-save dialog appears with the correct "expires tomorrow, h:mm AM" line; row appears below the compose row with `23h 59m` countdown. Strip on the notes list now reads `1 · 24H` with the right "oldest expires in" subtitle. **Keep** on a row promotes it to the regular Notes list as Uncategorized (visible in the Uncategorized group, body = full text, title = first line). **Move to Notes** in the dialog does the same on the just-saved row. **Clear all** opens the confirm dialog, then wipes. **Got it** dismisses the post-save dialog. WorkManager registers the periodic sweep at process start and fires successfully on first launch (`WM-WorkerWrapper: Worker result SUCCESS for ... QuickNoteSweepWorker`).
+
+**Cleanup pass (post-verification):**
+- Restored 24h lifetime + 30s tick + mockup-faithful dialog copy + `"expires tomorrow, h:mm a"` format.
+- Cut the redundant `flatMapLatest` + `@Suppress("OPT_IN_USAGE")` on `observe()`.
+- Cut unused `QuickNoteDao.current(now)` (only `observe(now)` is reached).
+- Cut unused `QuickNotesRepository.delete(id)` (never called externally; DAO still has it for the `keep` transaction).
+- Cut dead `rememberCoroutineScope()` + `val s = scope` placeholder in `ComposeRow`.
+- Cut redundant `.clickable` on `QuickSavedDialog`'s scrim — `Dialog.onDismissRequest` covers it.
+- Replaced two `Spacer(Modifier.width(0.dp).weight(1f))` with the proper `Spacer(Modifier.weight(1f))`.
+
+**Project shape after this milestone:** ~7030 lines of Kotlin across 71 source files. New files: 6 (4 ui + 1 data/repo + 1 data/quick). Largest milestone-12 file: `QuickNotesScreen.kt` at 271 (documented above). All other new files: 36–169 lines.
+
+**Carry-forward deferrals:**
+- "Don't show this again" checkbox on the post-save dialog — waiting on DataStore in milestone 13.
+- Live "Auto-expires in 4m 12s"-style per-row countdown via a smoother animation. Currently the 30s `tick` updates the chip text only; the progress ring is a static snapshot per emission. Re-render is fine at 30s granularity for a 24h window; revisit if/when granularity is needed.
+- Per-row swipe-to-delete (mockup only shows the inline **Keep** action).
+- "Quick" branding on the regular-notes row after a **Keep** — the promoted note lands with `categoryId = null` (Uncategorized). No marker that it was ever a quick note.
+- The strip's tap → expand-the-strip-inline interaction from the mockup. Currently the strip just navigates to the Quick screen — clearer and matches the second-page layout in `quick-notes.jsx`.
+
+---
+
 ## Remaining roadmap
-
-### Milestone 12 — Quick notes (24h ephemeral)  *(MVP-4)*
-
-The disappearing-notes feature from `quick-notes.jsx` — the prominent strip at top of the notes list, plus the dedicated quick-notes screen and the post-save dialog. Adds a `quick_notes` table with auto-expiry (a periodic `WorkManager` job sweeps expired rows).
-
-- `QuickNotesScreen.kt`, `QuickEntryStrip.kt` wired up (currently just a static placeholder)
-- `QuickNoteEntity` table with `expiresAt`
-- `WorkManager` daily sweep + an in-process check on screen open
 
 ### Milestone 13 — Settings  *(MVP-4)*
 

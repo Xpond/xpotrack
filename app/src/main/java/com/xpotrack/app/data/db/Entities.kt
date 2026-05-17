@@ -47,3 +47,11 @@ data class MetaEntity(
     @PrimaryKey val key: String,
     val value: String,
 )
+
+@Entity(tableName = "quick_notes")
+data class QuickNoteEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val text: String,
+    val createdAt: Long,
+    val expiresAt: Long,
+)

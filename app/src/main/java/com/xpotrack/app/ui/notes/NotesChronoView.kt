@@ -20,9 +20,9 @@ import androidx.compose.ui.unit.sp
 import com.xpotrack.app.ui.theme.XpTokens
 
 @Composable
-fun NotesChronoContent(notes: List<NoteRow>, onOpenNote: (Int) -> Unit) {
+fun NotesChronoContent(notes: List<NoteRow>, quick: QuickSummary, onOpenNote: (Int) -> Unit, onOpenQuick: () -> Unit) {
     Column(Modifier.padding(horizontal = 16.dp)) {
-        QuickEntryStrip()
+        QuickEntryStrip(count = quick.count, oldestLeft = quick.oldestLeft, onClick = onOpenQuick)
         notes.forEachIndexed { i, note -> ChronoNoteRow(note, isLast = i == notes.size - 1, onOpenNote) }
     }
 }

@@ -5,8 +5,10 @@ import com.xpotrack.app.data.alarm.AlarmScheduler
 import com.xpotrack.app.data.alarm.NotificationChannels
 import com.xpotrack.app.data.db.XpDatabase
 import com.xpotrack.app.data.model.ReminderLevel
+import com.xpotrack.app.data.quick.QuickNoteSweepWorker
 import com.xpotrack.app.data.repo.CategoryRepository
 import com.xpotrack.app.data.repo.NotesRepository
+import com.xpotrack.app.data.repo.QuickNotesRepository
 import com.xpotrack.app.data.repo.SeedData
 import com.xpotrack.app.data.repo.TasksRepository
 import com.xpotrack.app.data.repo.VaultRepository
@@ -35,6 +37,8 @@ class XpApp : Application() {
         private set
     lateinit var vaultSession: VaultSession
         private set
+    lateinit var quickNotesRepo: QuickNotesRepository
+        private set
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -49,6 +53,8 @@ class XpApp : Application() {
         vaultRepo = VaultRepository(db.noteDao())
         vaultMeta = VaultMetaStore(this)
         vaultSession = VaultSession()
+        quickNotesRepo = QuickNotesRepository(db, db.quickNoteDao())
+        QuickNoteSweepWorker.enqueue(this)
 
         appScope.launch {
             val now = System.currentTimeMillis()

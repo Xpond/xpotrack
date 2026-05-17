@@ -32,6 +32,8 @@ import com.xpotrack.app.ui.notes.NotesEditorScreen
 import com.xpotrack.app.ui.notes.NotesEditorViewModel
 import com.xpotrack.app.ui.notes.NotesListScreen
 import com.xpotrack.app.ui.notes.NotesViewModel
+import com.xpotrack.app.ui.quick.QuickNotesScreen
+import com.xpotrack.app.ui.quick.QuickNotesViewModel
 import com.xpotrack.app.ui.tasks.TaskCreateSheet
 import com.xpotrack.app.ui.tasks.TaskCreateViewModel
 import com.xpotrack.app.ui.tasks.TaskDetailScreen
@@ -73,7 +75,16 @@ fun AppRoot() {
                     onNewTask = { openSheet(0L) },
                     onLockExit = { activeTab = XpTab.Notes },
                     onManageCategories = { managerOpen = true },
+                    onOpenQuick = { nav.navigate("quick") },
                 )
+            }
+            composable("quick") {
+                val app = LocalContext.current.applicationContext as XpApp
+                val vm: QuickNotesViewModel = viewModel(
+                    key = "quick-notes",
+                    factory = QuickNotesViewModel.Factory(app.quickNotesRepo),
+                )
+                QuickNotesScreen(vm = vm, onBack = { nav.popBackStack() })
             }
             composable(
                 route = "editor/{id}",
@@ -165,21 +176,24 @@ private fun TabsScaffold(
     onNewTask: () -> Unit,
     onLockExit: () -> Unit,
     onManageCategories: () -> Unit,
+    onOpenQuick: () -> Unit,
 ) {
     val app = LocalContext.current.applicationContext as XpApp
-    val notesVm: NotesViewModel = viewModel(factory = NotesViewModel.Factory(app.notesRepo, app.categoryRepo))
+    val notesVm: NotesViewModel = viewModel(factory = NotesViewModel.Factory(app.notesRepo, app.categoryRepo, app.quickNotesRepo))
     val tasksVm: TasksViewModel = viewModel(factory = TasksViewModel.Factory(app.tasksRepo))
     val notes by notesVm.notes.collectAsStateWithLifecycle()
     val tasks by tasksVm.tasks.collectAsStateWithLifecycle()
     val cats by notesVm.categories.collectAsStateWithLifecycle()
+    val quick by notesVm.quickSummary.collectAsStateWithLifecycle()
 
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
             when (active) {
                 XpTab.Notes -> NotesListScreen(
-                    notes = notes, categories = cats,
+                    notes = notes, categories = cats, quick = quick,
                     onOpenNote = onOpenNote,
                     onManageCategories = onManageCategories,
+                    onOpenQuick = onOpenQuick,
                 )
                 XpTab.Tasks -> TasksTimelineScreen(
                     tasks = tasks,

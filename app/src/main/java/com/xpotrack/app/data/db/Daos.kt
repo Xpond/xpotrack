@@ -101,6 +101,27 @@ interface CategoryDao {
 }
 
 @Dao
+interface QuickNoteDao {
+    @Query("SELECT * FROM quick_notes WHERE expiresAt > :now ORDER BY createdAt DESC")
+    fun observe(now: Long): Flow<List<QuickNoteEntity>>
+
+    @Query("SELECT * FROM quick_notes WHERE id = :id LIMIT 1")
+    suspend fun getById(id: Long): QuickNoteEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(row: QuickNoteEntity): Long
+
+    @Query("DELETE FROM quick_notes WHERE id = :id")
+    suspend fun delete(id: Long)
+
+    @Query("DELETE FROM quick_notes WHERE expiresAt <= :now")
+    suspend fun deleteExpired(now: Long)
+
+    @Query("DELETE FROM quick_notes")
+    suspend fun deleteAll()
+}
+
+@Dao
 interface MetaDao {
     @Query("SELECT value FROM meta WHERE `key` = :k LIMIT 1")
     suspend fun get(k: String): String?

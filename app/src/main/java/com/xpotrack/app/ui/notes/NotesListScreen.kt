@@ -39,8 +39,10 @@ import com.xpotrack.app.ui.theme.XpTokens
 fun NotesListScreen(
     notes: List<NoteRow>,
     categories: List<Category>,
+    quick: QuickSummary,
     onOpenNote: (Int) -> Unit,
     onManageCategories: () -> Unit,
+    onOpenQuick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var mode by remember { mutableStateOf(NotesMode.Category) }
@@ -61,10 +63,12 @@ fun NotesListScreen(
                 if (mode == NotesMode.Category) NotesCategoryContent(
                     notes = notes,
                     categories = categories,
+                    quick = quick,
                     onOpenNote = onOpenNote,
                     onManageCategories = onManageCategories,
+                    onOpenQuick = onOpenQuick,
                 )
-                else NotesChronoContent(notes, onOpenNote)
+                else NotesChronoContent(notes, quick, onOpenNote, onOpenQuick)
                 Spacer(Modifier.height(100.dp))
             }
         }

@@ -8,8 +8,8 @@ import com.xpotrack.app.data.security.PassphraseStore
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 
 @Database(
-    entities = [NoteEntity::class, TaskEntity::class, CategoryEntity::class, MetaEntity::class],
-    version = 7,
+    entities = [NoteEntity::class, TaskEntity::class, CategoryEntity::class, MetaEntity::class, QuickNoteEntity::class],
+    version = 8,
     exportSchema = false,
 )
 abstract class XpDatabase : RoomDatabase() {
@@ -17,6 +17,7 @@ abstract class XpDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
     abstract fun categoryDao(): CategoryDao
     abstract fun metaDao(): MetaDao
+    abstract fun quickNoteDao(): QuickNoteDao
 
     companion object {
         @Volatile private var instance: XpDatabase? = null
@@ -34,7 +35,7 @@ abstract class XpDatabase : RoomDatabase() {
             val factory = SupportOpenHelperFactory(passphrase)
             return Room.databaseBuilder(appContext, XpDatabase::class.java, "xpotrack.db")
                 .openHelperFactory(factory)
-                .fallbackToDestructiveMigrationFrom(1, 2, 3, 4, 5, 6)
+                .fallbackToDestructiveMigrationFrom(1, 2, 3, 4, 5, 6, 7)
                 .build()
         }
     }
