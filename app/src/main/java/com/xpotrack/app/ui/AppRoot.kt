@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -29,6 +30,8 @@ import com.xpotrack.app.ui.notes.NotesListScreen
 import com.xpotrack.app.ui.notes.NotesViewModel
 import com.xpotrack.app.ui.tasks.TaskCreateSheet
 import com.xpotrack.app.ui.tasks.TaskCreateViewModel
+import com.xpotrack.app.ui.tasks.TaskDetailScreen
+import com.xpotrack.app.ui.tasks.TaskDetailViewModel
 import com.xpotrack.app.ui.tasks.TasksTimelineScreen
 import com.xpotrack.app.ui.tasks.TasksViewModel
 import com.xpotrack.app.ui.theme.XpTokens
@@ -37,6 +40,10 @@ import com.xpotrack.app.ui.vault.VaultStubScreen
 @Composable
 fun AppRoot() {
     val nav = rememberNavController()
+    var sheetTaskId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var sheetToken by rememberSaveable { mutableStateOf(0) }
+    val openSheet: (Long) -> Unit = { id -> sheetToken += 1; sheetTaskId = id }
+
     Box(
         Modifier
             .fillMaxSize()
@@ -45,7 +52,11 @@ fun AppRoot() {
     ) {
         NavHost(navController = nav, startDestination = "tabs") {
             composable("tabs") {
-                TabsScaffold(onOpenNote = { id -> nav.navigate("editor/$id") })
+                TabsScaffold(
+                    onOpenNote = { id -> nav.navigate("editor/$id") },
+                    onOpenTask = { id -> nav.navigate("task/$id") },
+                    onNewTask = { openSheet(0L) },
+                )
             }
             composable(
                 route = "editor/{id}",
@@ -59,12 +70,49 @@ fun AppRoot() {
                 )
                 NotesEditorScreen(vm = vm, onBack = { nav.popBackStack() })
             }
+            composable(
+                route = "task/{id}",
+                arguments = listOf(navArgument("id") { type = NavType.LongType }),
+            ) { entry ->
+                val app = LocalContext.current.applicationContext as XpApp
+                val id = entry.arguments?.getLong("id") ?: 0L
+                val vm: TaskDetailViewModel = viewModel(
+                    key = "task-detail-$id",
+                    factory = TaskDetailViewModel.Factory(app.tasksRepo, id),
+                )
+                // Refresh in place when the sheet closes — avoids re-keying the VM,
+                // which would briefly flash an empty state during recreation.
+                LaunchedEffect(sheetToken) { vm.refresh() }
+                TaskDetailScreen(
+                    vm = vm,
+                    onBack = { nav.popBackStack() },
+                    onEdit = { openSheet(it) },
+                )
+            }
+        }
+
+        sheetTaskId?.let { id ->
+            val app = LocalContext.current.applicationContext as XpApp
+            val vm: TaskCreateViewModel = viewModel(
+                key = "task-create-$id-$sheetToken",
+                factory = TaskCreateViewModel.Factory(app.tasksRepo, id),
+            )
+            TaskCreateSheet(vm = vm, onDismiss = {
+                sheetTaskId = null
+                // Refresh any visible detail screen so edits land immediately.
+                (nav.currentBackStackEntry?.destination?.route ?: "")
+                    .let { if (it.startsWith("task/")) sheetToken += 1 }
+            })
         }
     }
 }
 
 @Composable
-private fun TabsScaffold(onOpenNote: (Int) -> Unit) {
+private fun TabsScaffold(
+    onOpenNote: (Int) -> Unit,
+    onOpenTask: (Long) -> Unit,
+    onNewTask: () -> Unit,
+) {
     val app = LocalContext.current.applicationContext as XpApp
     val notesVm: NotesViewModel = viewModel(factory = NotesViewModel.Factory(app.notesRepo))
     val tasksVm: TasksViewModel = viewModel(factory = TasksViewModel.Factory(app.tasksRepo))
@@ -72,8 +120,6 @@ private fun TabsScaffold(onOpenNote: (Int) -> Unit) {
     val tasks by tasksVm.tasks.collectAsStateWithLifecycle()
 
     var active by rememberSaveable { mutableStateOf(XpTab.Notes) }
-    var sheetTaskId by rememberSaveable { mutableStateOf<Long?>(null) }
-    var sheetToken by rememberSaveable { mutableStateOf(0) }
 
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
@@ -81,23 +127,12 @@ private fun TabsScaffold(onOpenNote: (Int) -> Unit) {
                 XpTab.Notes -> NotesListScreen(notes = notes, onOpenNote = onOpenNote)
                 XpTab.Tasks -> TasksTimelineScreen(
                     tasks = tasks,
-                    onOpenTask = {
-                        sheetToken += 1
-                        sheetTaskId = it
-                    },
+                    onOpenTask = { id -> if (id == 0L) onNewTask() else onOpenTask(id) },
                 )
                 XpTab.Vault -> VaultStubScreen()
                 XpTab.More  -> MoreStubScreen()
             }
         }
         XpBottomTabs(active = active, onSelect = { active = it })
-    }
-
-    sheetTaskId?.let { id ->
-        val vm: TaskCreateViewModel = viewModel(
-            key = "task-create-$id-$sheetToken",
-            factory = TaskCreateViewModel.Factory(app.tasksRepo, id),
-        )
-        TaskCreateSheet(vm = vm, onDismiss = { sheetTaskId = null })
     }
 }

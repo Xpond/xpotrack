@@ -18,6 +18,8 @@ data class TaskEditState(
     val minute: Int = 0,        // 0..59
     val level: ReminderLevel = ReminderLevel.Alarm,
     val durationMin: Int = 30,
+    val notes: String = "",
+    val category: String = "General",
     val isDone: Boolean = false,
 ) {
     val timeHHmm: String get() = "%02d:%02d".format(hour, minute)
@@ -42,6 +44,7 @@ class TaskCreateViewModel(
     fun setHour(h: Int) { _state.value = _state.value.copy(hour = h.coerceIn(0, 23)) }
     fun setMinute(m: Int) { _state.value = _state.value.copy(minute = m.coerceIn(0, 59)) }
     fun setLevel(l: ReminderLevel) { _state.value = _state.value.copy(level = l) }
+    fun setNotes(s: String) { _state.value = _state.value.copy(notes = s) }
 
     suspend fun save(): Long? {
         val s = _state.value
@@ -53,6 +56,8 @@ class TaskCreateViewModel(
                 time = s.timeHHmm,
                 level = s.level,
                 durationMin = s.durationMin,
+                notes = s.notes,
+                category = s.category,
                 isDone = s.isDone,
                 createdAt = 0L,         // repo preserves existing / sets now
                 updatedAt = 0L,
@@ -79,6 +84,8 @@ private fun Task.toEditState(): TaskEditState {
         minute = m,
         level = level,
         durationMin = durationMin,
+        notes = notes,
+        category = category,
         isDone = isDone,
     )
 }

@@ -15,8 +15,8 @@ object NotificationChannels {
     // Bump the version suffix any time channel config changes — Android
     // ignores edits to an existing channel's importance / sound, so a fresh
     // ID is the only way to make them apply.
-    const val NOTIFY_ID = "reminders.notify.v2"
-    const val ALARM_ID = "reminders.alarm.v2"
+    const val NOTIFY_ID = "reminders.notify.v3"
+    const val ALARM_ID = "reminders.alarm.v3"
 
     fun ensure(context: Context) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

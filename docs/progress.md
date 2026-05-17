@@ -136,12 +136,6 @@ app/src/main/java/com/xpotrack/app/
 
 ---
 
-## Remaining roadmap
-
-Everything below comes from `docs/goal.md` (the original technical plan) and `docs/design-spec.md` (the 16 mockup screens + fidelity notes). Order is roughly bottom-up by dependency — each milestone unlocks the next without revisiting earlier work.
-
-Numbering picks up from the milestones already shipped (1–6 + audit). The MVP-1 / MVP-2 / MVP-3 / MVP-4 tier markers come from `docs/design-spec.md` §6 and indicate the slice each milestone belongs to.
-
 ## Milestone 7 — Markdown preview toggle
 
 Write / Preview segmented toggle in the editor topbar. Write mode is unchanged (`BasicTextField` title + body). Preview mode renders the markdown body styled per `markdown-preview.jsx`: H1 with teal underline rule, H2, paragraphs, dash-list with teal em-dash, blockquote with teal left rule + italic body, fenced code blocks in mono on `surface1`, plus inline `**bold**` (teal semibold) and `*italic*`. Same `NotesEditorScreen` swaps the body per mode — no new route, the chrome is shared.
@@ -246,14 +240,48 @@ ui/alarm/
 
 ---
 
+## Milestone 9 — Task detail
+
+Tap a timeline pill, get `task-detail.jsx`: hero time in mono accent-colored to the reminder level, title, an inline-editable notes paragraph, four field rows (When / Reminder / Repeat / Category) on a surface1 card, full-width teal Mark-done + trash delete. The detail screen owns reads + the notes-edit path; the 8a sheet still owns title / time / level edits, opened by tapping any field-row chevron.
+
+**Files added:** `ui/tasks/TaskDetailScreen.kt`, `ui/tasks/TaskDetailViewModel.kt`. Four vector drawables (`ic_clock`, `ic_repeat`, `ic_tag`, `ic_trash`).
+
+**Schema bumped v3 → v4.** `TaskEntity` gains `notes: String = ""` and `category: String = "General"`. `fallbackToDestructiveMigrationFrom(1, 2, 3)` — pre-release installs wipe and re-seed clean on first v4 launch (JNI lock log + reseed). Seed task rows now carry sensible categories (Ritual/Work/Personal/Health) and notes on the three that benefit from them. `Task` domain model, `TaskRow.toRow()`, `TaskCreateViewModel.TaskEditState`, and `TasksRepository.upsert/toDomain` all propagate the two new fields end-to-end. `TaskDao` gains `markDone(id, now)` and `delete(id)`; `TasksRepository` exposes `markDone(id)` + `delete(id)` that also cancel the scheduled alarm via `scheduler.cancel(id)` before mutating.
+
+**Bug found + fixed in `TaskCreateViewModel.save()`:** the 8a sheet wasn't carrying `notes` or `category` through `Task.toEditState()` ↔ `save()`. Editing an existing task in the sheet would wipe both. Fixed by piping both fields through the edit state and back into the upserted `Task`.
+
+**Navigation rewired.** Added a `task/{id}` route to the existing `NavHost`. Pill tap → `nav.navigate("task/$id")` instead of opening the sheet. FAB still opens the sheet directly (no detail step for new tasks). The sheet state (`sheetTaskId` + `sheetToken`) moved from `TabsScaffold` up to `AppRoot` so the detail-screen route can trigger it too. Detail screen's chevron rows + back affordance both call into the same shared `openSheet` lambda.
+
+**Refresh-in-place instead of re-keying.** First pass keyed `TaskDetailViewModel` on `"task-detail-$id-$sheetToken"` so the VM rebuilt when the sheet closed. That caused a one-frame empty-state flash on every dismiss (screen jitter). Final pass keys on `"task-detail-$id"` only and uses `LaunchedEffect(sheetToken) { vm.refresh() }` to re-read the row in place; old task data stays visible during the (sub-ms) DB read. Same pattern with notes drafts: `refresh()` only seeds `_notesDraft` from DB when `loaded == false`, so opening + dismissing the sheet mid-edit doesn't clobber an unsaved notes draft.
+
+**Inline notes editing on detail.** The mockup shows notes as a static paragraph under the title; we made it a `BasicTextField` with a `"Add notes…"` placeholder. Autosave on system back + on the back chip via a shared `saveAndBack` lambda (mirrors `NotesEditorScreen`'s save-on-back model). `Mark done` also flushes any pending notes draft before flipping `isDone`. ViewModel tracks notes in a separate `MutableStateFlow<String>` so typing doesn't churn the whole detail recomposition.
+
+**Done tasks are read-only.** When `task.isDone`:
+- Notes area falls back to plain `Text` (no `BasicTextField`).
+- Field-row chevrons are no-ops (the `onAnyRow` callback gates on `!task.isDone`).
+- Mark-done button switches to a muted "Done" label on `Surface2`.
+- Delete still works (a done task should still be removable).
+
+**Chevrons all open the same sheet.** Per design decision: each `FieldRow` calls `onEdit(task.id)` regardless of which field — there are no per-field pickers yet (the sheet already edits title/time/level; Repeat is display-only "Never"; Category isn't picker-backed until milestone 11). Cleaner than the originally-planned dots-vertical menu, which got removed. Rows also suppress the Material ripple via `indication = null` + `MutableInteractionSource` — same calm-aesthetic pattern as `XpBottomTabs` — because the default 250ms circular ripple visibly jittered while the sheet animated in.
+
+**Course-corrections worth keeping:**
+
+- **Lock-screen alarm "broke" after the v3→v4 destructive migration.** Wasn't actually broken — `dumpsys notification` showed `mLockscreenVisibility=-1000` on the `.v2` channel. Same Vivo OEM quirk documented in 8b: the channel still says `PUBLIC` from our side, the OS overrides it. Bumping `NotificationChannels.NOTIFY_ID` + `ALARM_ID` from `.v2` to `.v3` forces a fresh channel creation so Vivo re-asks for lock-screen permission. (Then the user has to also allow background activity in Vivo's battery settings — autostart + background-power consumption are OEM toggles, not code.) Lesson: any destructive schema bump that wipes an install is a good opportunity to also bump notification channels in case OEM-specific channel quirks have crept in.
+- **Notes field looked broken on edit but worked on create.** The sheet's `NotesField` was a `Box` with the placeholder `Text` stacked on top of the `BasicTextField` — `Text` isn't tap-transparent, so taps in the placeholder area never reached the field. On create the empty placeholder filled the touchable area so it worked accidentally; on edit, the saved one-line note shrank the touch target to a single 20dp text line which was hard to hit. Two fixes: move the placeholder into `BasicTextField`'s `decorationBox` slot (same pattern as `NotesEditorScreen.kt:163`), and wrap the field in a 56dp-min-height `Box` whose `clickable` calls `focus.requestFocus()` so taps anywhere in the padded area land focus.
+- **Detail screen had no notes-edit path initially.** The first cut showed `task.notes` as a static read-only `Text` (hidden when blank). User pointed out you couldn't edit it without going through the sheet. The right answer was inline editing on detail (notes are heavier than time/level — the chevron-into-sheet pattern doesn't fit) — see "Inline notes editing on detail" above.
+
+**Verified on device:** v3→v4 destructive migration runs cleanly (JNI lock log + reseed). Tap pill → detail with correct time/title/notes/rows. Inline notes editing works on undone tasks; typing + back persists. Field-row chevrons open the sheet pre-filled and edits land back on detail without flash or jitter. Mark done dims the action button + makes everything read-only + cancels scheduled alarm. Delete pops back to timeline + cancels scheduled alarm. System back from detail returns to timeline preserving tab state. Notification channels show `.v3` IDs in `dumpsys notification` after first launch.
+
+**Deferred (carry-forward):**
+- Repeat picker (still display-only "Never").
+- Category picker (still display-only — milestone 11).
+- Per-field pickers in general (When opens the sheet's time wheel, Reminder opens the chip row — fine, but a deeper "tap REPEAT to get a real picker" needs milestone 11+).
+- The `task-detail.jsx` "Linked note" card — tasks and notes have no relation in the data model; revisit if a linking feature lands.
+- Snooze / mark-done from the alarm ringing activity (was carry-forward from 8b; still carry-forward — needs an alarm-screen → repo path).
+
+---
+
 ## Remaining roadmap
-
-### Milestone 9 — Task detail  *(MVP-2)*
-
-Tap a task in the timeline, get `task-detail.jsx` — big time hero in mono, label + notes, field rows (When / Reminder / Repeat / Category), "Mark done" button. Edit returns to the bottom sheet pre-filled.
-
-- `TaskDetailScreen.kt`
-- `markDone(id)` repository call (the only real edit for this milestone; deeper editing piggybacks on milestone 8's sheet)
 
 ### Milestone 10 — Vault, unlock, locked-note open  *(MVP-3, encryption layer 2)*
 

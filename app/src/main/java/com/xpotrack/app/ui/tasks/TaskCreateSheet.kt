@@ -3,6 +3,7 @@ package com.xpotrack.app.ui.tasks
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -29,6 +31,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
@@ -77,6 +81,9 @@ fun TaskCreateSheet(
                 value = state.title,
                 onChange = vm::setTitle,
             )
+
+            Spacer(Modifier.height(12.dp))
+            NotesField(value = state.notes, onChange = vm::setNotes)
 
             Spacer(Modifier.height(18.dp))
             Text("Time".uppercase(), style = MaterialTheme.typography.labelMedium, color = XpTokens.Ink3)
@@ -151,6 +158,30 @@ private fun TitleField(value: String, onChange: (String) -> Unit) {
                 .fillMaxWidth()
                 .height(0.5.dp)
                 .background(XpTokens.Hair)
+        )
+    }
+}
+
+@Composable
+private fun NotesField(value: String, onChange: (String) -> Unit) {
+    val focus = remember { FocusRequester() }
+    val interaction = remember { MutableInteractionSource() }
+    Box(
+        Modifier.fillMaxWidth().heightIn(min = 56.dp)
+            .clickable(interactionSource = interaction, indication = null) { focus.requestFocus() }
+            .padding(vertical = 8.dp),
+    ) {
+        BasicTextField(
+            value = value, onValueChange = onChange,
+            textStyle = TextStyle(fontSize = 14.sp, color = XpTokens.Ink2, lineHeight = 20.sp),
+            cursorBrush = SolidColor(XpTokens.Teal),
+            modifier = Modifier.fillMaxWidth().focusRequester(focus),
+            decorationBox = { inner ->
+                if (value.isEmpty()) {
+                    Text("Notes (optional)", style = TextStyle(fontSize = 14.sp, color = XpTokens.Ink3))
+                }
+                inner()
+            },
         )
     }
 }

@@ -22,6 +22,8 @@ data class TaskEntity(
     val time: String,           // "HH:mm" — local clock for display
     val level: String,          // ReminderLevel enum name
     val durationMin: Int,
+    val notes: String = "",
+    val category: String = "General",
     val isDone: Boolean = false,
     val reminderAt: Long = 0L,  // absolute epoch ms; 0 = unscheduled (set in 8b)
     val createdAt: Long,

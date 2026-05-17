@@ -44,6 +44,12 @@ interface TaskDao {
     @Query("UPDATE tasks SET reminderAt = :at WHERE id = :id")
     suspend fun setReminderAt(id: Long, at: Long)
 
+    @Query("UPDATE tasks SET isDone = 1, updatedAt = :now WHERE id = :id")
+    suspend fun markDone(id: Long, now: Long)
+
+    @Query("DELETE FROM tasks WHERE id = :id")
+    suspend fun delete(id: Long)
+
     @Query("SELECT COUNT(*) FROM tasks")
     suspend fun count(): Int
 }

@@ -55,14 +55,14 @@ object SeedData {
     }
 
     fun tasks(now: Long): List<TaskEntity> = listOf(
-        TaskEntity(title = "Morning pages",          time = "07:00", level = Silent, durationMin = 30, isDone = true,  createdAt = now, updatedAt = now),
-        TaskEntity(title = "Stretch + coffee",       time = "08:30", level = Silent, durationMin = 25, isDone = true,  createdAt = now, updatedAt = now),
-        TaskEntity(title = "Stand-up — design crit", time = "09:15", level = Notify, durationMin = 30, createdAt = now, updatedAt = now),
-        TaskEntity(title = "Review Anya's draft",    time = "11:00", level = Notify, durationMin = 60, createdAt = now, updatedAt = now),
-        TaskEntity(title = "Lunch — Marin Sun",      time = "13:00", level = Silent, durationMin = 60, createdAt = now, updatedAt = now),
-        TaskEntity(title = "Dentist · 18 Hawthorne", time = "14:30", level = Alarm,  durationMin = 45, createdAt = now, updatedAt = now),
-        TaskEntity(title = "Call Dad",               time = "16:00", level = Alarm,  durationMin = 20, createdAt = now, updatedAt = now),
-        TaskEntity(title = "Bike — Marin loop",      time = "17:30", level = Notify, durationMin = 90, createdAt = now, updatedAt = now),
-        TaskEntity(title = "Read — Cosmicomics",     time = "20:30", level = Silent, durationMin = 45, createdAt = now, updatedAt = now),
+        TaskEntity(title = "Morning pages",          time = "07:00", level = Silent, durationMin = 30, category = "Ritual",   isDone = true, createdAt = now, updatedAt = now),
+        TaskEntity(title = "Stretch + coffee",       time = "08:30", level = Silent, durationMin = 25, category = "Ritual",   isDone = true, createdAt = now, updatedAt = now),
+        TaskEntity(title = "Stand-up — design crit", time = "09:15", level = Notify, durationMin = 30, category = "Work",     notes = "Bring the latency numbers from yesterday's run.", createdAt = now, updatedAt = now),
+        TaskEntity(title = "Review Anya's draft",    time = "11:00", level = Notify, durationMin = 60, category = "Work",     notes = "Slow down on slide 6 — leakage metaphor first.", createdAt = now, updatedAt = now),
+        TaskEntity(title = "Lunch — Marin Sun",      time = "13:00", level = Silent, durationMin = 60, category = "Personal", createdAt = now, updatedAt = now),
+        TaskEntity(title = "Dentist · 18 Hawthorne", time = "14:30", level = Alarm,  durationMin = 45, category = "Health",   notes = "Arrive 10m early — new patient forms.", createdAt = now, updatedAt = now),
+        TaskEntity(title = "Call Dad",               time = "16:00", level = Alarm,  durationMin = 20, category = "Personal", notes = "Birthday's in 3 weeks — ask what he wants for the cabin trip.", createdAt = now, updatedAt = now),
+        TaskEntity(title = "Bike — Marin loop",      time = "17:30", level = Notify, durationMin = 90, category = "Health",   createdAt = now, updatedAt = now),
+        TaskEntity(title = "Read — Cosmicomics",     time = "20:30", level = Silent, durationMin = 45, category = "Ritual",   createdAt = now, updatedAt = now),
     )
 }

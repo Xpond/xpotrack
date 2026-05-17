@@ -31,6 +31,8 @@ class TasksRepository(
             time = task.time,
             level = task.level.name,
             durationMin = task.durationMin,
+            notes = task.notes,
+            category = task.category,
             isDone = task.isDone,
             reminderAt = reminderAt,
             createdAt = existing?.createdAt ?: now,
@@ -43,6 +45,16 @@ class TasksRepository(
 
     suspend fun updateReminderAt(id: Long, at: Long) = dao.setReminderAt(id, at)
 
+    suspend fun markDone(id: Long) {
+        dao.markDone(id, System.currentTimeMillis())
+        scheduler.cancel(id)
+    }
+
+    suspend fun delete(id: Long) {
+        scheduler.cancel(id)
+        dao.delete(id)
+    }
+
     suspend fun seedIfEmpty(seed: List<TaskEntity>) {
         if (dao.count() == 0) dao.insertAll(seed)
     }
@@ -53,6 +65,8 @@ class TasksRepository(
         time = e.time,
         level = ReminderLevel.valueOf(e.level),
         durationMin = e.durationMin,
+        notes = e.notes,
+        category = e.category,
         isDone = e.isDone,
         reminderAt = e.reminderAt,
         createdAt = e.createdAt,
