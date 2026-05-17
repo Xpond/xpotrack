@@ -1,0 +1,19 @@
+# project folder
+/misc
+
+# rb database
+.rb
+
+# Gradle / Android build artifacts
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+.kotlin/
+
+# Output
+*.apk
+*.aab
+*.ap_
+*.dex

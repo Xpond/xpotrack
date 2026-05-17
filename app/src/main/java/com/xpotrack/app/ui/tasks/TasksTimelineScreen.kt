@@ -1,0 +1,94 @@
+package com.xpotrack.app.ui.tasks
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.xpotrack.app.ui.theme.XpTokens
+
+@Composable
+fun TasksTimelineScreen(
+    tasks: List<TaskRow>,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(XpTokens.Bg),
+    ) {
+        TopHalo()
+        Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()),
+        ) {
+            TasksHeader(tasks)
+            DayChipStrip()
+            TimelineView(tasks)
+            Spacer(Modifier.height(120.dp))
+        }
+    }
+}
+
+@Composable
+private fun TopHalo() {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(120.dp)
+            .background(
+                Brush.radialGradient(
+                    0f to XpTokens.TealGlow,
+                    0.7f to Color.Transparent,
+                )
+            )
+    )
+}
+
+@Composable
+private fun TasksHeader(tasks: List<TaskRow>) {
+    val done = tasks.count { it.done }
+    val total = tasks.size
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 22.dp, end = 22.dp, top = 12.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("Friday · May 16".uppercase(), style = MaterialTheme.typography.labelSmall, color = XpTokens.Ink3)
+            Spacer(Modifier.height(8.dp))
+            Text("Today", style = MaterialTheme.typography.displayLarge, color = XpTokens.Ink)
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                buildAnnotatedString {
+                    withStyle(SpanStyle(color = XpTokens.Teal)) { append("$done") }
+                    withStyle(SpanStyle(color = XpTokens.Ink3)) { append("/$total") }
+                },
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 26.sp),
+            )
+            Spacer(Modifier.height(4.dp))
+            Text("done".uppercase(), style = MaterialTheme.typography.labelMedium, color = XpTokens.Ink3)
+        }
+    }
+}
