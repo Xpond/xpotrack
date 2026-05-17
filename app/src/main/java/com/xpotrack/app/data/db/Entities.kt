@@ -13,8 +13,6 @@ data class NoteEntity(
     val isLocked: Boolean = false,
     val createdAt: Long,
     val updatedAt: Long,
-    // recency surrogate from the mockup test data; will be replaced by `updatedAt` ordering once we have real edits.
-    val recency: Int = 0,
 )
 
 @Entity(tableName = "tasks")

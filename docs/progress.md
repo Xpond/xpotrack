@@ -1,657 +1,138 @@
 # xpotrack — Progress Log
 
-A running log of everything completed, why, and the exact commands/files involved. Newest milestone at the bottom. If anyone (including future-Claude) picks this up cold, this doc + `docs/design-spec.md` + `docs/goal.md` should be enough.
+A running log of milestones shipped, key decisions, and the roadmap. With `docs/design-spec.md` + `docs/goal.md` + the mockups in `misc/mockups/screens/`, this should be enough to pick the project up cold.
 
 ---
 
-## Phase 0 — Planning & design intake
+## Planning & setup
 
-### What we agreed on
-- **Plan source:** `docs/goal.md` — TaskNotes technical plan (Kotlin + Compose + Room + SQLCipher, single-module, local-only, no network).
-- **Design fidelity rule:** the JSX mockups in `misc/mockups/screens/` are the spec. Every screen must render to match them. Where Compose can't replicate a CSS effect 1:1, the deviation is flagged in `docs/design-spec.md` §10 and resolved before shipping.
-- **Toolchain:** CLI only (no IDE). User installs everything themselves.
-- **Deploy target:** physical phone over wireless `adb`.
-- **First slice:** walking skeleton — proves the stack works before we invest in feature breadth. Tightened mid-session into 5 milestones (see below) after we caught ourselves writing too much code without builds.
+**Plan source:** `docs/goal.md` (Kotlin + Compose + Room + SQLCipher, single-module, local-only, no network). **Design source:** the 16 JSX mockups in `misc/mockups/screens/` — every screen renders to match them; Compose-vs-CSS gaps are flagged in `docs/design-spec.md` §10 and resolved before shipping. **Toolchain:** CLI only on Arch Linux. **Deploy:** physical iQOO Neo 7 (Android 14, SDK 34) over wireless adb on LAN.
 
-### Mockups read end-to-end
-All 16 screens in `misc/mockups/screens/`:
+Key locked decisions: task-create UI = bottom sheet variant (A in `task-create.jsx`); vault must render exactly as mocked (data still lives in notes table with `isLocked` flag); Geist + Geist Mono + Instrument Serif bundled as `.ttf` assets, not Google Fonts; deferred until later — quick notes, linked-note field on tasks, custom category colors, search, pinning toggle, repeat, snooze, category reordering, markdown shortcut auto-expansion.
 
-| File | Role |
-|---|---|
-| `system.jsx` | Design tokens (colors, type, spacing, shared components) — the source of truth for `XpTokens.kt` |
-| `notes-list.jsx` | Home screen, category & chrono modes |
-| `note-editor.jsx` | Hybrid live-markdown editor |
-| `markdown-preview.jsx` | Rendered preview state |
-| `new-note.jsx` | Empty editor |
-| `tasks-timeline.jsx` | Tasks home, hour-grid timeline |
-| `task-create.jsx` | 3 variants — **A (bottom sheet)** is the chosen one |
-| `task-detail.jsx` | Task detail/edit |
-| `alarm.jsx` | Full-screen alarm ring |
-| `vault.jsx`, `vault-unlock.jsx`, `locked-note.jsx` | Vault tab |
-| `category-manager.jsx` | Bottom sheet |
-| `quick-notes.jsx` | 24h ephemeral notes |
-| `settings.jsx` | More tab |
-| `app.jsx` | Mockup-canvas wiring (not implemented) |
+**Toolchain installed once:** `jdk21-openjdk`, `android-tools`, Google command-line-tools `13114758` unzipped to `~/Android/Sdk/cmdline-tools/latest`. Env: `ANDROID_HOME=~/Android/Sdk`, `JAVA_HOME=/usr/lib/jvm/java-21-openjdk`. Packages: `platform-tools`, `platforms;android-35`, `build-tools;35.0.0` (AGP 8.7.3 also auto-pulls `34.0.0`). Wireless adb pairing needs same Wi-Fi LAN + `adb pair IP:PORT CODE` then `adb connect IP:PORT` — Tailscale + Arch's adb don't pair (mDNS stripped from `android-tools 35.0.2` + CGNAT mDNS quirks). `targetSdk = 35` is fine on an SDK 34 device — it's a "tested-against" declaration, not runtime requirement.
 
-### Design spec written
-**File:** `docs/design-spec.md`
-
-Sections cover: palette (hex values pulled from `system.jsx`), typography scale, shape/rhythm tokens, screen inventory & priority (MVP-1 → MVP-4), navigation tree, fidelity-notes list (§10 — Compose-vs-CSS gaps with concrete translation strategies for each: hairline 0.5dp borders, teal glow, gradients, mask gradients, backdrop blur, pulse animations, caret blink, font hosting).
-
-Key design decisions locked here:
-1. Task-create UI = **bottom sheet variant** (A in `task-create.jsx`). Variants B (inline composer) and C (natural language) are exploration only.
-2. **Vault must render exactly as mocked** — cool gradient bg, hairline teal lock chrome, masked-row secret editor. Underlying data still lives in the notes table with an `isLocked` flag; that's an implementation detail and never surfaces in the UI.
-3. Bundle Geist + Geist Mono + Instrument Serif as `.ttf` assets rather than using Google Fonts at runtime — the plan says no network code.
-4. Deferred until later passes: Quick notes, linked-note field on tasks, custom category colors, search, pinning, repeat, snooze, category reordering, markdown shortcut auto-expansion, export to `Documents/TaskNotes/`.
+**Course-correction up front:** original plan was scaffold + Room + SQLCipher + two screens then build once. After accumulating untested code with broken APIs, recut into 5 small milestones, each ending in a verified on-device build. Trades more `assembleDebug` cycles for near-zero risk of compounding mistakes.
 
 ---
 
-## Phase 1 — Toolchain & device setup
+## Milestone 1 — Launchable hello-world
 
-### Toolchain (user-installed, our reference)
-Arch Linux. No prior Android tooling. Installed:
+Scaffold: `gradle/libs.versions.toml` (AGP 8.7.3, Kotlin 2.1.0, Compose BOM 2024.12), `compileSdk = 35`, `minSdk = 29`, JVM 17. `XpTokens.kt` mirrors every color from `system.jsx` exactly. `XpTheme.kt` wraps Material 3 `darkColorScheme`. `XpTypography.kt` is the Material 3 type scale tuned to spec §3.
 
-```
-sudo pacman -S --needed jdk21-openjdk android-tools unzip
-# Google command-line-tools 13114758 unzipped to ~/Android/Sdk/cmdline-tools/latest
-# Env in ~/.bashrc:
-#   ANDROID_HOME=$HOME/Android/Sdk
-#   JAVA_HOME=/usr/lib/jvm/java-21-openjdk
-#   PATH += $ANDROID_HOME/{cmdline-tools/latest/bin,platform-tools} + $JAVA_HOME/bin
-yes | sdkmanager --licenses
-sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-```
-
-Note: AGP 8.7.3 auto-installed `build-tools;34.0.0` on first build too — both are present in the SDK now.
-
-### Wireless adb pairing
-- First attempt over **Tailscale** (`100.67.x.x` IP) failed with `protocol fault: Success`. Root cause: `adb pair` uses mDNS-style service discovery on top of TCP, and mDNS doesn't traverse Tailscale. Ping worked (~270ms RTT) but the handshake failed.
-- Tried Arch's adb's `mdns check` — Arch strips Bonjour out of `android-tools 35.0.2`, so the `adb mdns` subcommand reports `unknown host service`. QR pairing therefore won't work with this adb.
-- Switched to **same Wi-Fi LAN** + manual pairing-code entry. That worked:
-  ```
-  adb pair 192.168.31.198:38819 405668     # one-shot pairing
-  adb connect 192.168.31.198:40381          # persistent endpoint
-  ```
-- **Connected device:** iQOO Neo 7 (model `I2017`), Android 14, SDK 34.
-- Implication: phone is SDK 34, plan targets SDK 35. `targetSdk = 35` is fine — that's a "tested-against" declaration, not a runtime requirement. `minSdk = 29` still covers SDK 34.
+`MainActivity` renders edge-to-edge with `#06100F` background + a 64dp teal (`#5EEAD4`) dot centered. **Verified:** JDK 21 + Gradle 8.10.2 + AGP 8.7.3 + Kotlin 2.1.0 + Compose BOM 2024.12 compose cleanly; tokens resolve to mockup hex values; edge-to-edge + transparent system bars work; wireless `adb install` round-trips work. First build 1m 41s, incremental drops to seconds. App icon is still default Android robot.
 
 ---
 
-## Phase 2 — Project scaffold (Milestone 1: launchable hello-world)
+## Milestone 2 — Notes list screen (no DB)
 
-### Scope tightening (mid-session course-correct)
-Original plan: scaffold project + Room + SQLCipher + two real screens, then build once at the end. After writing several files I noticed I was accumulating untested code with broken APIs (e.g. a homemade `PathBuilder.getNodes()` extension that doesn't exist). Re-cut into 5 milestones, each ending in a verified on-device build:
+Render `notes-list.jsx` (category mode) with hardcoded data. Geist + Geist Mono pulled from `github.com/vercel/geist-font` (OFL) into `app/src/main/res/font/` — 6 `.ttf` files, ~810KB, no network. `XpTypography.kt` switched off `FontFamily.SansSerif` onto the bundled fonts. 7 vector drawables in `res/drawable/` (`ic_search`, `ic_sort_date`, `ic_grouped`, `ic_plus`, `ic_lightning`, `ic_chevron_right`, `ic_star`) — `strokeColor="#FFFFFFFF"` so the Compose `Icon` `tint` can recolor at call sites.
 
-1. **Hello-world that launches** ← this milestone
-2. Notes list screen (hardcoded data)
-3. Tasks timeline screen (hardcoded data)
-4. Bottom-tab navigation between them + Vault/More placeholders
-5. Room + SQLCipher swapped in behind the screens
+Screen split into `NotesData.kt`, `NotesListScreen.kt`, `NotesCategoryView.kt`, `NotesChronoView.kt`, `QuickEntryStrip.kt`. **Verified:** Geist renders at every weight used; category mode renders complete (header, mode-strip cue, quick-entry strip, pinned strip with horizontal scroll, category groups with correct count chips + "+ N more" overflow + "New category" dashed button); FAB renders; sort toggle swaps to chronological view.
 
-This trades a few more `./gradlew assembleDebug` cycles for near-zero risk of compounding mistakes. Matches the Karpathy rules (`~/.claude/CLAUDE.md`): "Goal-driven execution. Loop until verified."
-
-### Project structure written
-```
-xpotrack/
-├── .gitignore                    # adds .gradle/, build/, local.properties, .kotlin/, *.apk
-├── build.gradle.kts              # root — declares plugins (apply false)
-├── settings.gradle.kts           # repos + module list (only :app for now)
-├── gradle.properties             # JVM args, parallel/cached builds, AndroidX on
-├── gradlew, gradlew.bat          # downloaded from gradle/gradle v8.10.2 tag
-├── gradle/
-│   ├── libs.versions.toml        # version catalog (AGP 8.7.3, Kotlin 2.1.0, Compose BOM 2024.12)
-│   └── wrapper/
-│       ├── gradle-wrapper.jar    # downloaded from gradle/gradle v8.10.2 tag
-│       └── gradle-wrapper.properties   # gradle-8.10.2-bin.zip
-├── local.properties              # sdk.dir=/home/xpo/Android/Sdk (gitignored)
-├── docs/
-│   ├── goal.md                   # original technical plan
-│   ├── design-spec.md            # design system + screen priority + fidelity notes
-│   └── progress.md               # this file
-├── misc/mockups/                 # design source (gitignored)
-└── app/
-    ├── build.gradle.kts          # Android app config: compileSdk 35, minSdk 29, JVM 17
-    ├── proguard-rules.pro        # placeholder; minify off
-    └── src/main/
-        ├── AndroidManifest.xml   # single MainActivity, no permissions yet
-        ├── res/values/
-        │   ├── strings.xml       # app_name = "xpotrack"
-        │   └── themes.xml        # Theme.Xpotrack: Material no-action-bar, transparent system bars
-        └── java/com/xpotrack/app/
-            ├── MainActivity.kt   # edge-to-edge + XpTheme + a centered teal dot
-            └── ui/theme/
-                ├── XpTokens.kt   # every token from system.jsx → Compose Color/Dp/Sp
-                ├── XpTheme.kt    # MaterialTheme darkColorScheme wrapper
-                └── XpTypography.kt   # Material 3 type scale tuned to spec §3
-```
-
-### Build & run sequence
-
-```
-./gradlew --version          # downloads Gradle 8.10.2 first time, ~1 min
-./gradlew assembleDebug      # builds debug APK, ~1m 41s first build
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n com.xpotrack.app/.MainActivity
-```
-
-### What's on the phone right now
-Fully edge-to-edge dark screen, `#06100F` background, a 64dp teal (`#5EEAD4`) circle centered. App label `xpotrack` in the launcher, default Android robot icon (not customized yet).
-
-### What this verifies
-- JDK 21 + Gradle 8.10.2 + AGP 8.7.3 + Kotlin 2.1.0 + Compose BOM 2024.12 all compose together cleanly.
-- `XpTokens.Bg` and `XpTokens.Teal` resolve to the exact hex values from `system.jsx`.
-- Edge-to-edge rendering + transparent status/nav bars works on the target device.
-- Wireless `adb install` round-trips work consistently.
-
-### Known caveats / things we'll fix later
-- **App icon** is the default robot. Replace with a real adaptive icon in a later pass.
-- **Geist fonts** are not bundled yet — we're on `FontFamily.SansSerif` / `FontFamily.Monospace`. Add `.ttf` files to `app/src/main/res/font/` before any screen that pixel-matches type.
-- **No Room / SQLCipher** wired yet. Dependencies were removed from `app/build.gradle.kts` for milestone 1 to reduce surface area; they come back in milestone 5.
-- **`gradle.properties`** has `org.gradle.parallel=true` and caching on — first build was 1m 41s, subsequent should drop to seconds.
+**Deferred:** FAB teal-glow halo (Compose shadows are grayscale — needs stacked `drawBehind` radial gradient per spec §10), true 0.5dp hairlines (currently 1px), dashed border on quick-entry strip (no built-in `Modifier.dashedBorder()`), pixel-perfect category chip spacing.
 
 ---
 
----
+## Milestone 3 — Tasks timeline screen (no DB)
 
-## Phase 3 — Milestone 2: Notes list screen (no DB)
+Render `tasks-timeline.jsx` with hardcoded data. Added `ui/components/XpReminderPill.kt` (shared between timeline pills `Sm` and the upcoming task-detail screen `Md`) and `ui/tasks/{TasksData, TasksTimelineScreen, DayChips, Timeline}.kt`. Three reminder-icon drawables (`ic_reminder_silent`, `ic_reminder_notify`, `ic_reminder_alarm`) + `ic_check`.
 
-### Goal
-Render `misc/mockups/screens/notes-list.jsx` (category mode) on the phone with hardcoded data. No database, no navigation — just one screen, against the mockup, to verify our token/spacing translation works before we layer more on.
+Key implementation notes worth keeping:
+- **Reminder levels are first-class data** — `ReminderLevel` enum carries `accent`, `tint`, `cardBg`, `iconRes` so per-level styling never branches in UI code (later moved to a domain enum + UI-side style helper — see audit phase).
+- **Timeline math centralized** — `TimelineStartHour=6`, `TimelineEndHour=22`, `HourHeightDp=56`. `timeToOffsetDp("09:15")` is the single function translating `HH:mm` → vertical offset; `HourGrid`, `TaskPill`, `NowIndicator` all call it.
+- **Absolute positioning via `Modifier.offset(x, y)`** — matches CSS `position: absolute; top: X` from the mockup 1:1.
+- **Done tasks** dim to 45% opacity, strikethrough label, drop card border/bg, tint rail at 30%.
 
-### Geist font bundled
-Mockup uses Geist + Geist Mono. Pulled official `.ttf` files from `github.com/vercel/geist-font` (OFL-licensed) into `app/src/main/res/font/`:
+**Verified:** header + mono "4/9" counter, 7-day chip strip with Friday active, hour labels 6 AM → 10 PM with hairline dividers at correct heights, 9 tasks pinned to correct times with right rail color + card tint, done tasks dimmed with strikethrough + checkmark, NOW indicator at 9:41.
 
-```
-geist_regular.ttf, geist_medium.ttf, geist_semibold.ttf, geist_bold.ttf
-geist_mono_regular.ttf, geist_mono_medium.ttf
-```
-
-~810KB total. `XpTypography.kt` now references `FontFamily(Font(R.font.geist_*, …))` rather than `FontFamily.SansSerif`. No Google Fonts, no network — matches the plan's "no network code" rule.
-
-### Vector drawables for icons
-Recreated the SVG paths from the mockups as Android vector drawables in `app/src/main/res/drawable/`. Faster than wrestling with `ImageVector.Builder` in Kotlin and they render identically:
-
-```
-ic_search.xml      ic_sort_date.xml    ic_grouped.xml    ic_plus.xml
-ic_lightning.xml   ic_chevron_right.xml ic_star.xml
-```
-
-`strokeColor="#FFFFFFFF"` on all of them — the Compose `Icon` composable applies its `tint` parameter to recolor them, so we tint with `XpTokens.Teal` / `XpTokens.Ink3` / etc. at call sites.
-
-### Screen split into 4 files
-To stay near the 200-line target from `~/.claude/CLAUDE.md`:
-
-```
-app/src/main/java/com/xpotrack/app/ui/notes/
-├── NotesData.kt         # NoteRow + Category data classes + NotesDb / Categories / PinnedIds
-├── NotesListScreen.kt   # Top-level layout, header, mode toggle, top-halo glow, FAB
-├── NotesCategoryView.kt # Pinned horizontal strip, CategoryGroup, CategoryNoteRow, NewCategory btn
-├── NotesChronoView.kt   # Flat chronological list (toggle target — basic but works)
-└── QuickEntryStrip.kt   # Dashed teal "Quick" pill at top of both views
-```
-
-Data file mirrors `NOTES_DB`, `PINNED_IDS`, `CATEGORIES` from `notes-list.jsx` verbatim so we can A/B against the mockup with the same content.
-
-`MainActivity.kt` now renders `NotesListScreen` with `Modifier.systemBarsPadding()` so content sits below the status bar.
-
-### Build & install
-`./gradlew assembleDebug` finished in **5 seconds** on the incremental rebuild — compiled cleanly first try (no compile errors despite ~500 lines of new Compose code, which I attribute to having read all the mockups first and the tighter milestone discipline).
-
-```
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n com.xpotrack.app/.MainActivity
-```
-
-### What's verified on the phone
-- Geist + Geist Mono render correctly at every weight used
-- `XpTokens` palette maps 1:1 to the mockup
-- Category mode renders: header eyebrow, h1, search/sort buttons, mode-strip cue, quick-entry strip, pinned section with horizontal scroll, category groups (Personal/Work/Ideas/Inbox/Trip/Essay/Recipe), correct count chips, "+ N more" overflow, "New category" dashed button
-- FAB renders at the right position (low for now since there's no tab bar)
-- Sort toggle works — tapping it swaps to a basic chronological view
-- User-approved as "good enough for now" — moving on
-
-### Deferred from this milestone (will revisit when relevant)
-- **FAB teal glow shadow.** `Modifier.shadow()` is grayscale; the mockup wants a teal halo. Spec §10 has the `drawBehind` radial-gradient fix; not blocking, deferred.
-- **True 0.5dp hairlines.** Currently render as 1px on this density. Will only fix if it visually bothers us — most users will never notice.
-- **Sort-toggle border-color animation.** Switches color discretely; mockup has a soft transition. Trivial to add later.
-- **Quick-entry strip dashed border.** Using a solid teal-alpha border for now — Compose has no built-in dashed border. Will add a custom `Modifier.dashedBorder()` when polish pass happens.
-- **Category chip pill spacing.** Approximated; not pixel-perfect. Deferred.
-
-### Project tree after milestone 2
-```
-app/src/main/
-├── AndroidManifest.xml
-├── java/com/xpotrack/app/
-│   ├── MainActivity.kt
-│   └── ui/
-│       ├── theme/{XpTokens.kt, XpTheme.kt, XpTypography.kt}
-│       └── notes/{NotesData.kt, NotesListScreen.kt, NotesCategoryView.kt,
-│                  NotesChronoView.kt, QuickEntryStrip.kt}
-└── res/
-    ├── drawable/ic_*.xml         # 7 vector icons
-    ├── font/geist_*.ttf          # 6 font files
-    └── values/{strings.xml, themes.xml}
-```
+**Deferred:** NOW-dot outer halo (same Compose-shadow limitation as FAB), hour-label `letterSpacing: 0.05em` (dropped after a botched `em` extension), task pill animations, scroll-to-now on open, real date math on the day chip strip (currently hardcoded Thu–Wed of week-of-May-16).
 
 ---
 
+## Milestone 4 — Bottom tab navigation
+
+Wired Notes + Tasks behind a bottom tab bar + placeholder screens for Vault and More. New files: `ui/AppRoot.kt` (hosts active-tab state + content), `ui/components/XpBottomTabs.kt` (4 tabs, gradient fade, hairline top), `ui/vault/VaultStubScreen.kt`, `ui/more/MoreStubScreen.kt`. Four tab-icon drawables (`ic_tab_notes/tasks/vault/settings`).
+
+**No Navigation-Compose yet** — `var active by rememberSaveable { mutableStateOf(XpTab.Notes) }` + `when (active)` block. With 4 tabs and no deep linking, simpler and faster to compile than NavHost. (Navigation-Compose came in with milestone 6 when the editor needed a stacked destination.) Active tab is a color swap only — icon + label shift to `Teal`, inactive `Ink3`, ripple suppressed with `indication = null` to match the mockup's calm aesthetic. **Vault stub** uses the cool gradient bg (`#050D0C → Bg`) from the real vault mockup — telegraphs "separate space" even as a placeholder.
+
+**Verified:** opens on Notes; tabs swap content + active highlight; vault shows cool-gradient placeholder; FAB sits above the tab bar.
+
+**Deferred:** tab-switch animation; back-stack handling (system back from Tasks exits the app — fixed in milestone 6 via Navigation-Compose); real Vault + More screens (milestones 10 + 13).
+
 ---
 
-## Phase 4 — Milestone 3: Tasks timeline screen (no DB)
+## Milestone 5 — Room + SQLCipher backing the screens
 
-### Goal
-Render `misc/mockups/screens/tasks-timeline.jsx` on the phone with hardcoded data. Continue the milestone-2 pattern: one screen, hardcoded data, build, install, compare.
+Replaced hardcoded `NotesDb` / `TasksDb` with a real encrypted Room database. Screens read via ViewModels exposing `StateFlow<List<…>>` collected with `collectAsStateWithLifecycle()`. DB encrypted at rest with SQLCipher, 32-byte random passphrase generated once on first launch via AndroidX `EncryptedSharedPreferences` (Keystore-backed master key, `AES256_GCM` scheme). Mockup data inserted on first launch only (`dao.count() == 0` guard); subsequent launches load from DB.
 
-### Files added
+New files: `XpApp.kt` (tiny manual DI — no Hilt; two repos), `data/security/PassphraseStore.kt`, `data/db/{Entities, Daos, XpDatabase}.kt`, `data/repo/{NotesRepository, TasksRepository, SeedData}.kt`, `ui/notes/NotesViewModel.kt`, `ui/tasks/TasksViewModel.kt`. Re-added Room + SQLCipher + KSP + lifecycle-runtime-compose to the build. **Repository maps entity → UI model** (`NoteEntity → NoteRow`); screens never see Room types.
+
+**Database encryption verified** — first 16 bytes of `databases/xpotrack.db` are random (a plaintext SQLite file starts with `SQLite format 3\0`). Tasks "done" counter shows truthful `2/9` instead of the mockup's hardcoded `4/9` — user chose truthful over decorative.
+
+Uninstall destroys the Keystore key and makes the DB unrecoverable — feature, not bug.
+
+---
+
+## Audit + APK size sweep
+
+**Source audit after milestone 5:** removed `NotesDb`/`TasksDb` stub constants (kept as screen defaults — silent footgun for previews/tests); deleted a no-op `fillMaxWidthHack` `Modifier` extension; moved `ReminderLevel` enum out of `ui/tasks/` into `data/model/` so repositories don't import UI types (it had been holding `Color` + `R.drawable.*` fields — split into pure domain enum + `ui/components/ReminderStyle.kt`); dropped 11 unused fields from `XpTokens` (aspirational type-size + spacing constants shadowed everywhere by `XpTypography` + per-screen literals).
+
+**Residual layering tension (documented, not fixed):** `data/repo/*Repository.kt` still imports `NoteRow` / `TaskRow` from `ui/notes` / `ui/tasks`. They're plain Kotlin data classes with no Compose imports. Convention until the third feature surface lands: *UI models may be referenced from repositories iff they have no UI imports.* Re-evaluate when alarms need a domain `Task` (milestone 8).
+
+**APK size sweep:** debug APK was 48 MB. SQLCipher AAR ships `libsqlcipher.so` for 4 ABIs; iQOO Neo 7 is `arm64-v8a` only — added `ndk { abiFilters += "arm64-v8a" }` in `defaultConfig` (drops 3 unused ABIs, ~16 MB). Release `isMinifyEnabled = true` + `isShrinkResources = true` + filled `proguard-rules.pro` with `-keep` rules for SQLCipher JNI + Room + `data.model.**` + `data.db.**`; `-dontwarn` for Tink's compile-only annotations (transitive via `androidx.security.crypto`). `dependenciesInfo.includeInApk = false` strips Play-store dep blob. Excluded `META-INF/*.version`, `*.kotlin_module`, `/kotlin/**`, `DebugProbesKt.bin` from `packaging.resources`.
+
+Result: debug **48 MB → 32 MB**, release **8.0 MB** (5.8 MB SQLCipher + 2.0 MB DEX + 810 KB fonts). Native lib is now the dominant cost — non-negotiable.
+
+---
+
+## Milestone 6 — Notes editor + first writes
+
+The first milestone that actually mutates the DB. FAB opens a blank editor; tapping any row opens it prefilled; autosave on back navigation (no Save button); empty new notes get discarded; existing notes cleared to blank get deleted. Updated notes float to the top of the list with a fresh `updatedAt`. Navigation-Compose enters the build for the editor pushed over the list with system back returning to the list (no longer exits the app).
+
+**New files:** `ui/notes/NotesEditorScreen.kt` (editor matching `note-editor.jsx` topbar + `new-note.jsx` empty-state hint card inline; `BasicTextField` for title + body with placeholder text and teal cursor); `ui/notes/NotesEditorViewModel.kt` (loads by id, exposes `EditorState`, `suspend fun save()`); `res/drawable/ic_chevron_left.xml`, `ic_dots_vertical.xml`.
+
+**Save model:** the editor screen wraps `vm.save()` + `onBack()` in a `rememberCoroutineScope().launch { … }` invoked from both the back IconChip and a `BackHandler`. Writes always commit before `popBackStack()` returns. The earlier attempt (`DisposableEffect { onDispose { runBlocking(IO) { save } } }`) raced the ViewModel teardown and silently dropped writes.
+
+**Auto-focus on new note:** `LaunchedEffect(state.loaded, state.id) { if (loaded && id == 0) titleFocus.requestFocus() }` pops the keyboard immediately so you can start typing without a manual tap. Existing notes stay unfocused (you tap to position the caret).
+
+**Repo + DAO writes:** `NoteDao.getById`, `upsert`, `delete`. `NotesRepository.upsert(NoteRow)` reads any existing row to preserve `createdAt` + `isLocked`, writes `updatedAt = now`. `delete(id)`, `getById(id)`. DAO `observeAll` `ORDER BY` switched from `recency DESC` to `updatedAt DESC`.
+
+**Real `formatWhen`:** "Today" / "Yesterday" / "Tue" / "Apr 28" via `java.time` — replaces the days-ago stub. Lives in `NotesRepository.kt` as a top-level `internal` function (testable).
+
+**Dropped `PinnedIds`:** `NoteRow` gains `isPinned` propagated from `NoteEntity.isPinned`; category view filters via `note.isPinned` directly.
+
+**Cleanup pass after the milestone landed:** removed dead `NoteEntity.recency` column (DAO now sorts by `updatedAt` and no consumer reads `recency`) — schema bumped to v2 with `fallbackToDestructiveMigrationFrom(1)`. Existing pre-release install wipes its notes DB on first v2 launch and re-seeds clean. Also removed dead `XpTokens.TealDeep`, `XpTokens.SurfaceMute`, unused `widthIn` import in `NotesCategoryView.kt`, unused `sp` import in `NotesListScreen.kt`, and the stub `recency = N` arg from all 9 seed rows.
+
+**Verified:** build clean, install + launch with no crashes, destructive migration fires + re-seed succeeds (the SQLCipher JNI lock log is the seed running), FAB opens blank editor with keyboard up, typing + back persists with new `updatedAt` floating the row to top, tapping a row opens it prefilled, empty new notes discarded, system back from editor returns to notes list.
+
+**Project shape after this milestone:** ~1750 lines of Kotlin across 29 source files. Largest file `NotesEditorScreen.kt` at 251 (single-purpose; accepted overage); next is `NotesCategoryView.kt` at 219.
 
 ```
 app/src/main/java/com/xpotrack/app/
-├── ui/components/XpReminderPill.kt    # Shared pill component (level + time chip)
-└── ui/tasks/
-    ├── TasksData.kt                    # ReminderLevel enum, TaskRow, TasksDb, timeline math
-    ├── TasksTimelineScreen.kt          # Top-level layout + header (Today + 4/9 counter)
-    ├── DayChips.kt                     # 7-day chip strip with Friday active
-    └── Timeline.kt                     # Hour grid + task pills + NOW indicator
-```
-
-Three new vector drawables in `app/src/main/res/drawable/`:
-
-```
-ic_reminder_silent.xml    crossed-out bell
-ic_reminder_notify.xml    bell
-ic_reminder_alarm.xml     alarm clock with ringers
-ic_check.xml              checkmark for done tasks
-```
-
-`MainActivity.kt` temporarily renders `TasksTimelineScreen` (proper navigation lands in milestone 4).
-
-### Implementation notes
-- **Reminder levels are first-class data.** `ReminderLevel` enum carries its own `accent` color, `tint`, `cardBg`, and `iconRes` so the per-level styling never needs branching in the UI code.
-- **Timeline math is centralized.** `TimelineStartHour=6`, `TimelineEndHour=22`, `HourHeightDp=56`. `timeToOffsetDp("09:15")` is the single function that translates `HH:mm` to a vertical offset. Everything else (`HourGrid`, `TaskPill`, `NowIndicator`) calls into it.
-- **Absolute positioning via `Modifier.offset(x, y)`.** Matches the CSS `position: absolute; top: X` from the mockup. Compose `Layout` would be more "idiomatic" but `offset` is simpler and translates the mockup 1:1.
-- **`XpReminderPill` is shared.** Both timeline pills (size `Sm`) and the upcoming task-detail screen (size `Md`) use it.
-- **Done tasks** dim to 45% opacity, strikethrough the label, drop the card border + background, and tint the rail at 30%. One conditional `alpha` modifier on the row + per-element `if (task.done)` branches.
-
-### Build & install
-Built in **4s** incremental. Compiled cleanly first try.
-
-```
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n com.xpotrack.app/.MainActivity
-```
-
-### What's verified on the phone
-- Header: "FRIDAY · MAY 16" eyebrow + "Today" h1; mono "4/9" counter with teal numerator and ink3 denominator + "DONE" cue
-- 7-day chip strip with Friday active (teal border + tint) and Thursday faded
-- Hour labels 6 AM → 10 PM rendering with their hairline dividers at the correct heights
-- 9 tasks pinned to their times with the right rail color and card tint per reminder level
-- Done tasks (Morning pages, Stretch + coffee) dimmed with strikethrough + checkmark
-- NOW indicator at 9:41 with the teal dot and horizontal line
-- User-approved as "good enough" — moving on
-
-### Deferred from this milestone
-- **NOW dot outer halo.** Mockup has `box-shadow: 0 0 0 4px rgba(94,234,212,0.18)` — same Compose-shadow limitation as the FAB. Will fix when we do a polish pass on the timeline.
-- **Hour-label letter spacing.** Mockup sets `letterSpacing: 0.05em` on hour labels; I dropped it after a botched `em` extension at first build. The label-medium type style still has its own letter spacing so it reads correctly, just not pixel-identical.
-- **Task pill animations.** No tap feedback / state transitions yet.
-- **Scroll-to-now on open.** Timeline opens scrolled to 6 AM; should auto-scroll so 9:41 is near the top.
-- **The day chip strip is hardcoded** to Thu–Wed of week-of-May-16. Real date math lands when tasks come from the DB.
-
-### Project tree after milestone 3
-```
-app/src/main/
-├── AndroidManifest.xml
-├── java/com/xpotrack/app/
-│   ├── MainActivity.kt
-│   └── ui/
-│       ├── theme/{XpTokens.kt, XpTheme.kt, XpTypography.kt}
-│       ├── components/XpReminderPill.kt
-│       ├── notes/{NotesData.kt, NotesListScreen.kt, NotesCategoryView.kt,
-│       │          NotesChronoView.kt, QuickEntryStrip.kt}
-│       └── tasks/{TasksData.kt, TasksTimelineScreen.kt, DayChips.kt, Timeline.kt}
-└── res/
-    ├── drawable/ic_*.xml            # 11 vector icons
-    ├── font/geist_*.ttf             # 6 font files
-    └── values/{strings.xml, themes.xml}
-```
-
----
-
----
-
-## Phase 5 — Milestone 4: Bottom tab navigation
-
-### Goal
-Connect Notes and Tasks behind a bottom tab bar matching the mockup, plus add placeholder screens for Vault and More so all 4 tabs are reachable.
-
-### Files added
-
-```
-app/src/main/java/com/xpotrack/app/
-├── ui/AppRoot.kt                       # Hosts active-tab state + lays out content above tabs
-├── ui/components/XpBottomTabs.kt       # The tab bar component (4 tabs, gradient fade, hairline top)
-├── ui/vault/VaultStubScreen.kt         # "Coming in milestone-3 of the design plan" placeholder
-└── ui/more/MoreStubScreen.kt           # "Coming later" placeholder
-```
-
-Four new tab-icon drawables:
-
-```
-ic_tab_notes.xml    ic_tab_tasks.xml    ic_tab_vault.xml    ic_tab_settings.xml
-```
-
-`MainActivity.kt` simplifies to just `XpTheme { AppRoot() }` — all layout (system-bar padding, root background) moved into `AppRoot`.
-
-### Implementation notes
-
-- **No Navigation-Compose yet.** With 4 tabs and no deep linking, a `var active by rememberSaveable { mutableStateOf(XpTab.Notes) }` + `when (active)` block is simpler and faster to compile. Will reach for Navigation-Compose when we need stacking (note editor pushed over notes list, task detail pushed over timeline, etc.).
-- **`rememberSaveable`** so the active tab survives configuration changes and process death.
-- **Tab bar lives in `XpBottomTabs.kt`** with a hairline top divider (`Hair` token) and a vertical gradient fade from transparent to `Bg` so content scrolling underneath blurs into the bar (matches `.xp-bottomtabs` from `system.jsx`).
-- **Active tab is just a color swap** — icon + label both shift to `Teal`. Inactive tabs use `Ink3`. No ripple/indicator overlay; we suppress the ripple with `indication = null` to match the mockup's calm aesthetic.
-- **Vault stub** uses the cool gradient background (`#050D0C → Bg`) from the real vault mockup, so even the placeholder telegraphs "separate space" — keeps the design promise alive while the full screen waits.
-
-### Build & install
-Built in **3s** incremental. Compiled clean.
-
-```
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n com.xpotrack.app/.MainActivity
-```
-
-### What's verified on the phone
-
-- App opens on Notes (default tab)
-- Bottom tab bar renders with NOTES (active, teal) · TASKS · VAULT · MORE
-- Tapping each tab swaps the content and updates the active highlight
-- Vault tab shows the cool-gradient placeholder
-- More tab shows the plain-bg placeholder
-- FAB on Notes and Tasks correctly sits above the tab bar
-- User-approved as "quite good" — moving on
-
-### Deferred from this milestone
-
-- **No tab-switch animation.** Cross-fade or slide would be nice; not blocking.
-- **No deep-link / back-stack handling.** Pressing system back from Tasks doesn't return to Notes — it exits the app. Will land with Navigation-Compose when we add the editor/detail destinations.
-- **Real Vault and More screens.** Still placeholders. Will be built when those features come online.
-- **Notes/Tasks screens reset on tab switch** in the worst case — scroll position survives because `rememberScrollState` is composition-scoped to the `when` branch, but if Compose decides to dispose the branch we lose it. Will revisit if it actually annoys.
-
-### Project tree after milestone 4
-
-```
-app/src/main/
-├── AndroidManifest.xml
-├── java/com/xpotrack/app/
-│   ├── MainActivity.kt                 # XpTheme + AppRoot
-│   └── ui/
-│       ├── AppRoot.kt                  # Tab state + content router
-│       ├── theme/{XpTokens.kt, XpTheme.kt, XpTypography.kt}
-│       ├── components/{XpBottomTabs.kt, XpReminderPill.kt}
-│       ├── notes/{NotesData.kt, NotesListScreen.kt, NotesCategoryView.kt,
-│       │          NotesChronoView.kt, QuickEntryStrip.kt}
-│       ├── tasks/{TasksData.kt, TasksTimelineScreen.kt, DayChips.kt, Timeline.kt}
-│       ├── vault/VaultStubScreen.kt
-│       └── more/MoreStubScreen.kt
-└── res/
-    ├── drawable/ic_*.xml                # 15 vector icons
-    ├── font/geist_*.ttf                 # 6 font files
-    └── values/{strings.xml, themes.xml}
-```
-
----
-
----
-
-## Phase 6 — Milestone 5: Room + SQLCipher backing the screens
-
-### Goal
-Replace the hardcoded `NotesDb` / `TasksDb` constants with a real, encrypted Room database. Screens read via ViewModels exposing `StateFlow<List<…>>`. Database file encrypted at rest with SQLCipher, key generated once on first launch.
-
-### Decisions locked at the start of this milestone
-- **Key storage:** 32-byte random passphrase in AndroidX `EncryptedSharedPreferences` (Keystore-backed master key, `AES256_GCM` scheme). Industry-standard pattern for SQLCipher keys. Survives app updates; destroyed by uninstall (which makes the DB unrecoverable — that's by design).
-- **Seeding:** mockup data is inserted on first launch only, so visual comparison against the mockup keeps working. Subsequent launches load from DB only.
-
-### Files added
-
-```
-app/src/main/java/com/xpotrack/app/
-├── XpApp.kt                            # Application subclass — DI container (notesRepo, tasksRepo)
-├── data/security/PassphraseStore.kt    # Keystore-backed 32-byte passphrase, get-or-create
-├── data/db/
-│   ├── Entities.kt                     # NoteEntity, TaskEntity, MetaEntity
-│   ├── Daos.kt                         # NoteDao, TaskDao, MetaDao — Flow-returning observers
-│   └── XpDatabase.kt                   # @Database; SQLCipher SupportOpenHelperFactory wiring
-└── data/repo/
-    ├── NotesRepository.kt              # entity → NoteRow mapping, observeAll(), seedIfEmpty()
-    ├── TasksRepository.kt              # entity → TaskRow mapping, observeAll(), seedIfEmpty()
-    └── SeedData.kt                     # 9 notes + 9 tasks lifted from the mockup
-ui/notes/NotesViewModel.kt              # exposes StateFlow<List<NoteRow>>
-ui/tasks/TasksViewModel.kt              # exposes StateFlow<List<TaskRow>>
-```
-
-### Files changed
-- `gradle/libs.versions.toml` — re-added `room`, `sqlcipher`, `sqliteKtx`, `securityCrypto`, `ksp` plugin, plus `lifecycle-runtime-compose` so we get `collectAsStateWithLifecycle()`.
-- `build.gradle.kts` (root) + `app/build.gradle.kts` — re-enabled KSP, added the new deps.
-- `AndroidManifest.xml` — `android:name=".XpApp"` on the `<application>` tag.
-- `MainActivity.kt` — unchanged behaviorally; still just `XpTheme { AppRoot() }`.
-- `ui/AppRoot.kt` — now resolves `NotesViewModel` and `TasksViewModel` via `viewModel(factory = …)`, collects state with `collectAsStateWithLifecycle()`, passes `notes`/`tasks` lists down.
-- `ui/notes/NotesListScreen.kt` + `NotesCategoryView.kt` + `NotesChronoView.kt` — now accept `notes: List<NoteRow>` as a parameter rather than reaching into `NotesDb` directly. Header and mode-strip counters compute from the parameter.
-- `ui/tasks/TasksTimelineScreen.kt` + `Timeline.kt` — same treatment with `tasks: List<TaskRow>`. The "done" counter (was hardcoded `4/9` in the mockup) now computes from the data — currently shows `2/9` because that's what the seed actually contains. User chose truthful over decorative.
-
-### Implementation notes
-
-- **Tiny manual DI.** `XpApp` constructs the DB and two repos, exposes them as fields. No Hilt, no Koin — we have two repos. The `viewModel(factory = …)` call in `AppRoot` pulls them via `LocalContext.current.applicationContext as XpApp`. Easy to swap for Hilt later if the project grows; not worth the annotation overhead today.
-- **Seed runs once.** `seedIfEmpty` checks `dao.count() == 0` and bails otherwise. Seeding happens in `appScope.launch { … }` on `Dispatchers.IO` — completes within milliseconds of cold start; the UI shows an empty list for a frame and then populates. Acceptable for now; if it gets noticeable we can `runBlocking` the seed on first launch only.
-- **Repository maps entity → UI model.** `NoteEntity → NoteRow`. The screens never see Room types — clean separation lets us reshape the entity later without touching the UI. `formatWhen()` is a placeholder ("Today" / "Yesterday" / "Nd" / "Nd ago"); the mockup's nicer formatter ("Tue", "Apr 28") lands when we have real updateAt values flowing through edits.
-- **`PinnedIds` is still hardcoded** in `NotesData.kt` and the seed cooperates by setting `isPinned = true` on the matching rows. The screen filter should eventually use `note.isPinned` and drop the `PinnedIds` set entirely — flagged below.
-- **`NotesDb` / `TasksDb` lists kept as defaults** for the screen composable parameters. This is a fallback path (used only if someone invokes the screen without a ViewModel — e.g. previews). They're noise now and should arguably be deleted in the cleanup pass.
-
-### Build & install + verification
-
-```
-./gradlew assembleDebug          # 12s incremental (KSP runs)
-adb uninstall com.xpotrack.app   # clean install — destroys any prior keystore key
-adb install app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n com.xpotrack.app/.MainActivity
-```
-
-**Database encryption verified.** First 16 bytes of `databases/xpotrack.db`:
-
-```
-aa 21 0b 0f 42 cd 29 a2 d5 3a 9f d1 8e 2f 2b 9b
-```
-
-Random — a plaintext SQLite file would start with `SQLite format 3\0` (ASCII). SQLCipher is working.
-
-**No crashes in logcat.** The only warnings are `JNI critical lock held` from SQLCipher writing the seed (one-time, hundreds of milliseconds), which is fine.
-
-### What's verified on the phone
-- Notes screen renders the 9 seeded notes
-- Tasks screen renders the 9 seeded tasks with truthful 2/9 done counter
-- Bottom tabs navigate
-- Background+foreground the app — state persists (no re-seed; data comes from the encrypted DB)
-- User-approved
-
-### Deferred from this milestone
-- **Real `formatWhen`** that produces "Tue", "Apr 28", "Today" like the mockup. Currently uses days-ago math.
-- **Drop `PinnedIds`** — the screen filter should read `note.isPinned`. Currently relies on the seeded rows getting ids 1 and 8 by Room's autoGenerate. Works for now, fragile if anyone adds a note before this is fixed.
-- **No writes yet.** Repositories only expose `observeAll` and `seedIfEmpty`. No `insert`, `update`, `delete`. That's the next milestone (or fold into editor work).
-- **First-launch UI flash.** The list is briefly empty until the seed completes. Negligible (<100ms) but visible if you watch.
-
-### Project tree after milestone 5
-
-```
-app/src/main/
-├── AndroidManifest.xml
-├── java/com/xpotrack/app/
-│   ├── MainActivity.kt
-│   ├── XpApp.kt
-│   ├── data/
-│   │   ├── db/{Entities.kt, Daos.kt, XpDatabase.kt}
-│   │   ├── repo/{NotesRepository.kt, TasksRepository.kt, SeedData.kt}
-│   │   └── security/PassphraseStore.kt
-│   └── ui/
-│       ├── AppRoot.kt
-│       ├── theme/{XpTokens.kt, XpTheme.kt, XpTypography.kt}
-│       ├── components/{XpBottomTabs.kt, XpReminderPill.kt}
-│       ├── notes/{NotesData.kt, NotesListScreen.kt, NotesCategoryView.kt,
-│       │          NotesChronoView.kt, QuickEntryStrip.kt, NotesViewModel.kt}
-│       ├── tasks/{TasksData.kt, TasksTimelineScreen.kt, DayChips.kt,
-│       │          Timeline.kt, TasksViewModel.kt}
-│       ├── vault/VaultStubScreen.kt
-│       └── more/MoreStubScreen.kt
-└── res/
-    ├── drawable/ic_*.xml                # 15 vector icons
-    ├── font/geist_*.ttf                 # 6 font files
-    └── values/{strings.xml, themes.xml}
-```
-
----
-
----
-
-## Phase 7 — Audit pass
-
-After milestone 5 the project had ~30 source files. Did a sweep for dead code, layering violations, files over the 200-line target, and leftover hardcoded data that should be gone now that the DB is wired.
-
-### What we found
-
-- **`NotesDb` / `TasksDb` constants still living in `ui/notes/NotesData.kt` and `ui/tasks/TasksData.kt`** — the milestone-2 / milestone-3 stub data. They were left as default values on the screen composables (`fun NotesListScreen(notes: List<NoteRow> = NotesDb, …)`). Silent footgun: if anything composes the screen without explicit data (a Preview, a test), it'd render stub data not matching the DB.
-- **`fillMaxWidthHack`** — a no-op `Modifier` extension I added during milestone 3 (`private fun Modifier.fillMaxWidthHack() = this`). Pure dead weight from a moment of "I'll come back to this".
-- **`ReminderLevel` enum carrying UI types** — it held `Color` fields and `R.drawable.*` ids. Lived in `ui/tasks/TasksData.kt`. That meant `data/repo/TasksRepository.kt` had to import from `ui/tasks` to call `ReminderLevel.valueOf(...)` — a direction-of-dependency violation (`data → ui`).
-- **`XpTokens` had ~11 unused fields** — type-size constants (`H1`, `H2`, `Body`, `Meta`, `Cue`, `BodyStrong`) and spacing constants (`ScreenPad`, `CardPad`, `Pill`, `RadiusSm`, `RadiusLg`). All aspirational; per-screen literals + `XpTypography` shadowed them everywhere. Color tokens kept (they map literal mockup hex values 1:1).
-- **`NotesCategoryView.kt` at 216 lines** — 16 over the 200-line guideline from CLAUDE.md. User chose to leave it; splitting would create thin satellite files that need to be read together anyway.
-
-### What we changed
-
-```
-ADDED
-  app/src/main/java/com/xpotrack/app/data/model/ReminderLevel.kt    # 4 lines — pure enum
-  app/src/main/java/com/xpotrack/app/ui/components/ReminderStyle.kt # was moved from ui/tasks
-                                                                     # then re-packaged so
-                                                                     # components/ doesn't
-                                                                     # depend on tasks/
-
-DELETED
-  NotesDb constant + screen default fallbacks                       # NotesData.kt trimmed
-  TasksDb constant + screen default fallbacks                       # TasksData.kt trimmed
-  fillMaxWidthHack extension + its call site                        # Timeline.kt
-  11 unused fields from XpTokens                                    # type/spacing constants
-
-CHANGED
-  XpReminderPill                  takes ReminderLevel (domain) and calls styleFor()
-  Timeline.kt:TaskPill            uses styleFor(task.level) instead of task.level.cardBg
-  TasksRepository                 imports ReminderLevel from data.model
-  SeedData.kt                     stringly-typed "Silent"/"Notify"/"Alarm" replaced with
-                                  ReminderLevel.Silent.name + private vals — no more risk
-                                  of a typo passing review and exploding at parse time
-```
-
-### Residual layering tension (documented, not fixed)
-
-`data/repo/NotesRepository.kt` and `data/repo/TasksRepository.kt` still import `NoteRow` and `TaskRow` from `ui/notes` and `ui/tasks`. Strictly that's data depending on ui. But:
-
-- `NoteRow` / `TaskRow` are plain Kotlin data classes — no Compose, no Android, no UI library imports.
-- Moving them to a `domain/` package would add a layer for one shared type each, with no callers in non-UI code today.
-
-The right move when the project grows beyond what one person can hold in their head: introduce a `domain/model/` package and move both. Until then, the convention is "UI models can be referenced from repositories iff they have no UI imports". Re-evaluate when the third feature surface lands (probably alarms, where a domain `Task` will need to exist independent of any screen).
-
-### Build & runtime verification
-
-```
-./gradlew assembleDebug          # 4s, clean
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n com.xpotrack.app/.MainActivity
-```
-
-App launches with the same 9 notes / 9 tasks / 2-of-9 counter. No regression. No new logcat errors.
-
-### Final shape after the audit
-
-```
-app/src/main/java/com/xpotrack/app/
-├── MainActivity.kt
-├── XpApp.kt
+├── MainActivity.kt · XpApp.kt
 ├── data/
 │   ├── model/ReminderLevel.kt
-│   ├── db/{Entities.kt, Daos.kt, XpDatabase.kt}
-│   ├── repo/{NotesRepository.kt, TasksRepository.kt, SeedData.kt}
+│   ├── db/{Entities, Daos, XpDatabase}.kt        # @Database version = 2
+│   ├── repo/{NotesRepository, TasksRepository, SeedData}.kt
 │   └── security/PassphraseStore.kt
 └── ui/
-    ├── AppRoot.kt
-    ├── theme/{XpTokens.kt, XpTheme.kt, XpTypography.kt}
-    ├── components/{XpBottomTabs.kt, XpReminderPill.kt, ReminderStyle.kt}
-    ├── notes/{NotesData.kt, NotesListScreen.kt, NotesCategoryView.kt,
-    │          NotesChronoView.kt, QuickEntryStrip.kt, NotesViewModel.kt}
-    ├── tasks/{TasksData.kt, TasksTimelineScreen.kt, DayChips.kt,
-    │          Timeline.kt, TasksViewModel.kt}
-    ├── vault/VaultStubScreen.kt
-    └── more/MoreStubScreen.kt
+    ├── AppRoot.kt                                # NavHost: tabs + editor/{id}
+    ├── theme/{XpTokens, XpTheme, XpTypography}.kt
+    ├── components/{XpBottomTabs, XpReminderPill, ReminderStyle}.kt
+    ├── notes/{NotesData, NotesListScreen, NotesCategoryView,
+    │          NotesChronoView, QuickEntryStrip, NotesViewModel,
+    │          NotesEditorScreen, NotesEditorViewModel}.kt
+    ├── tasks/{TasksData, TasksTimelineScreen, DayChips, Timeline, TasksViewModel}.kt
+    ├── vault/VaultStubScreen.kt                  # placeholder until milestone 10
+    └── more/MoreStubScreen.kt                    # placeholder until milestone 13
 ```
 
-Total: **1781 lines** of Kotlin across 28 source files. Largest file `NotesCategoryView.kt` at 216.
-
----
-
-## Phase 8 — APK size sweep
-
-### Why
-After milestone 5 the debug APK was **48 MB** despite the project containing only mockup-level UI and a tiny encrypted DB. Investigated before starting milestone 6 so we don't carry the bloat forward.
-
-### What we found via `unzip -l`
-- **~21 MB native libs** — SQLCipher AAR ships `libsqlcipher.so` for all 4 ABIs (`arm64-v8a`, `x86_64`, `x86`, `armeabi-v7a`). The target phone (iQOO Neo 7) is `arm64-v8a` only; the other three were dead weight.
-- **~27 MB DEX** — debug builds run without R8 / `shrinkResources`. Compose tooling + lifecycle + Room + AndroidX-security all packaged unstripped.
-- 810 KB fonts, 60 KB drawables, 400 KB `resources.arsc` — all fine.
-
-### What we changed in `app/build.gradle.kts`
-```kotlin
-defaultConfig {
-    ndk { abiFilters += "arm64-v8a" }            // drop 3 unused ABIs
-    vectorDrawables { useSupportLibrary = true } // shrink generated raster fallbacks
-}
-buildTypes {
-    release {
-        isMinifyEnabled = true                   // R8 on for release
-        isShrinkResources = true
-    }
-}
-dependenciesInfo {                               // strip Play-store dep metadata blob
-    includeInApk = false
-    includeInBundle = false
-}
-packaging {
-    resources.excludes += setOf(
-        "/META-INF/*.version",
-        "/META-INF/*.kotlin_module",
-        "/kotlin/**",
-        "/DebugProbesKt.bin",
-    )
-}
-```
-
-### `proguard-rules.pro` filled in
-Empty before. Release R8 needs explicit keep rules for code accessed by JNI / reflection / annotation processing:
-- `net.sqlcipher.**` + `net.zetetic.**` — JNI entry points
-- Room runtime + `@Entity` / `@Dao` / `@Database` annotated classes
-- Our `data.model.**` and `data.db.**` packages (entity field names matter to Room)
-- `-dontwarn` for `kotlinx.coroutines.debug.**`, `com.google.errorprone.annotations.**`, and `javax.annotation.**` — Tink (transitive via `androidx.security.crypto`) references compile-only annotations that aren't on the runtime classpath. Standard fix, harmless.
-
-### Results
-| Variant | Before | After |
-|---|---:|---:|
-| Debug APK | 48 MB | **32 MB** |
-| Release APK (R8 + shrinkResources) | — | **8.0 MB** |
-
-Release breakdown: 5.8 MB SQLCipher native lib, 2.0 MB DEX (down from 27 MB), 810 KB fonts. Native lib is now the dominant cost — non-negotiable, it's the only thing keeping the DB encrypted.
-
-### Verification
-- `./gradlew assembleDebug` + `assembleRelease` both clean
-- Debug APK installs over wireless adb, launches, seeded notes + tasks render, tabs switch, no logcat errors
-- Native libs in APK: only `lib/arm64-v8a/libsqlcipher.so` (5.5 MB) — three other ABIs gone
-
-### Source-tree audit
-Re-checked the 28 Kotlin files (1781 lines total). The milestone-5 audit pass left things clean — no dead code, no oversized files (largest still `NotesCategoryView.kt` at 216), no layering violations beyond the one already documented. **No source changes needed for this phase.**
-
-One known-residual flagged but deferred to milestone 6 (where it belongs with the rest of the writes work):
-- `PinnedIds` set in `NotesData.kt` is still used by `NotesCategoryView` instead of filtering on `note.isPinned`. Coupled to the seeded-row-id assumption — will be replaced when `formatWhen` and `upsert` land.
+**Deferred from this milestone:**
+- Markdown preview toggle + bottom format strip (milestone 7).
+- Pin/unpin action in the editor — currently read-only from seed.
+- Category picker in the editor — chip is display-only.
+- The dots-vertical "more" menu — no-op icon.
 
 ---
 
@@ -659,25 +140,31 @@ One known-residual flagged but deferred to milestone 6 (where it belongs with th
 
 Everything below comes from `docs/goal.md` (the original technical plan) and `docs/design-spec.md` (the 16 mockup screens + fidelity notes). Order is roughly bottom-up by dependency — each milestone unlocks the next without revisiting earlier work.
 
-Numbering picks up from the milestones already shipped (1–5 + audit). The MVP-1 / MVP-2 / MVP-3 / MVP-4 tier markers come from `docs/design-spec.md` §6 and indicate the slice each milestone belongs to.
+Numbering picks up from the milestones already shipped (1–6 + audit). The MVP-1 / MVP-2 / MVP-3 / MVP-4 tier markers come from `docs/design-spec.md` §6 and indicate the slice each milestone belongs to.
 
-### Milestone 6 — Notes editor + first writes  *(MVP-1, blocks everything that mutates)*
+## Milestone 7 — Markdown preview toggle
 
-Tap the FAB on Notes, get the **New note** screen from `new-note.jsx`. Tap a note, get the **Note editor** from `note-editor.jsx`. Type something, hit back, see it in the list with an updated `updatedAt`. Writes go through `NotesRepository.upsert(note)` — the first time the app actually mutates the DB.
+Write / Preview segmented toggle in the editor topbar. Write mode is unchanged (`BasicTextField` title + body). Preview mode renders the markdown body styled per `markdown-preview.jsx`: H1 with teal underline rule, H2, paragraphs, dash-list with teal em-dash, blockquote with teal left rule + italic body, fenced code blocks in mono on `surface1`, plus inline `**bold**` (teal semibold) and `*italic*`. Same `NotesEditorScreen` swaps the body per mode — no new route, the chrome is shared.
 
-- New screens: `NotesEditorScreen.kt` (write mode), `NewNoteScreen.kt` (empty state with shortcut hint card)
-- `NotesRepository.upsert(note: NoteRow): Long`, `delete(id)`
-- Real `formatWhen` ("Today" / "Yesterday" / "Tue" / "Apr 28") replacing the days-ago stub
-- Drop `PinnedIds` — filter by `NoteEntity.isPinned`
-- Navigation-Compose enters the build here — needed for editor pushed over the list with system back
+**New file:** `ui/notes/MarkdownRender.kt` — hand-rolled, single-pass line walker. No dependencies (`org.commonmark` was considered and dropped — the mockup uses ~6 block types and 2 inline marks, far below CommonMark's coverage; adding the dep buys edge cases we don't render). Parses and emits in one pass; no AST, no sealed types.
 
-### Milestone 7 — Markdown preview toggle  *(MVP-1)*
+**Editor state:** `EditorState` gains `previewMode: Boolean`. VM exposes `setPreview(on)`. Toggle is two clickable pills in a hairline-bordered pill row, mono label, teal fill on the active segment. Auto-focus on new note now also gates on `!previewMode`.
 
-Implement the Write / Preview segmented control from `note-editor.jsx`. Tapping "Preview" renders the markdown body fully styled per `markdown-preview.jsx`. Hybrid live-render (headings styled in place while editing) is deferred — straight toggle for now.
+**No bottom format strip.** Mockup `note-editor.jsx` has an H/B/I/list/code/quote strip and `markdown-preview.jsx` has Export/Edit ghost buttons — both rendered initially as no-ops per the milestone's "rendering-only; tap behavior deferred" note. Cut both during a tightening pass: a render-only no-op bar is textbook speculative work, and the 8 drawables it required were dead weight. Re-introduce when tap behavior actually lands (some of it ties into milestone 14 export).
 
-- Markdown renderer (lightweight — likely `org.commonmark:commonmark` + a Compose visitor that emits `Text` / `Column` / `Box` nodes; no WebView)
-- `MarkdownPreviewScreen.kt`
-- Bottom format-strip with the H / B / I / list / code / quote icons (rendering-only; tap behavior deferred to a polish pass)
+**Course-correction worth keeping:** first pass landed at ~647 lines across the two files with per-block @Composable helpers, a sealed `Block` hierarchy, a separate parse → render pipeline, and the dead bottom strips. Cut to 394 lines (168 renderer + 226 screen) by inlining helpers, fusing parse+render, and deleting the strips. Same visual output. Lesson: a single-use renderer doesn't need an AST.
+
+**Deferred (carry-forward):**
+- Hybrid live-render (headings styled in place while editing) — straight toggle suffices.
+- Instrument Serif for blockquote body — using italic Geist; bundle the `.ttf` later if/when fidelity demands it.
+- Mockup decoration: `· · ·` footer divider, "min read" estimate, teal-tinted `HH:mm` prefix inside code fences.
+- Pin/unpin, category picker, dots-vertical menu in the editor (unchanged from milestone 6).
+
+**Verified:** build clean, install + launch with no crashes; toggle flips body between Write and Preview without losing typed content; existing seeded notes render their `**bold**`/`*italic*`/headings/lists/quotes/code correctly; system back from either mode autosaves and pops to the list.
+
+---
+
+## Remaining roadmap
 
 ### Milestone 8 — Task create + alarms  *(MVP-2, the headline feature from the plan §4)*
 
@@ -771,4 +258,4 @@ User chose manual button only (not auto-export). Probably lands on the settings 
 
 ---
 
-That's the full path from where we are (Notes + Tasks reading from an encrypted DB behind a tab bar) to where `docs/goal.md` says we're going (a calm local-only notes-and-alarm app with a vault and an export hook for the Tailscale workflow).
+That's the full path from where we are (Notes + Tasks reading from an encrypted DB behind a tab bar, notes editable with autosave) to where `docs/goal.md` says we're going (a calm local-only notes-and-alarm app with a vault and an export hook for the Tailscale workflow).

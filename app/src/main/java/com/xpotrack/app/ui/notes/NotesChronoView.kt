@@ -1,6 +1,7 @@
 package com.xpotrack.app.ui.notes
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,17 +20,20 @@ import androidx.compose.ui.unit.sp
 import com.xpotrack.app.ui.theme.XpTokens
 
 @Composable
-fun NotesChronoContent(notes: List<NoteRow>) {
+fun NotesChronoContent(notes: List<NoteRow>, onOpenNote: (Int) -> Unit) {
     Column(Modifier.padding(horizontal = 16.dp)) {
         QuickEntryStrip()
-        val sorted = notes.sortedByDescending { it.recency }
-        sorted.forEachIndexed { i, note -> ChronoNoteRow(note, isLast = i == sorted.size - 1) }
+        notes.forEachIndexed { i, note -> ChronoNoteRow(note, isLast = i == notes.size - 1, onOpenNote) }
     }
 }
 
 @Composable
-private fun ChronoNoteRow(note: NoteRow, isLast: Boolean) {
-    Column(Modifier.padding(horizontal = 16.dp, vertical = 16.dp)) {
+private fun ChronoNoteRow(note: NoteRow, isLast: Boolean, onOpenNote: (Int) -> Unit) {
+    Column(
+        Modifier
+            .clickable { onOpenNote(note.id) }
+            .padding(horizontal = 16.dp, vertical = 16.dp),
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Text(
                 note.category.uppercase(),

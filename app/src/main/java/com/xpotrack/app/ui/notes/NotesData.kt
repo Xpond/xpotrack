@@ -11,13 +11,10 @@ data class NoteRow(
     val category: String,
     val when_: String,
     val words: Int,
-    val recency: Int,
+    val isPinned: Boolean = false,
 )
 
 data class Category(val name: String, val isCustom: Boolean)
-
-// Pinned still hardcoded by id; will be replaced by NoteEntity.isPinned in milestone 6.
-val PinnedIds: Set<Int> = setOf(1, 8)
 
 val Categories: List<Category> = listOf(
     Category("Personal", isCustom = false),

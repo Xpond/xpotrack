@@ -12,12 +12,10 @@ object XpTokens {
     val Bg = Color(0xFF06100F)
     val Surface1 = Color(0xFF0C1A19)
     val Surface2 = Color(0xFF122524)
-    val SurfaceMute = Color(0xFF091716)
 
     // Accents
     val Teal = Color(0xFF5EEAD4)
     val TealDim = Color(0xFF2DD4BF)
-    val TealDeep = Color(0xFF0F766E)
     val TealGlow = Color(0x245EEAD4)   // rgba(94,234,212,0.14)
 
     // Ink

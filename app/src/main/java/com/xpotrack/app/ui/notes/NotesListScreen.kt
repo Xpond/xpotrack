@@ -32,13 +32,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.xpotrack.app.R
 import com.xpotrack.app.ui.theme.XpTokens
 
 @Composable
 fun NotesListScreen(
     notes: List<NoteRow>,
+    onOpenNote: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var mode by remember { mutableStateOf(NotesMode.Category) }
@@ -56,12 +56,12 @@ fun NotesListScreen(
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
             ) {
-                if (mode == NotesMode.Category) NotesCategoryContent(notes)
-                else NotesChronoContent(notes)
+                if (mode == NotesMode.Category) NotesCategoryContent(notes, onOpenNote)
+                else NotesChronoContent(notes, onOpenNote)
                 Spacer(Modifier.height(100.dp))
             }
         }
-        NotesFab(Modifier.align(Alignment.BottomEnd))
+        NotesFab(Modifier.align(Alignment.BottomEnd), onClick = { onOpenNote(0) })
     }
 }
 
@@ -159,14 +159,15 @@ private fun ModeStrip(notes: List<NoteRow>, mode: NotesMode) {
 }
 
 @Composable
-private fun NotesFab(modifier: Modifier = Modifier) {
+private fun NotesFab(modifier: Modifier = Modifier, onClick: () -> Unit) {
     Box(
         modifier = modifier
             .padding(end = 22.dp, bottom = 86.dp)
             .size(56.dp)
             .shadow(elevation = 18.dp, shape = CircleShape, ambientColor = XpTokens.Teal, spotColor = XpTokens.Teal)
             .clip(CircleShape)
-            .background(XpTokens.Teal),
+            .background(XpTokens.Teal)
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(

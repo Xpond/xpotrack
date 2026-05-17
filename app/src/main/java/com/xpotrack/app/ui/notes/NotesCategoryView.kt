@@ -2,6 +2,7 @@ package com.xpotrack.app.ui.notes
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,7 +14,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,20 +33,20 @@ import com.xpotrack.app.R
 import com.xpotrack.app.ui.theme.XpTokens
 
 @Composable
-fun NotesCategoryContent(notes: List<NoteRow>) {
+fun NotesCategoryContent(notes: List<NoteRow>, onOpenNote: (Int) -> Unit) {
     QuickEntryStrip()
-    val pinned = notes.filter { it.id in PinnedIds }
-    if (pinned.isNotEmpty()) PinnedStrip(pinned)
+    val pinned = notes.filter { it.isPinned }
+    if (pinned.isNotEmpty()) PinnedStrip(pinned, onOpenNote)
     Spacer(Modifier.height(20.dp))
     val groups = Categories
-        .map { cat -> cat to notes.filter { it.category == cat.name && it.id !in PinnedIds }.sortedByDescending { it.recency } }
+        .map { cat -> cat to notes.filter { it.category == cat.name && !it.isPinned } }
         .filter { (_, n) -> n.isNotEmpty() }
-    groups.forEach { (cat, rows) -> CategoryGroup(cat, rows) }
+    groups.forEach { (cat, rows) -> CategoryGroup(cat, rows, onOpenNote) }
     NewCategoryButton()
 }
 
 @Composable
-private fun PinnedStrip(pinned: List<NoteRow>) {
+private fun PinnedStrip(pinned: List<NoteRow>, onOpenNote: (Int) -> Unit) {
     Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 6.dp, bottom = 10.dp)) {
             Icon(
@@ -65,20 +65,21 @@ private fun PinnedStrip(pinned: List<NoteRow>) {
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Spacer(Modifier.width(6.dp))
-            pinned.forEach { PinnedCard(it) }
+            pinned.forEach { PinnedCard(it, onOpenNote) }
             Spacer(Modifier.width(6.dp))
         }
     }
 }
 
 @Composable
-private fun PinnedCard(note: NoteRow) {
+private fun PinnedCard(note: NoteRow, onOpenNote: (Int) -> Unit) {
     Column(
         modifier = Modifier
             .width(220.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(XpTokens.Surface1)
             .border(0.5.dp, XpTokens.Hair, RoundedCornerShape(14.dp))
+            .clickable { onOpenNote(note.id) }
             .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
         Text(note.category.uppercase(), style = MaterialTheme.typography.labelSmall, color = XpTokens.TealDim)
@@ -100,7 +101,7 @@ private fun PinnedCard(note: NoteRow) {
 }
 
 @Composable
-private fun CategoryGroup(cat: Category, notes: List<NoteRow>) {
+private fun CategoryGroup(cat: Category, notes: List<NoteRow>, onOpenNote: (Int) -> Unit) {
     val visible = notes.take(3)
     val moreCount = notes.size - visible.size
     Column(Modifier.padding(start = 22.dp, end = 22.dp, bottom = 22.dp)) {
@@ -126,7 +127,7 @@ private fun CategoryGroup(cat: Category, notes: List<NoteRow>) {
         }
         Spacer(Modifier.height(10.dp))
         visible.forEachIndexed { i, note ->
-            CategoryNoteRow(note, isLast = i == visible.size - 1 && moreCount == 0)
+            CategoryNoteRow(note, isLast = i == visible.size - 1 && moreCount == 0, onOpenNote = onOpenNote)
         }
         if (moreCount > 0) {
             Spacer(Modifier.height(10.dp))
@@ -152,10 +153,11 @@ private fun CountChip(count: Int) {
 }
 
 @Composable
-private fun CategoryNoteRow(note: NoteRow, isLast: Boolean) {
+private fun CategoryNoteRow(note: NoteRow, isLast: Boolean, onOpenNote: (Int) -> Unit) {
     Column(
         Modifier
             .fillMaxWidth()
+            .clickable { onOpenNote(note.id) }
             .padding(vertical = 12.dp),
     ) {
         Row(verticalAlignment = Alignment.Bottom) {
