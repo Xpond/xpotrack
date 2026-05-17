@@ -35,7 +35,7 @@ import com.xpotrack.app.ui.tasks.TaskDetailViewModel
 import com.xpotrack.app.ui.tasks.TasksTimelineScreen
 import com.xpotrack.app.ui.tasks.TasksViewModel
 import com.xpotrack.app.ui.theme.XpTokens
-import com.xpotrack.app.ui.vault.VaultStubScreen
+import com.xpotrack.app.ui.vault.VaultGate
 
 @Composable
 fun AppRoot() {
@@ -43,6 +43,8 @@ fun AppRoot() {
     var sheetTaskId by rememberSaveable { mutableStateOf<Long?>(null) }
     var sheetToken by rememberSaveable { mutableStateOf(0) }
     val openSheet: (Long) -> Unit = { id -> sheetToken += 1; sheetTaskId = id }
+
+    var activeTab by rememberSaveable { mutableStateOf(XpTab.Notes) }
 
     Box(
         Modifier
@@ -53,9 +55,12 @@ fun AppRoot() {
         NavHost(navController = nav, startDestination = "tabs") {
             composable("tabs") {
                 TabsScaffold(
+                    active = activeTab,
+                    onSelectTab = { activeTab = it },
                     onOpenNote = { id -> nav.navigate("editor/$id") },
                     onOpenTask = { id -> nav.navigate("task/$id") },
                     onNewTask = { openSheet(0L) },
+                    onLockExit = { activeTab = XpTab.Notes },
                 )
             }
             composable(
@@ -109,17 +114,18 @@ fun AppRoot() {
 
 @Composable
 private fun TabsScaffold(
+    active: XpTab,
+    onSelectTab: (XpTab) -> Unit,
     onOpenNote: (Int) -> Unit,
     onOpenTask: (Long) -> Unit,
     onNewTask: () -> Unit,
+    onLockExit: () -> Unit,
 ) {
     val app = LocalContext.current.applicationContext as XpApp
     val notesVm: NotesViewModel = viewModel(factory = NotesViewModel.Factory(app.notesRepo))
     val tasksVm: TasksViewModel = viewModel(factory = TasksViewModel.Factory(app.tasksRepo))
     val notes by notesVm.notes.collectAsStateWithLifecycle()
     val tasks by tasksVm.tasks.collectAsStateWithLifecycle()
-
-    var active by rememberSaveable { mutableStateOf(XpTab.Notes) }
 
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
@@ -129,10 +135,10 @@ private fun TabsScaffold(
                     tasks = tasks,
                     onOpenTask = { id -> if (id == 0L) onNewTask() else onOpenTask(id) },
                 )
-                XpTab.Vault -> VaultStubScreen()
+                XpTab.Vault -> VaultGate(onLockExit = onLockExit)
                 XpTab.More  -> MoreStubScreen()
             }
         }
-        XpBottomTabs(active = active, onSelect = { active = it })
+        XpBottomTabs(active = active, onSelect = onSelectTab)
     }
 }

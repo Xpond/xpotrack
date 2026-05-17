@@ -281,23 +281,68 @@ Tap a timeline pill, get `task-detail.jsx`: hero time in mono accent-colored to 
 
 ---
 
+## Milestone 10 — Vault, unlock, locked-note
+
+The MVP-3 encryption-layer-2 cut. Vault tab graduates from placeholder to a four-phase flow (Setup → Unlock → List → LockedNote), gated by a single passphrase that derives the AES key for every locked-note body. The wider notes table is partitioned by `isLocked` so the regular Notes list never sees vault rows.
+
+**Design decisions locked up front (before writing code):**
+- **Single vault passphrase** unlocks all locked notes for the session (not per-note as the goal doc literally reads — that doesn't match the `vault.jsx` mockup which previews all 5 items already unlocked).
+- **Freeform markdown body**, encrypted as one blob per note. Mockup's structured `SecretRow` (Bank/Account/Password fields with reveal toggles) is rendered approximately as a mono-font markdown body — the per-row reveal interaction is deferred.
+- **First-run setup screen** (create passphrase + confirm + biometric opt-in) before the unlock screen ever shows. No deferred "create the first locked note → prompt for passphrase" flow.
+- **Vault-only entry point.** FAB in Vault creates locked notes. Existing-note → lock action deferred. Keeps milestone 10 tight.
+
+**Schema v4 → v5.** `NoteEntity` gains `encryptedBlob: ByteArray?`. When `isLocked = true`, `title`/`category` stay plaintext (the list needs to render them) and `bodyMarkdown = ""` with ciphertext in `encryptedBlob`. `fallbackToDestructiveMigrationFrom(1, 2, 3, 4)`. `NoteDao.observeAll()` now filters `isLocked = 0`, new `observeLocked()` for the vault list. `count()` also filtered so the seed-on-first-launch guard still works.
+
+**Crypto stack:**
+- **PBKDF2-HMAC-SHA256, 210k iterations, 256-bit key** (Apple iOS default). Initially 600k per OWASP password-storage guidance, but that derivation takes 1–3 seconds on this phone and the threat model is *device-local* — the DB is already SQLCipher-wrapped, so the vault is layer two. 210k is ~3× faster with no meaningful loss of strength against on-device guessers. Lower than this would start to feel sloppy.
+- **AES-256-GCM** for body encryption. Per-note random 16-byte salt + 12-byte IV prepended to ciphertext: blob layout `[salt | iv | ct+tag]`. HMAC-SHA256 stretches the vault key with the per-note salt for domain separation (each note gets a unique AES key without re-running PBKDF2).
+- **Verifier**: PBKDF2(passphrase, salt) stored at setup. Unlock re-derives and constant-time compares — passphrase is never stored.
+- **Biometric (optional)**: Android Keystore AES key, `setUserAuthenticationRequired(true)` + `setInvalidatedByBiometricEnrollment(true)`. Wraps the passphrase bytes. `BiometricPrompt` authorizes the `Cipher`, then `wrap`/`unwrap` runs. Adding or removing a fingerprint nukes the key — user falls back to passphrase, which is the right semantics.
+
+**Files added under `data/security/`:** `VaultCrypto.kt`, `VaultMetaStore.kt` (EncryptedSharedPreferences for salt + verifier + biometric blob/IV), `VaultKeyStore.kt`, `VaultSession.kt` (in-memory key + auto-lock timer). Under `data/repo/`: `VaultRepository.kt`. Under `ui/vault/`: `VaultData.kt` (`LockedNote` + `LockedNoteRow`), `VaultViewModel.kt` (the `Setup/Unlock/List/Note` phase machine), `VaultBiometric.kt` (BiometricPrompt wrapper), `VaultSetupScreen.kt`, `VaultUnlockScreen.kt`, `VaultListScreen.kt`, `LockedNoteScreen.kt`, `VaultGate.kt` (sub-router replacing the stub). Drawables: `ic_lock`, `ic_fingerprint`, `ic_shield`.
+
+**The course-corrections that cost real time — write them down so we don't repeat them:**
+
+- **`FragmentActivity` switch detonated on clear-data**. `BiometricPrompt` requires `FragmentActivity`, so `MainActivity` switched from `ComponentActivity`. That transitively pulled in `androidx.fragment` 1.3.x via `androidx.biometric:1.2.0-alpha05`. The older fragment lib has a stricter `requestCode` validator (16-bit only) that *clashes with `ComponentActivity`'s `ActivityResultRegistry`*, which uses 32-bit codes. Result: the very first `registerForActivityResult` launch — the `POST_NOTIFICATIONS` prompt on first run — threw `IllegalArgumentException: Can only use lower 16 bits for requestCode` and the activity died before `setContent`. Symptom: the app launched fine on existing installs (permission already granted, no result-launch on resume) but crashed instantly after `pm clear`. Fix: pin `androidx.fragment:fragment-ktx:1.8.5` in the version catalog so the modern fragment lib wins the transitive resolution. **Lesson:** when changing the activity superclass, recheck *every* lifecycle hook touched on first-run. The "works on existing install" check is worthless if it can't survive a fresh install.
+- **PBKDF2 was running on the main thread**. `vm.unlockWithPassphrase` was a regular `fun` doing key derivation inline. UI froze for the whole 1–3s derivation, and "Wrong passphrase" feedback was equally delayed. Refactored every key-deriving entrypoint (`setupPassphrase`, `unlockWithPassphrase`, `unlockWithBiometric`) into `viewModelScope.launch { withContext(Dispatchers.Default) { ... } }`. Added a `verifying: StateFlow<Boolean>` so the Unlock button shows "Verifying…" the instant the user taps and disables itself until the result lands. Compose recomposes on the immediate state flip, then again when the derivation finishes — no main-thread stall, no perceived lag.
+- **Lock-now stranded the user on the unlock screen**. First cut: tap the teal lock-now button on the vault list → `session.lock()` → `init { session.state.collect }` flips `_phase` to `VaultPhase.Unlock`. The user is *trying to leave the vault*, not unlock it again. Fix: `VaultGate` accepts an `onLockExit` callback; lock-now calls both `vm.lockNow()` and `onLockExit()`. `AppRoot` lifts the active-tab state above `TabsScaffold` so the callback flips back to Notes. Next Vault-tap shows Unlock — which is the right place at that point.
+- **`' '` vs `' '` invisible-character edit hazard.** A `java.util.Arrays.fill(chars, ' ')` line ended up in the file as `java.util.Arrays.fill(chars, ' ')` after the initial write. The Read tool displays ` ` as a space, so subsequent Edit calls trying to match `' '` failed silently with "string not found". Resolved by piping through Python with explicit `\x00` in the search string. **Lesson:** when an Edit fails on a string that looks identical to what's in the file, suspect invisible chars — bypass Edit and use a tool that shows bytes.
+- **Auto-lock copy + chrome bloat**. Initial vault list had a hardcoded "Auto-lock in 5m · device-only" status strip ripped from the mockup. User pushed back: don't show what's already implicit. Removed the strip; locked-note footer ("Encrypted on this device · Auto-locks in 5m") and unlock screen footer ("Auto-locks after 5 minutes of inactivity") also dropped. Cut auto-lock window from 5 min → **1 min** while at it — the original 5 was mockup-faithful but too lax for a passwords-grade surface.
+
+**Final file shape (vault surface):**
+
+```
+data/security/
+├── VaultCrypto.kt          # PBKDF2 + AES-GCM, per-note salt
+├── VaultMetaStore.kt       # salt/verifier/biometric blob in EncryptedSharedPreferences
+├── VaultKeyStore.kt        # biometric-wrapped passphrase via Keystore
+└── VaultSession.kt         # in-memory SecretKey + 1-min auto-lock timer
+data/repo/
+└── VaultRepository.kt      # observeLocked(), open(id,key), upsert(note,key), delete(id)
+ui/vault/
+├── VaultData.kt            # LockedNote + LockedNoteRow
+├── VaultViewModel.kt       # Setup/Unlock/List/Note phase machine
+├── VaultBiometric.kt       # BiometricPrompt wrapper
+├── VaultGate.kt            # sub-router rendered by TabsScaffold for XpTab.Vault
+├── VaultSetupScreen.kt     # first-run passphrase + biometric opt-in
+├── VaultUnlockScreen.kt    # fingerprint badge + passphrase fallback + verifying state
+├── VaultListScreen.kt      # vault.jsx chrome + masked previews + FAB
+└── LockedNoteScreen.kt     # locked-note.jsx chrome + markdown editor
+```
+
+**Verified on device:** v4 → v5 destructive migration runs cleanly (JNI lock log + reseed). Clear-data → relaunch lands on Setup (not crash). Setup with biometric toggle creates the vault, prompts for fingerprint, lands on empty List. FAB opens LockedNote with keyboard up. Type + back persists; row appears in the list. Tap the row → reopens with the decrypted body. Tap lock-now → drops back to Notes tab and clears the in-memory key. Re-tap Vault → Unlock with fingerprint or passphrase, lands back on List with the row preserved. Switch to Notes — locked rows do *not* appear. Idle 1 min on the vault tab → re-tap Vault → Unlock. Wrong passphrase fires immediately, Unlock button reads "Verifying…" only during the derivation window.
+
+**Carry-forward deferrals:**
+- Per-row "reveal" interaction from `locked-note.jsx` (`SecretRow.reveal`) — we render markdown.
+- Live "Auto-lock in 4m 12s" countdown chip from `vault.jsx` — we cut the chip entirely, the session timer is real.
+- Moving an existing plain note into the vault (no lock action on `NotesEditorScreen`).
+- Passphrase change. No recovery path — by design.
+- Category picker inside locked notes (display-only "Vault" until milestone 11).
+- Dots-vertical "more" menu in `LockedNoteScreen` (same as `NotesEditorScreen`).
+
+---
+
 ## Remaining roadmap
-
-### Milestone 10 — Vault, unlock, locked-note open  *(MVP-3, encryption layer 2)*
-
-The vault tab graduates from placeholder to the full three-screen flow:
-
-1. `vault-unlock.jsx` — fingerprint via `BiometricPrompt`, passphrase fallback
-2. `vault.jsx` — locked-notes list with the cool gradient bg, lock chrome, auto-lock countdown
-3. `locked-note.jsx` — secret editor with masked rows + reveal toggle
-
-Per-note encryption (plan §5 layer 2): user-set passphrase, derived via PBKDF2/Argon2 with a per-note salt, encrypts the body. Plaintext wiped from the row — only `encryptedBlob` remains. No recovery path.
-
-- `VaultUnlockScreen`, `VaultListScreen`, `LockedNoteScreen` (replace the stub)
-- `androidx.biometric:biometric` dependency
-- Keystore key wrapping the vault password
-- `VaultCrypto.kt` — encrypt/decrypt with per-note salt
-- Auto-lock timer hooked into lifecycle (5 min default per mockup)
 
 ### Milestone 11 — Category manager + custom categories  *(MVP-4)*
 

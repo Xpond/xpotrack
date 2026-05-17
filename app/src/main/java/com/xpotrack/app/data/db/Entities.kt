@@ -11,6 +11,9 @@ data class NoteEntity(
     val category: String,
     val isPinned: Boolean = false,
     val isLocked: Boolean = false,
+    // Vault: when isLocked, bodyMarkdown is "" and ciphertext lives here.
+    // Layout per VaultCrypto.encryptNote: [salt(16) | iv(12) | ct+tag].
+    val encryptedBlob: ByteArray? = null,
     val createdAt: Long,
     val updatedAt: Long,
 )

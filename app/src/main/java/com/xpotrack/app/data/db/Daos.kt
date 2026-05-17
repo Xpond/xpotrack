@@ -8,8 +8,11 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface NoteDao {
-    @Query("SELECT * FROM notes ORDER BY updatedAt DESC")
+    @Query("SELECT * FROM notes WHERE isLocked = 0 ORDER BY updatedAt DESC")
     fun observeAll(): Flow<List<NoteEntity>>
+
+    @Query("SELECT * FROM notes WHERE isLocked = 1 ORDER BY updatedAt DESC")
+    fun observeLocked(): Flow<List<NoteEntity>>
 
     @Query("SELECT * FROM notes WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): NoteEntity?
@@ -23,7 +26,7 @@ interface NoteDao {
     @Query("DELETE FROM notes WHERE id = :id")
     suspend fun delete(id: Long)
 
-    @Query("SELECT COUNT(*) FROM notes")
+    @Query("SELECT COUNT(*) FROM notes WHERE isLocked = 0")
     suspend fun count(): Int
 }
 

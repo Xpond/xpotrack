@@ -8,6 +8,9 @@ import com.xpotrack.app.data.model.ReminderLevel
 import com.xpotrack.app.data.repo.NotesRepository
 import com.xpotrack.app.data.repo.SeedData
 import com.xpotrack.app.data.repo.TasksRepository
+import com.xpotrack.app.data.repo.VaultRepository
+import com.xpotrack.app.data.security.VaultMetaStore
+import com.xpotrack.app.data.security.VaultSession
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -23,6 +26,12 @@ class XpApp : Application() {
         private set
     lateinit var alarmScheduler: AlarmScheduler
         private set
+    lateinit var vaultRepo: VaultRepository
+        private set
+    lateinit var vaultMeta: VaultMetaStore
+        private set
+    lateinit var vaultSession: VaultSession
+        private set
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -33,6 +42,9 @@ class XpApp : Application() {
         alarmScheduler = AlarmScheduler(this)
         notesRepo = NotesRepository(db.noteDao())
         tasksRepo = TasksRepository(db.taskDao(), alarmScheduler)
+        vaultRepo = VaultRepository(db.noteDao())
+        vaultMeta = VaultMetaStore(this)
+        vaultSession = VaultSession()
 
         appScope.launch {
             val now = System.currentTimeMillis()
