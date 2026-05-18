@@ -33,7 +33,6 @@ class NotesEditorViewModel(
                         body = existing.preview,
                         categoryId = existing.categoryId,
                         categoryName = existing.categoryName,
-                        isPinned = existing.isPinned,
                         loaded = true,
                     )
                 } ?: run { _state.value = _state.value.copy(loaded = true) }
@@ -72,8 +71,6 @@ class NotesEditorViewModel(
                 categoryId = s.categoryId,
                 categoryName = s.categoryName,  // ignored on write — repo reads from FK
                 when_ = "",
-                words = 0,
-                isPinned = s.isPinned,
             )
         )
     }
@@ -95,7 +92,6 @@ data class EditorState(
     val body: String = "",
     val categoryId: Long = 0L,
     val categoryName: String = "Uncategorized",
-    val isPinned: Boolean = false,
     val loaded: Boolean = false,
     val previewMode: Boolean = false,
 )

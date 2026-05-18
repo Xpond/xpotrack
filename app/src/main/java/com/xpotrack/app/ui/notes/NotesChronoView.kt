@@ -3,12 +3,12 @@ package com.xpotrack.app.ui.notes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,50 +20,38 @@ import androidx.compose.ui.unit.sp
 import com.xpotrack.app.ui.theme.XpTokens
 
 @Composable
-fun NotesChronoContent(notes: List<NoteRow>, quick: QuickSummary, onOpenNote: (Int) -> Unit, onOpenQuick: () -> Unit) {
-    Column(Modifier.padding(horizontal = 16.dp)) {
-        QuickEntryStrip(count = quick.count, oldestLeft = quick.oldestLeft, onClick = onOpenQuick)
-        notes.forEachIndexed { i, note -> ChronoNoteRow(note, isLast = i == notes.size - 1, onOpenNote) }
-    }
-}
-
-@Composable
-private fun ChronoNoteRow(note: NoteRow, isLast: Boolean, onOpenNote: (Int) -> Unit) {
-    Column(
-        Modifier
+fun ChronoNoteRow(
+    note: NoteRow,
+    showTag: Boolean,
+    isLast: Boolean,
+    onOpenNote: (Int) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
             .clickable { onOpenNote(note.id) }
-            .padding(horizontal = 16.dp, vertical = 16.dp),
+            .padding(horizontal = 22.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Text(
+            note.title,
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 16.sp),
+            color = XpTokens.Ink,
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        if (showTag) {
+            Spacer(Modifier.width(12.dp))
             Text(
                 note.categoryName.uppercase(),
                 style = MaterialTheme.typography.labelSmall,
-                color = XpTokens.TealDim,
-            )
-            Spacer(Modifier.weight(1f))
-            Text(
-                note.when_,
-                style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.5.sp),
                 color = XpTokens.Ink3,
             )
         }
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.width(14.dp))
         Text(
-            note.title,
-            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
-            color = XpTokens.Ink,
-        )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            note.preview,
-            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.5.sp, lineHeight = 21.sp),
-            color = XpTokens.Ink2,
-            maxLines = 2, overflow = TextOverflow.Ellipsis,
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "${note.words} words",
-            style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp),
+            note.when_,
+            style = MaterialTheme.typography.labelSmall,
             color = XpTokens.Ink3,
         )
     }
@@ -71,6 +59,7 @@ private fun ChronoNoteRow(note: NoteRow, isLast: Boolean, onOpenNote: (Int) -> U
         Box(
             Modifier
                 .fillMaxWidth()
+                .padding(horizontal = 22.dp)
                 .height(0.5.dp)
                 .background(XpTokens.Hair)
         )

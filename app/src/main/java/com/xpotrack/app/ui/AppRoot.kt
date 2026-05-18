@@ -74,7 +74,6 @@ fun AppRoot() {
                     onOpenTask = { id -> nav.navigate("task/$id") },
                     onNewTask = { openSheet(0L) },
                     onLockExit = { activeTab = XpTab.Notes },
-                    onManageCategories = { managerOpen = true },
                     onOpenQuick = { nav.navigate("quick") },
                 )
             }
@@ -175,7 +174,6 @@ private fun TabsScaffold(
     onOpenTask: (Long) -> Unit,
     onNewTask: () -> Unit,
     onLockExit: () -> Unit,
-    onManageCategories: () -> Unit,
     onOpenQuick: () -> Unit,
 ) {
     val app = LocalContext.current.applicationContext as XpApp
@@ -192,7 +190,6 @@ private fun TabsScaffold(
                 XpTab.Notes -> NotesListScreen(
                     notes = notes, categories = cats, quick = quick,
                     onOpenNote = onOpenNote,
-                    onManageCategories = onManageCategories,
                     onOpenQuick = onOpenQuick,
                 )
                 XpTab.Tasks -> TasksTimelineScreen(

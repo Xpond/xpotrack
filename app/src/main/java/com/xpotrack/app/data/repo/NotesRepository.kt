@@ -40,7 +40,6 @@ class NotesRepository(
             title = row.title,
             bodyMarkdown = row.preview,
             categoryId = row.categoryId.takeIf { it > 0L },
-            isPinned = row.isPinned,
             isLocked = existing?.isLocked ?: false,
             createdAt = existing?.createdAt ?: now,
             updatedAt = now,
@@ -63,8 +62,6 @@ class NotesRepository(
             categoryId = cat?.id ?: 0L,
             categoryName = cat?.name ?: "Uncategorized",
             when_ = formatWhen(e.updatedAt),
-            words = e.bodyMarkdown.split(Regex("\\s+")).filter { it.isNotBlank() }.size,
-            isPinned = e.isPinned,
         )
     }
 }

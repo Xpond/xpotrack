@@ -43,7 +43,6 @@ class VaultRepository(private val dao: NoteDao) {
             title = note.title,
             bodyMarkdown = "",
             categoryId = null,
-            isPinned = false,
             isLocked = true,
             encryptedBlob = blob,
             createdAt = existing?.createdAt ?: now,

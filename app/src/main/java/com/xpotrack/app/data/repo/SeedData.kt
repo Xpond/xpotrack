@@ -19,7 +19,6 @@ object SeedData {
         return listOf(
             NoteEntity(title = "Field notes — Sausalito",
                 bodyMarkdown = "The ferry crosses at 7:40, then again at 9:15. Bring the linen jacket.",
-                isPinned = true,
                 createdAt = now - 9 * day, updatedAt = now),
             NoteEntity(title = "Reading queue",
                 bodyMarkdown = "· The Mezzanine — Nicholson Baker\n· Patrimony — Philip Roth\n· Cosmicomics",
@@ -41,7 +40,6 @@ object SeedData {
                 createdAt = now - 2 * day, updatedAt = now - 24 * day),
             NoteEntity(title = "Q2 planning",
                 bodyMarkdown = "Three bets: search refactor, mobile onboarding, ops dashboard. Pick two.",
-                isPinned = true,
                 createdAt = now - 1 * day, updatedAt = now - 26 * day),
             NoteEntity(title = "Shower thought",
                 bodyMarkdown = "A todo list is just a note that yells at you.",

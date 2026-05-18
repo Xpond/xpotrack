@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -19,7 +20,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -34,6 +37,10 @@ import androidx.compose.ui.unit.dp
 import com.xpotrack.app.R
 import com.xpotrack.app.data.model.Category
 import com.xpotrack.app.ui.theme.XpTokens
+import kotlinx.coroutines.delay
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun NotesListScreen(
@@ -41,11 +48,32 @@ fun NotesListScreen(
     categories: List<Category>,
     quick: QuickSummary,
     onOpenNote: (Int) -> Unit,
-    onManageCategories: () -> Unit,
     onOpenQuick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var mode by remember { mutableStateOf(NotesMode.Category) }
+    // null = "All notes"; 0L = Uncategorized; >0 = a category id.
+    var filterId by remember { mutableStateOf<Long?>(null) }
+    var searchOpen by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
+
+    val activeCategory = filterId?.let { id ->
+        if (id == 0L) null else categories.firstOrNull { it.id == id }
+    }
+    val filterLabel = when {
+        filterId == null -> null
+        filterId == 0L -> "Uncategorized"
+        else -> activeCategory?.name ?: "All notes"
+    }
+    val byCategory = when (filterId) {
+        null -> notes
+        0L -> notes.filter { it.categoryId == 0L }
+        else -> notes.filter { it.categoryId == filterId }
+    }
+    val q = query.trim()
+    val filtered = if (searchOpen && q.isNotEmpty()) {
+        byCategory.filter { it.title.contains(q, ignoreCase = true) }
+    } else byCategory
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -53,22 +81,37 @@ fun NotesListScreen(
     ) {
         TopHalo()
         Column(Modifier.fillMaxSize()) {
-            NotesHeader(notes = notes, categories = categories, mode = mode, onToggle = { mode = it })
-            ModeStrip(notes = notes, categories = categories, mode = mode)
+            if (searchOpen) {
+                NotesSearchBar(
+                    query = query,
+                    onQueryChange = { query = it },
+                    onClose = { searchOpen = false; query = "" },
+                )
+            } else {
+                NotesHeader(onSearch = { searchOpen = true })
+                NotesFilterBar(
+                    label = filterLabel,
+                    totalCount = notes.size,
+                    categories = categories,
+                    notes = notes,
+                    onPick = { filterId = it },
+                    onClear = { filterId = null },
+                )
+            }
+            QuickEntryStrip(count = quick.count, oldestLeft = quick.oldestLeft, onClick = onOpenQuick)
             Column(
                 Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
             ) {
-                if (mode == NotesMode.Category) NotesCategoryContent(
-                    notes = notes,
-                    categories = categories,
-                    quick = quick,
-                    onOpenNote = onOpenNote,
-                    onManageCategories = onManageCategories,
-                    onOpenQuick = onOpenQuick,
-                )
-                else NotesChronoContent(notes, quick, onOpenNote, onOpenQuick)
+                filtered.forEachIndexed { i, note ->
+                    ChronoNoteRow(
+                        note = note,
+                        showTag = filterId == null,
+                        isLast = i == filtered.size - 1,
+                        onOpenNote = onOpenNote,
+                    )
+                }
                 Spacer(Modifier.height(100.dp))
             }
         }
@@ -76,11 +119,8 @@ fun NotesListScreen(
     }
 }
 
-enum class NotesMode { Category, Chrono }
-
 @Composable
 private fun TopHalo() {
-    // status-bar radial glow from system.jsx `.xp-app::before`
     Box(
         Modifier
             .fillMaxWidth()
@@ -95,33 +135,43 @@ private fun TopHalo() {
 }
 
 @Composable
-private fun NotesHeader(notes: List<NoteRow>, categories: List<Category>, mode: NotesMode, onToggle: (NotesMode) -> Unit) {
+private fun NotesHeader(onSearch: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 22.dp, end = 18.dp, top = 14.dp, bottom = 4.dp),
+            .padding(start = 22.dp, end = 18.dp, top = 14.dp),
         verticalAlignment = Alignment.Bottom,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(
-                "Friday · May 16".uppercase(),
-                style = MaterialTheme.typography.labelSmall,
-                color = XpTokens.Ink3,
-            )
-            Spacer(Modifier.height(8.dp))
+            DateTimeStrip()
+            Spacer(Modifier.height(14.dp))
             Text("Notes", style = MaterialTheme.typography.displayLarge, color = XpTokens.Ink)
         }
-        IconBtn(R.drawable.ic_search, "Search", tint = XpTokens.Ink2)
-        Spacer(Modifier.size(4.dp))
-        val isChrono = mode == NotesMode.Chrono
-        IconBtn(
-            iconRes = if (isChrono) R.drawable.ic_grouped else R.drawable.ic_sort_date,
-            contentDesc = "Toggle sort mode",
-            tint = if (isChrono) XpTokens.Teal else XpTokens.Ink2,
-            borderColor = if (isChrono) XpTokens.Teal else XpTokens.Hair2,
-            background = if (isChrono) Color(0x0F5EEAD4) else Color.Transparent,
-            onClick = { onToggle(if (isChrono) NotesMode.Category else NotesMode.Chrono) },
-        )
+        IconBtn(R.drawable.ic_search, "Search", tint = XpTokens.Ink2, onClick = onSearch)
+    }
+}
+
+@Composable
+private fun DateTimeStrip() {
+    // Recompose once per minute so HH:MM stays current without spinning the clock.
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            val msToNextMinute = 60_000L - (System.currentTimeMillis() % 60_000L)
+            delay(msToNextMinute)
+            now = System.currentTimeMillis()
+        }
+    }
+    val date = remember(now / 86_400_000L) {
+        SimpleDateFormat("EEEE · MMM d", Locale.getDefault()).format(Date(now))
+    }
+    val time = remember(now / 60_000L) {
+        SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(now))
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(date.uppercase(), style = MaterialTheme.typography.labelSmall, color = XpTokens.Ink3)
+        Spacer(Modifier.width(10.dp))
+        Text(time, style = MaterialTheme.typography.labelSmall, color = XpTokens.Ink3)
     }
 }
 
@@ -130,16 +180,13 @@ private fun IconBtn(
     iconRes: Int,
     contentDesc: String,
     tint: Color,
-    borderColor: Color = XpTokens.Hair2,
-    background: Color = Color.Transparent,
     onClick: () -> Unit = {},
 ) {
     Box(
         modifier = Modifier
             .size(38.dp)
             .clip(CircleShape)
-            .background(background)
-            .border(0.5.dp, borderColor, CircleShape)
+            .border(0.5.dp, XpTokens.Hair2, CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -148,23 +195,6 @@ private fun IconBtn(
             contentDescription = contentDesc,
             tint = tint,
             modifier = Modifier.size(18.dp),
-        )
-    }
-}
-
-@Composable
-private fun ModeStrip(notes: List<NoteRow>, categories: List<Category>, mode: NotesMode) {
-    val text = when (mode) {
-        NotesMode.Category -> "${categories.count { c -> notes.any { it.categoryId == c.id } }} categories · ${notes.size} notes"
-        NotesMode.Chrono -> "${notes.size} notes · newest first"
-    }
-    Row(
-        modifier = Modifier.padding(start = 22.dp, end = 22.dp, top = 12.dp, bottom = 8.dp),
-    ) {
-        Text(
-            text.uppercase(),
-            style = MaterialTheme.typography.labelMedium,
-            color = XpTokens.Ink3,
         )
     }
 }
