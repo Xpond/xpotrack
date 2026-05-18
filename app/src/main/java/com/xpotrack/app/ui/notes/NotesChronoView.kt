@@ -1,7 +1,8 @@
 package com.xpotrack.app.ui.notes
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,17 +20,22 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xpotrack.app.ui.theme.XpTokens
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ChronoNoteRow(
     note: NoteRow,
     showTag: Boolean,
     isLast: Boolean,
     onOpenNote: (Int) -> Unit,
+    onLongPress: (NoteRow) -> Unit = {},
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onOpenNote(note.id) }
+            .combinedClickable(
+                onClick = { onOpenNote(note.id) },
+                onLongClick = { onLongPress(note) },
+            )
             .padding(horizontal = 22.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

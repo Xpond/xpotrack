@@ -1,9 +1,11 @@
 package com.xpotrack.app.ui.quick
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,12 +28,20 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xpotrack.app.ui.theme.XpTokens
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun QuickNoteEntry(row: QuickRow, isLast: Boolean, onKeep: () -> Unit) {
+fun QuickNoteEntry(
+    row: QuickRow,
+    isLast: Boolean,
+    onKeep: () -> Unit,
+    onOpen: () -> Unit = {},
+    onLongPress: () -> Unit = {},
+) {
     val accent = if (row.expiring) XpTokens.Alarm else XpTokens.TealDim
     val chipBg = if (row.expiring) Color(0x1AFBBF24) else Color(0x0F5EEAD4)
     val chipBorder = if (row.expiring) Color(0x4DFBBF24) else XpTokens.Hair2
@@ -39,12 +49,15 @@ fun QuickNoteEntry(row: QuickRow, isLast: Boolean, onKeep: () -> Unit) {
         Modifier
             .fillMaxWidth()
             .alpha(if (row.pct < 15) 0.7f else 1f)
+            .combinedClickable(onClick = onOpen, onLongClick = onLongPress)
             .padding(horizontal = 6.dp, vertical = 13.dp),
     ) {
         Text(
-            row.text,
+            row.text.lineSequence().firstOrNull()?.trim().orEmpty().ifEmpty { "Untitled" },
             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.5.sp, lineHeight = 22.sp),
             color = XpTokens.Ink,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
         Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {

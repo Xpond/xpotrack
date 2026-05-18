@@ -1,8 +1,10 @@
 package com.xpotrack.app.ui.vault
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +23,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xpotrack.app.R
+import com.xpotrack.app.ui.components.ConfirmDeleteDialog
 import com.xpotrack.app.ui.theme.XpTokens
 
 @Composable
@@ -37,20 +44,37 @@ fun VaultListScreen(
     onOpen: (Long) -> Unit,
     onNew: () -> Unit,
     onLockNow: () -> Unit,
+    onDelete: (Long) -> Unit = {},
 ) {
+    var pendingDelete by remember { mutableStateOf<LockedNoteRow?>(null) }
     Box(Modifier.fillMaxSize().background(XpTokens.Bg)) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 100.dp)) {
             Header(onLockNow = onLockNow)
             Spacer(Modifier.height(12.dp))
             if (rows.isEmpty()) EmptyState() else Column(Modifier.padding(horizontal = 16.dp)) {
                 rows.forEachIndexed { i, row ->
-                    LockedRow(row, onClick = { onOpen(row.id) })
+                    LockedRow(
+                        row,
+                        onClick = { onOpen(row.id) },
+                        onLongClick = { pendingDelete = row },
+                    )
                     if (i < rows.size - 1) Box(Modifier.fillMaxWidth().height(0.5.dp).background(XpTokens.Hair))
                 }
             }
             Footer()
         }
         Fab(onClick = onNew)
+    }
+    pendingDelete?.let { row ->
+        ConfirmDeleteDialog(
+            title = "Delete locked note?",
+            subject = row.title.ifBlank { "Untitled" },
+            onCancel = { pendingDelete = null },
+            onConfirm = {
+                onDelete(row.id)
+                pendingDelete = null
+            },
+        )
     }
 }
 
@@ -81,10 +105,13 @@ private fun Header(onLockNow: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun LockedRow(row: LockedNoteRow, onClick: () -> Unit) {
+private fun LockedRow(row: LockedNoteRow, onClick: () -> Unit, onLongClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
+        Modifier.fillMaxWidth()
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.Top,
     ) {
         Box(

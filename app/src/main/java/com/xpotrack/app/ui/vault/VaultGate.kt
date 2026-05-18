@@ -30,6 +30,7 @@ fun VaultGate(onLockExit: () -> Unit) {
             onOpen = { vm.openNote(it) },
             onNew = { vm.openNote(0L) },
             onLockNow = { vm.lockNow(); onLockExit() },
+            onDelete = { vm.deleteRow(it) },
         )
         is VaultPhase.Note -> LockedNoteScreen(
             vm = vm, noteId = p.id, onBack = { vm.backToList() },

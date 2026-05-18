@@ -29,11 +29,22 @@ class QuickNotesRepository(
         return row.copy(id = id)
     }
 
+    suspend fun getById(id: Long): QuickNoteEntity? = dao.getById(id)
+
+    // Edits the text without resetting createdAt/expiresAt — a quick note still
+    // disappears 24h after it was first written, no matter how often it's edited.
+    suspend fun update(id: Long, text: String) {
+        val existing = dao.getById(id) ?: return
+        dao.upsert(existing.copy(text = text.trim()))
+    }
+
     suspend fun sweepExpired(now: Long = System.currentTimeMillis()) {
         dao.deleteExpired(now)
     }
 
     suspend fun deleteAll() = dao.deleteAll()
+
+    suspend fun delete(id: Long) = dao.delete(id)
 
     // Move a quick note into the regular notes table as Uncategorized, deleting
     // the quick row in the same transaction so it can't end up in both lists.

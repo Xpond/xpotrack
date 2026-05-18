@@ -18,6 +18,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,14 +35,17 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xpotrack.app.R
+import com.xpotrack.app.ui.components.ConfirmDeleteDialog
 import com.xpotrack.app.ui.theme.XpTokens
 
 @Composable
 fun TasksTimelineScreen(
     tasks: List<TaskRow>,
     onOpenTask: (Long) -> Unit,
+    onDeleteTask: (Long) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    var pendingDelete by remember { mutableStateOf<TaskRow?>(null) }
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -52,10 +59,25 @@ fun TasksTimelineScreen(
         ) {
             TasksHeader(tasks)
             DayChipStrip()
-            TimelineView(tasks = tasks, onTaskTap = onOpenTask)
+            TimelineView(
+                tasks = tasks,
+                onTaskTap = onOpenTask,
+                onTaskLongPress = { pendingDelete = it },
+            )
             Spacer(Modifier.height(120.dp))
         }
         TasksFab(Modifier.align(Alignment.BottomEnd), onClick = { onOpenTask(0L) })
+    }
+    pendingDelete?.let { task ->
+        ConfirmDeleteDialog(
+            title = "Delete task?",
+            subject = task.label.ifBlank { "Untitled" },
+            onCancel = { pendingDelete = null },
+            onConfirm = {
+                onDeleteTask(task.id)
+                pendingDelete = null
+            },
+        )
     }
 }
 

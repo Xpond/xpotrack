@@ -32,6 +32,7 @@ import com.xpotrack.app.ui.notes.NotesEditorScreen
 import com.xpotrack.app.ui.notes.NotesEditorViewModel
 import com.xpotrack.app.ui.notes.NotesListScreen
 import com.xpotrack.app.ui.notes.NotesViewModel
+import com.xpotrack.app.ui.quick.QuickEditorScreen
 import com.xpotrack.app.ui.quick.QuickNotesScreen
 import com.xpotrack.app.ui.quick.QuickNotesViewModel
 import com.xpotrack.app.ui.tasks.TaskCreateSheet
@@ -83,7 +84,24 @@ fun AppRoot() {
                     key = "quick-notes",
                     factory = QuickNotesViewModel.Factory(app.quickNotesRepo),
                 )
-                QuickNotesScreen(vm = vm, onBack = { nav.popBackStack() })
+                QuickNotesScreen(
+                    vm = vm,
+                    onBack = { nav.popBackStack() },
+                    onCompose = { nav.navigate("quick/edit/0") },
+                    onOpen = { id -> nav.navigate("quick/edit/$id") },
+                )
+            }
+            composable(
+                route = "quick/edit/{id}",
+                arguments = listOf(navArgument("id") { type = NavType.LongType }),
+            ) { entry ->
+                val app = LocalContext.current.applicationContext as XpApp
+                val id = entry.arguments?.getLong("id") ?: 0L
+                val vm: QuickNotesViewModel = viewModel(
+                    key = "quick-notes",
+                    factory = QuickNotesViewModel.Factory(app.quickNotesRepo),
+                )
+                QuickEditorScreen(vm = vm, noteId = id, onBack = { nav.popBackStack() })
             }
             composable(
                 route = "editor/{id}",
@@ -191,10 +209,12 @@ private fun TabsScaffold(
                     notes = notes, categories = cats, quick = quick,
                     onOpenNote = onOpenNote,
                     onOpenQuick = onOpenQuick,
+                    onDeleteNote = notesVm::delete,
                 )
                 XpTab.Tasks -> TasksTimelineScreen(
                     tasks = tasks,
                     onOpenTask = { id -> if (id == 0L) onNewTask() else onOpenTask(id) },
+                    onDeleteTask = tasksVm::delete,
                 )
                 XpTab.Vault -> VaultGate(onLockExit = onLockExit)
                 XpTab.More  -> SettingsScreen()

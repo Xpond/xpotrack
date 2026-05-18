@@ -1,8 +1,9 @@
 package com.xpotrack.app.ui.tasks
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -38,6 +39,7 @@ import com.xpotrack.app.ui.theme.XpTokens
 fun TimelineView(
     tasks: List<TaskRow>,
     onTaskTap: (Long) -> Unit = {},
+    onTaskLongPress: (TaskRow) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val sorted = tasks.sortedBy {
@@ -45,20 +47,25 @@ fun TimelineView(
     }
     Column(modifier = modifier.padding(start = 22.dp, end = 22.dp, top = 12.dp)) {
         sorted.forEachIndexed { i, task ->
-            TaskRowItem(task = task, onClick = { onTaskTap(task.id) })
+            TaskRowItem(
+                task = task,
+                onClick = { onTaskTap(task.id) },
+                onLongClick = { onTaskLongPress(task) },
+            )
             if (i < sorted.lastIndex) Spacer(Modifier.height(10.dp))
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun TaskRowItem(task: TaskRow, onClick: () -> Unit) {
+private fun TaskRowItem(task: TaskRow, onClick: () -> Unit, onLongClick: () -> Unit) {
     val style = styleFor(task.level)
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .alpha(if (task.done) 0.45f else 1f)
-            .clickable(onClick = onClick),
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(

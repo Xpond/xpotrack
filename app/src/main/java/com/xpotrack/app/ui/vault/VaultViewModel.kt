@@ -153,6 +153,10 @@ class VaultViewModel(
         repo.delete(id)
     }
 
+    fun deleteRow(id: Long) {
+        viewModelScope.launch { repo.delete(id) }
+    }
+
     private fun charsToBytes(chars: CharArray): ByteArray {
         val buf = java.nio.charset.StandardCharsets.UTF_8.encode(java.nio.CharBuffer.wrap(chars))
         val out = ByteArray(buf.remaining()).also { buf.get(it) }

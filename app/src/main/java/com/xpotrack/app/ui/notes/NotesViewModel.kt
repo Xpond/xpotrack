@@ -12,9 +12,10 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 class NotesViewModel(
-    repo: NotesRepository,
+    private val repo: NotesRepository,
     categories: CategoryRepository,
     quick: QuickNotesRepository,
 ) : ViewModel() {
@@ -35,6 +36,10 @@ class NotesViewModel(
             )
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), QuickSummary(0, null))
+
+    fun delete(id: Int) {
+        viewModelScope.launch { repo.delete(id) }
+    }
 
     class Factory(
         private val repo: NotesRepository,

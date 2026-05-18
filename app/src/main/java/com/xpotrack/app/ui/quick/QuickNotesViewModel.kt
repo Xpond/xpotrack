@@ -66,6 +66,16 @@ class QuickNotesViewModel(
         viewModelScope.launch { repo.deleteAll() }
     }
 
+    fun delete(id: Long) {
+        viewModelScope.launch { repo.delete(id) }
+    }
+
+    suspend fun getText(id: Long): String = repo.getById(id)?.text.orEmpty()
+
+    fun update(id: Long, text: String) {
+        viewModelScope.launch { repo.update(id, text) }
+    }
+
     class Factory(private val repo: QuickNotesRepository) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =

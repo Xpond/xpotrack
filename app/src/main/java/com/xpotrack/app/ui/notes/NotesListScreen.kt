@@ -36,6 +36,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.xpotrack.app.R
 import com.xpotrack.app.data.model.Category
+import com.xpotrack.app.ui.components.ConfirmDeleteDialog
 import com.xpotrack.app.ui.theme.XpTokens
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
@@ -49,12 +50,14 @@ fun NotesListScreen(
     quick: QuickSummary,
     onOpenNote: (Int) -> Unit,
     onOpenQuick: () -> Unit,
+    onDeleteNote: (Int) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     // null = "All notes"; 0L = Uncategorized; >0 = a category id.
     var filterId by remember { mutableStateOf<Long?>(null) }
     var searchOpen by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
+    var pendingDelete by remember { mutableStateOf<NoteRow?>(null) }
 
     val activeCategory = filterId?.let { id ->
         if (id == 0L) null else categories.firstOrNull { it.id == id }
@@ -110,12 +113,24 @@ fun NotesListScreen(
                         showTag = filterId == null,
                         isLast = i == filtered.size - 1,
                         onOpenNote = onOpenNote,
+                        onLongPress = { pendingDelete = it },
                     )
                 }
                 Spacer(Modifier.height(100.dp))
             }
         }
         NotesFab(Modifier.align(Alignment.BottomEnd), onClick = { onOpenNote(0) })
+    }
+    pendingDelete?.let { note ->
+        ConfirmDeleteDialog(
+            title = "Delete note?",
+            subject = note.title.ifBlank { "Untitled" },
+            onCancel = { pendingDelete = null },
+            onConfirm = {
+                onDeleteNote(note.id)
+                pendingDelete = null
+            },
+        )
     }
 }
 
