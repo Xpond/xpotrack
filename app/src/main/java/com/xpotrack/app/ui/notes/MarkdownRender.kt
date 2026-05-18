@@ -2,6 +2,7 @@ package com.xpotrack.app.ui.notes
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,30 +10,39 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import com.xpotrack.app.R
 import com.xpotrack.app.ui.theme.GeistMono
 import com.xpotrack.app.ui.theme.XpTokens
 
 // Subset matching markdown-preview.jsx: # / ## / - / > / ``` / paragraph + **bold** / *italic*.
+// Task lines (`- [ ] ` / `- [x] `) render as tappable checkboxes; the tap index
+// is the 0-based position among all task lines in the source so the VM can
+// toggle the correct one.
 @Composable
-fun MarkdownBody(src: String) {
+fun MarkdownBody(src: String, onToggleTask: (Int) -> Unit = {}) {
     val lines = src.split('\n')
+    var taskCursor = 0
     Column(Modifier.fillMaxWidth()) {
         var i = 0
         while (i < lines.size) {
@@ -47,9 +57,20 @@ fun MarkdownBody(src: String) {
                     CodeBlock(buf)
                 }
                 ln.startsWith("> ") -> { Quote(ln.removePrefix("> ").trim()); i++ }
+                isTaskLine(ln) -> {
+                    val items = mutableListOf<Pair<Boolean, String>>()
+                    val firstIndex = taskCursor
+                    while (i < lines.size && isTaskLine(lines[i])) {
+                        val checked = lines[i].startsWith("- [x] ")
+                        val text = lines[i].removePrefix(if (checked) "- [x] " else "- [ ] ").trim()
+                        items += checked to text
+                        i++; taskCursor++
+                    }
+                    TaskList(items, firstIndex, onToggleTask)
+                }
                 ln.startsWith("- ") -> {
                     val items = mutableListOf<String>()
-                    while (i < lines.size && lines[i].startsWith("- ")) {
+                    while (i < lines.size && lines[i].startsWith("- ") && !isTaskLine(lines[i])) {
                         items += lines[i].removePrefix("- ").trim(); i++
                     }
                     BulletList(items)
@@ -67,9 +88,43 @@ fun MarkdownBody(src: String) {
     }
 }
 
+private fun isTaskLine(s: String) = s.startsWith("- [ ] ") || s.startsWith("- [x] ")
+
 private fun isBlockStart(s: String) =
     s.startsWith("# ") || s.startsWith("## ") || s.startsWith("- ") ||
     s.startsWith("> ") || s.startsWith("```")
+
+@Composable
+private fun TaskList(items: List<Pair<Boolean, String>>, firstIndex: Int, onToggle: (Int) -> Unit) {
+    items.forEachIndexed { idx, (checked, text) ->
+        Row(
+            Modifier.fillMaxWidth().clickable { onToggle(firstIndex + idx) }
+                .padding(vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                Modifier.size(18.dp).clip(RoundedCornerShape(4.dp))
+                    .background(if (checked) XpTokens.Teal else Color.Transparent)
+                    .border(1.dp, if (checked) XpTokens.Teal else XpTokens.Ink3, RoundedCornerShape(4.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (checked) Icon(
+                    painterResource(R.drawable.ic_check), null,
+                    tint = XpTokens.OnTeal, modifier = Modifier.size(12.dp),
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Text(
+                inline(text),
+                color = if (checked) XpTokens.Ink3 else XpTokens.Ink,
+                fontSize = 16.sp, lineHeight = 25.sp,
+                textDecoration = if (checked) TextDecoration.LineThrough else TextDecoration.None,
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+    }
+    Spacer(Modifier.height(10.dp))
+}
 
 @Composable
 private fun Heading(text: String, h1: Boolean) {
@@ -160,6 +215,15 @@ private fun inline(s: String): AnnotatedString = buildAnnotatedString {
             val end = s.indexOf('*', i + 1)
             if (end > 0) {
                 withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { append(s.substring(i + 1, end)) }
+                i = end + 1; continue
+            }
+        }
+        if (s[i] == '`') {
+            val end = s.indexOf('`', i + 1)
+            if (end > 0) {
+                withStyle(SpanStyle(fontFamily = GeistMono, color = XpTokens.TealDim, fontSize = 14.sp)) {
+                    append(s.substring(i + 1, end))
+                }
                 i = end + 1; continue
             }
         }

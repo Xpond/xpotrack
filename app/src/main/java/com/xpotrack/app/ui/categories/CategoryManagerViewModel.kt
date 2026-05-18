@@ -39,6 +39,13 @@ class CategoryManagerViewModel(
     private val _pendingDelete = MutableStateFlow<PendingDelete?>(null)
     val pendingDelete: StateFlow<PendingDelete?> = _pendingDelete.asStateFlow()
 
+    // Tracks the id of the category created in the current manager session, so
+    // callers (e.g. the editor's category picker) can auto-select it on close.
+    // Reset on session re-entry via `clearLastCreated()`.
+    private val _lastCreated = MutableStateFlow(0L)
+    val lastCreated: StateFlow<Long> = _lastCreated.asStateFlow()
+    fun clearLastCreated() { _lastCreated.value = 0L }
+
     fun startCreate() { _edit.value = CategoryEdit() }
     fun startRename(c: Category) { _edit.value = CategoryEdit(c.id, c.name, c.colorHex) }
     fun cancelEdit() { _edit.value = null }
@@ -50,8 +57,10 @@ class CategoryManagerViewModel(
         val e = _edit.value ?: return
         if (e.name.isBlank()) { _edit.value = null; return }
         viewModelScope.launch {
-            if (e.isNew) repo.add(e.name, e.colorHex)
-            else {
+            if (e.isNew) {
+                val newId = repo.add(e.name, e.colorHex)
+                _lastCreated.value = newId
+            } else {
                 repo.rename(e.id, e.name)
                 repo.recolor(e.id, e.colorHex)
             }

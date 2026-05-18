@@ -22,9 +22,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.xpotrack.app.XpApp
-import com.xpotrack.app.ui.categories.CategoryManagerSheet
 import com.xpotrack.app.ui.categories.CategoryManagerViewModel
-import com.xpotrack.app.ui.categories.CategoryPickerSheet
+import com.xpotrack.app.ui.categories.CategoryRequest
+import com.xpotrack.app.ui.categories.CategorySheet
+import com.xpotrack.app.ui.categories.CategorySheetMode
 import com.xpotrack.app.ui.components.XpBottomTabs
 import com.xpotrack.app.ui.components.XpTab
 import com.xpotrack.app.ui.settings.SettingsScreen
@@ -59,12 +60,14 @@ fun AppRoot() {
 
     var activeTab by rememberSaveable { mutableStateOf(XpTab.Notes) }
 
-    // Picker + manager state — both live at the root so they can stack from any
-    // tab/editor. Picker holds a lambda so it can't be saveable — losing it on
-    // process death is fine.
-    var pickerSelected by remember { mutableStateOf<Long?>(null) }
-    var pickerOnPick by remember { mutableStateOf<((Long) -> Unit)?>(null) }
-    var managerOpen by rememberSaveable { mutableStateOf(false) }
+    // Picker/manager state lives here so the sheet can stack from any tab or
+    // editor. `categoryRequest` bundles the caller's selected id and apply
+    // callback into one atomic state write — opening the sheet must flip the
+    // predicate exactly once, otherwise the sheet's show animation can race
+    // with the parent recomposition and settle half-open. Non-saveable because
+    // the callback can't survive process death; that's fine.
+    var categoryRequest by remember { mutableStateOf<CategoryRequest?>(null) }
+    var sheetMode by remember { mutableStateOf(CategorySheetMode.Picker) }
 
     Box(
         Modifier
@@ -122,8 +125,11 @@ fun AppRoot() {
                 NotesEditorScreen(
                     vm = vm, onBack = { nav.popBackStack() },
                     onPickCategory = {
-                        pickerSelected = vm.state.value.categoryId
-                        pickerOnPick = vm::setCategory
+                        sheetMode = CategorySheetMode.Picker
+                        categoryRequest = CategoryRequest(
+                            selectedId = vm.state.value.categoryId,
+                            onApply = vm::setCategory,
+                        )
                     },
                 )
             }
@@ -169,29 +175,38 @@ fun AppRoot() {
             )
         }
 
-        if (pickerSelected != null && pickerOnPick != null) {
-            val app = LocalContext.current.applicationContext as XpApp
-            val cats by app.categoryRepo.observeAll().collectAsStateWithLifecycle(emptyList())
-            CategoryPickerSheet(
-                categories = cats,
-                selectedId = pickerSelected ?: 0L,
-                onPick = { chosen ->
-                    pickerOnPick?.invoke(chosen)
-                    pickerSelected = null; pickerOnPick = null
-                },
-                onManage = { pickerSelected = null; pickerOnPick = null; managerOpen = true },
-                onDismiss = { pickerSelected = null; pickerOnPick = null },
-            )
-        }
-
-        if (managerOpen) {
-            val app = LocalContext.current.applicationContext as XpApp
-            val vm: CategoryManagerViewModel = viewModel(
-                key = "category-manager",
-                factory = CategoryManagerViewModel.Factory(app.categoryRepo),
-            )
-            CategoryManagerSheet(vm = vm, onDismiss = { managerOpen = false })
-        }
+        // One sheet, two modes. The picker→manager transition cross-fades the
+        // inner content inside the same ModalBottomSheet — no double-scrim and
+        // no mount/unmount race. All dismiss paths animate hide() before
+        // clearing categoryRequest, so the slide-down always plays in full.
+        val app = LocalContext.current.applicationContext as XpApp
+        val cats by app.categoryRepo.observeAll().collectAsStateWithLifecycle(emptyList())
+        val managerVm: CategoryManagerViewModel = viewModel(
+            key = "category-manager",
+            factory = CategoryManagerViewModel.Factory(app.categoryRepo),
+        )
+        CategorySheet(
+            visible = categoryRequest != null,
+            mode = sheetMode,
+            categories = cats,
+            selectedId = categoryRequest?.selectedId ?: 0L,
+            managerVm = managerVm,
+            onPick = { chosen ->
+                categoryRequest?.onApply?.invoke(chosen)
+                categoryRequest = null
+                sheetMode = CategorySheetMode.Picker
+            },
+            onManage = { sheetMode = CategorySheetMode.Manager },
+            onCreated = { newId ->
+                categoryRequest?.onApply?.invoke(newId)
+                categoryRequest = null
+                sheetMode = CategorySheetMode.Picker
+            },
+            onDismiss = {
+                categoryRequest = null
+                sheetMode = CategorySheetMode.Picker
+            },
+        )
     }
 }
 

@@ -8,9 +8,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -19,13 +19,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,38 +41,58 @@ import com.xpotrack.app.R
 import com.xpotrack.app.data.model.Category
 import com.xpotrack.app.ui.theme.XpTokens
 
-@OptIn(ExperimentalMaterial3Api::class)
+// Manager content lives inside CategorySheet, so it does not own a
+// ModalBottomSheet of its own. onCreated fires once per newly-created
+// category so the caller (AppRoot) can auto-apply it to the editor.
 @Composable
-fun CategoryManagerSheet(vm: CategoryManagerViewModel, onDismiss: () -> Unit) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+internal fun ManagerContent(
+    vm: CategoryManagerViewModel,
+    onCreated: (Long) -> Unit,
+) {
     val cats by vm.categories.collectAsStateWithLifecycle()
     val edit by vm.edit.collectAsStateWithLifecycle()
     val pendingDelete by vm.pendingDelete.collectAsStateWithLifecycle()
+    val lastCreated by vm.lastCreated.collectAsStateWithLifecycle()
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = XpTokens.Surface1,
-        contentColor = XpTokens.Ink,
-        dragHandle = { Grabber() },
-        shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
-        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
-    ) {
-        Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
-            Header(onNew = vm::startCreate)
-            Column(
-                Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp),
-            ) {
-                if (cats.isEmpty() && edit?.isNew != true) EmptyState()
-                cats.forEachIndexed { i, c ->
-                    if (edit?.id == c.id) EditRow(edit!!, vm)
-                    else CategoryRow(c, first = i == 0,
-                        onRename = { vm.startRename(c) }, onDelete = { vm.askDelete(c) })
-                }
-                if (edit?.isNew == true) EditRow(edit!!, vm, isNew = true)
-                Spacer(Modifier.height(12.dp))
+    LaunchedEffect(lastCreated) {
+        if (lastCreated > 0L) {
+            val id = lastCreated
+            vm.clearLastCreated()
+            onCreated(id)
+        }
+    }
+
+    // Reset any half-finished editor state on dismount so reopening the
+    // manager from a fresh chip-tap never shows a leftover edit row or a
+    // pending delete dialog from a previous session.
+    DisposableEffect(Unit) {
+        onDispose {
+            vm.cancelEdit()
+            vm.cancelDelete()
+            vm.clearLastCreated()
+        }
+    }
+
+    val scrollState = rememberScrollState()
+    LaunchedEffect(edit?.isNew == true) {
+        if (edit?.isNew == true) scrollState.animateScrollTo(Int.MAX_VALUE)
+    }
+
+    Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+        Header(onNew = vm::startCreate)
+        Column(
+            Modifier.fillMaxWidth().heightIn(max = 360.dp)
+                .verticalScroll(scrollState)
+                .padding(horizontal = 16.dp),
+        ) {
+            if (cats.isEmpty() && edit?.isNew != true) EmptyState()
+            cats.forEachIndexed { i, c ->
+                if (edit?.id == c.id) EditRow(edit!!, vm)
+                else CategoryRow(c, first = i == 0,
+                    onRename = { vm.startRename(c) }, onDelete = { vm.askDelete(c) })
             }
+            if (edit?.isNew == true) EditRow(edit!!, vm, isNew = true)
+            Spacer(Modifier.height(12.dp))
         }
     }
 
@@ -118,7 +137,7 @@ private fun EmptyState() {
 
 @Composable
 private fun CategoryRow(c: Category, first: Boolean, onRename: () -> Unit, onDelete: () -> Unit) {
-    if (!first) Divider()
+    if (!first) SheetDivider()
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -184,17 +203,6 @@ private fun EditRow(edit: CategoryEdit, vm: CategoryManagerViewModel, isNew: Boo
         }
     }
 }
-
-@Composable
-private fun Grabber() {
-    Box(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 8.dp), contentAlignment = Alignment.Center) {
-        Box(Modifier.size(width = 38.dp, height = 4.dp).clip(RoundedCornerShape(2.dp))
-            .background(XpTokens.Ink3.copy(alpha = 0.35f)))
-    }
-}
-
-@Composable
-private fun Divider() { Box(Modifier.fillMaxWidth().height(0.5.dp).background(XpTokens.Hair)) }
 
 @Composable
 private fun IconBtn(iconRes: Int, desc: String, onClick: () -> Unit) {

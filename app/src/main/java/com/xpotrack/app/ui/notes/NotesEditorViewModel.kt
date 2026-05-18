@@ -34,6 +34,7 @@ class NotesEditorViewModel(
                         categoryId = existing.categoryId,
                         categoryName = existing.categoryName,
                         loaded = true,
+                        previewMode = true,
                     )
                 } ?: run { _state.value = _state.value.copy(loaded = true) }
             } else {
@@ -45,6 +46,26 @@ class NotesEditorViewModel(
     fun onTitleChange(s: String) { _state.value = _state.value.copy(title = s) }
     fun onBodyChange(s: String)  { _state.value = _state.value.copy(body = s) }
     fun setPreview(on: Boolean)  { _state.value = _state.value.copy(previewMode = on) }
+
+    // Toggle the checkbox on the Nth task-list line in body (0-indexed across
+    // lines matching `- [ ] ` / `- [x] `). Called from preview when user taps.
+    fun toggleTask(taskIndex: Int) {
+        val lines = _state.value.body.split('\n').toMutableList()
+        var seen = 0
+        for (i in lines.indices) {
+            val ln = lines[i]
+            val unchecked = ln.startsWith("- [ ] ")
+            val checked = ln.startsWith("- [x] ")
+            if (!unchecked && !checked) continue
+            if (seen == taskIndex) {
+                lines[i] = if (unchecked) "- [x] " + ln.removePrefix("- [ ] ")
+                           else "- [ ] " + ln.removePrefix("- [x] ")
+                _state.value = _state.value.copy(body = lines.joinToString("\n"))
+                return
+            }
+            seen++
+        }
+    }
 
     fun setCategory(id: Long) {
         viewModelScope.launch {
