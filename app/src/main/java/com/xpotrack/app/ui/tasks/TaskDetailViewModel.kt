@@ -38,7 +38,11 @@ class TaskDetailViewModel(
             val wasFirstLoad = !_state.value.loaded
             val task = repo.getById(id)
             val tasks = repo.observeAll().first()
-            val sorted = tasks.sortedBy { val (h, m) = parseHHmm(it.time); h * 60 + m }
+            // Counter is "N of M for this task's day" — filter to siblings on
+            // the same date so opening a future-dated task doesn't read
+            // "12 of 47 today".
+            val sameDay = tasks.filter { it.dateEpochDay == task?.dateEpochDay }
+            val sorted = sameDay.sortedBy { val (h, m) = parseHHmm(it.time); h * 60 + m }
             val idx = sorted.indexOfFirst { it.id == id }
             _state.value = TaskDetailState(
                 loaded = true,

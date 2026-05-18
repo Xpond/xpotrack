@@ -24,7 +24,7 @@ class TasksRepository(
         // to the time wheel always re-target the next occurrence. Silent tasks
         // keep reminderAt = 0L; the scheduler then becomes a no-op.
         val reminderAt = if (task.level == ReminderLevel.Silent) 0L
-            else scheduler.nextOccurrence(task.time, now)
+            else scheduler.nextOccurrence(task.dateEpochDay, task.time, now)
         val entity = TaskEntity(
             id = task.id,
             title = task.title,
@@ -34,6 +34,7 @@ class TasksRepository(
             notes = task.notes,
             isDone = task.isDone,
             reminderAt = reminderAt,
+            dateEpochDay = task.dateEpochDay,
             createdAt = existing?.createdAt ?: now,
             updatedAt = now,
         )
@@ -67,6 +68,7 @@ class TasksRepository(
         notes = e.notes,
         isDone = e.isDone,
         reminderAt = e.reminderAt,
+        dateEpochDay = e.dateEpochDay,
         createdAt = e.createdAt,
         updatedAt = e.updatedAt,
     )

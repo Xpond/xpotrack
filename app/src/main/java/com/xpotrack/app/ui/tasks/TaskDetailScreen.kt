@@ -50,6 +50,10 @@ import com.xpotrack.app.ui.components.styleFor
 import com.xpotrack.app.ui.theme.GeistMono
 import com.xpotrack.app.ui.theme.XpTokens
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun TaskDetailScreen(
@@ -151,7 +155,7 @@ private fun FieldsCard(task: Task, style: ReminderStyle, onAnyRow: () -> Unit) {
             .background(XpTokens.Surface1)
             .border(0.5.dp, XpTokens.Hair, RoundedCornerShape(14.dp)),
     ) {
-        FieldRow(R.drawable.ic_clock, "WHEN", "Today · ${formatTime12(task.time)}", onClick = onAnyRow)
+        FieldRow(R.drawable.ic_clock, "WHEN", "${dayLabel(task.dateEpochDay)} · ${formatTime12(task.time)}", onClick = onAnyRow)
         Divider()
         FieldRow(
             R.drawable.ic_reminder_alarm, "REMINDER",
@@ -166,6 +170,18 @@ private fun reminderSummary(level: ReminderLevel) = when (level) {
     ReminderLevel.Silent -> "Silent"
     ReminderLevel.Notify -> "Notify on time"
     ReminderLevel.Alarm  -> "Alarm — ring for 60s"
+}
+
+private fun dayLabel(epochDay: Long): String {
+    if (epochDay <= 0L) return "Today"
+    val today = LocalDate.now(ZoneId.systemDefault()).toEpochDay()
+    return when (epochDay - today) {
+        0L -> "Today"
+        1L -> "Tomorrow"
+        -1L -> "Yesterday"
+        else -> LocalDate.ofEpochDay(epochDay)
+            .format(DateTimeFormatter.ofPattern("EEE, MMM d", Locale.getDefault()))
+    }
 }
 
 private fun formatTime12(time: String): String {

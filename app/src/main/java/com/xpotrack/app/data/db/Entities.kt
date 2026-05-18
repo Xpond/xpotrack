@@ -30,6 +30,9 @@ data class TaskEntity(
     val notes: String = "",
     val isDone: Boolean = false,
     val reminderAt: Long = 0L,  // absolute epoch ms; 0 = unscheduled (set in 8b)
+    // Local-zone day number (LocalDate.toEpochDay). Pairs with `time` to form
+    // an absolute moment. Migration v8→v9 backfills existing rows to today.
+    val dateEpochDay: Long = 0L,
     val createdAt: Long,
     val updatedAt: Long,
 )

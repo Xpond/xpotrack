@@ -48,8 +48,14 @@ import com.xpotrack.app.ui.vault.VaultGate
 fun AppRoot() {
     val nav = rememberNavController()
     var sheetTaskId by rememberSaveable { mutableStateOf<Long?>(null) }
+    // Date the create sheet should default to when opening a brand-new task.
+    // Ignored when editing existing tasks (id != 0L) since the row carries its own.
+    var sheetInitialDate by rememberSaveable { mutableStateOf(0L) }
     var sheetToken by rememberSaveable { mutableStateOf(0) }
     val openSheet: (Long) -> Unit = { id -> sheetToken += 1; sheetTaskId = id }
+    val openNewSheet: (Long) -> Unit = { date ->
+        sheetInitialDate = date; sheetToken += 1; sheetTaskId = 0L
+    }
 
     var activeTab by rememberSaveable { mutableStateOf(XpTab.Notes) }
 
@@ -73,7 +79,7 @@ fun AppRoot() {
                     onSelectTab = { activeTab = it },
                     onOpenNote = { id -> nav.navigate("editor/$id") },
                     onOpenTask = { id -> nav.navigate("task/$id") },
-                    onNewTask = { openSheet(0L) },
+                    onNewTask = { date -> openNewSheet(date) },
                     onLockExit = { activeTab = XpTab.Notes },
                     onOpenQuick = { nav.navigate("quick") },
                 )
@@ -146,10 +152,15 @@ fun AppRoot() {
             val app = LocalContext.current.applicationContext as XpApp
             val vm: TaskCreateViewModel = viewModel(
                 key = "task-create-$id-$sheetToken",
-                factory = TaskCreateViewModel.Factory(app.tasksRepo, id),
+                factory = TaskCreateViewModel.Factory(app.tasksRepo, id, sheetInitialDate),
             )
+            val allTasks by app.tasksRepo.observeAll().collectAsStateWithLifecycle(emptyList())
+            val datesWithTasks = remember(allTasks) {
+                allTasks.asSequence().map { it.dateEpochDay }.filter { it > 0L }.toSet()
+            }
             TaskCreateSheet(
                 vm = vm,
+                datesWithTasks = datesWithTasks,
                 onDismiss = {
                     sheetTaskId = null
                     (nav.currentBackStackEntry?.destination?.route ?: "")
@@ -190,7 +201,7 @@ private fun TabsScaffold(
     onSelectTab: (XpTab) -> Unit,
     onOpenNote: (Int) -> Unit,
     onOpenTask: (Long) -> Unit,
-    onNewTask: () -> Unit,
+    onNewTask: (Long) -> Unit,
     onLockExit: () -> Unit,
     onOpenQuick: () -> Unit,
 ) {
@@ -201,6 +212,8 @@ private fun TabsScaffold(
     val tasks by tasksVm.tasks.collectAsStateWithLifecycle()
     val cats by notesVm.categories.collectAsStateWithLifecycle()
     val quick by notesVm.quickSummary.collectAsStateWithLifecycle()
+    val selectedDate by tasksVm.selectedDate.collectAsStateWithLifecycle()
+    val datesWithTasks by tasksVm.datesWithTasks.collectAsStateWithLifecycle()
 
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
@@ -213,7 +226,10 @@ private fun TabsScaffold(
                 )
                 XpTab.Tasks -> TasksTimelineScreen(
                     tasks = tasks,
-                    onOpenTask = { id -> if (id == 0L) onNewTask() else onOpenTask(id) },
+                    selectedDate = selectedDate,
+                    datesWithTasks = datesWithTasks,
+                    onSelectDate = tasksVm::setSelectedDate,
+                    onOpenTask = { id -> if (id == 0L) onNewTask(selectedDate) else onOpenTask(id) },
                     onDeleteTask = tasksVm::delete,
                 )
                 XpTab.Vault -> VaultGate(onLockExit = onLockExit)

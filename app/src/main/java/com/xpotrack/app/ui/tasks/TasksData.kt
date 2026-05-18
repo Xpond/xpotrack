@@ -12,6 +12,7 @@ data class TaskRow(
     val level: ReminderLevel,
     val durationMin: Int,
     val done: Boolean = false,
+    val dateEpochDay: Long = 0L,
 )
 
 fun Task.toRow(): TaskRow = TaskRow(
@@ -21,6 +22,7 @@ fun Task.toRow(): TaskRow = TaskRow(
     level = level,
     durationMin = durationMin,
     done = isDone,
+    dateEpochDay = dateEpochDay,
 )
 
 fun parseHHmm(s: String): Pair<Int, Int> {

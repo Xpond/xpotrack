@@ -17,14 +17,24 @@ class AlarmScheduler(private val context: Context) {
 
     private val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-    // Computes the next epoch-ms for an HH:mm in the device's local zone.
-    // If today's time is already past, rolls to tomorrow.
-    fun nextOccurrence(timeHHmm: String, now: Long = System.currentTimeMillis()): Long {
+    // Resolves a task's (dateEpochDay, HH:mm) into an absolute epoch-ms.
+    // Returns 0 if the moment is in the past — schedule() then no-ops, so
+    // overdue tasks never re-arm an alarm. dateEpochDay == 0L means "no date
+    // set" (pre-migration default) and is also treated as unscheduled.
+    fun nextOccurrence(
+        dateEpochDay: Long,
+        timeHHmm: String,
+        now: Long = System.currentTimeMillis(),
+    ): Long {
+        if (dateEpochDay <= 0L) return 0L
         val (h, m) = timeHHmm.split(":").map { it.toInt() }
         val zone = ZoneId.systemDefault()
-        val today = LocalDate.now(zone).atTime(LocalTime.of(h, m)).atZone(zone)
-        val todayMs = today.toInstant().toEpochMilli()
-        return if (todayMs > now) todayMs else today.plusDays(1).toInstant().toEpochMilli()
+        val ms = LocalDate.ofEpochDay(dateEpochDay)
+            .atTime(LocalTime.of(h, m))
+            .atZone(zone)
+            .toInstant()
+            .toEpochMilli()
+        return if (ms > now) ms else 0L
     }
 
     fun schedule(task: Task) {

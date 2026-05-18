@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -20,9 +19,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -37,11 +34,8 @@ import androidx.compose.ui.unit.dp
 import com.xpotrack.app.R
 import com.xpotrack.app.data.model.Category
 import com.xpotrack.app.ui.components.ConfirmDeleteDialog
+import com.xpotrack.app.ui.components.DateTimeStrip
 import com.xpotrack.app.ui.theme.XpTokens
-import kotlinx.coroutines.delay
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 @Composable
 fun NotesListScreen(
@@ -163,30 +157,6 @@ private fun NotesHeader(onSearch: () -> Unit) {
             Text("Notes", style = MaterialTheme.typography.displayLarge, color = XpTokens.Ink)
         }
         IconBtn(R.drawable.ic_search, "Search", tint = XpTokens.Ink2, onClick = onSearch)
-    }
-}
-
-@Composable
-private fun DateTimeStrip() {
-    // Recompose once per minute so HH:MM stays current without spinning the clock.
-    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            val msToNextMinute = 60_000L - (System.currentTimeMillis() % 60_000L)
-            delay(msToNextMinute)
-            now = System.currentTimeMillis()
-        }
-    }
-    val date = remember(now / 86_400_000L) {
-        SimpleDateFormat("EEEE · MMM d", Locale.getDefault()).format(Date(now))
-    }
-    val time = remember(now / 60_000L) {
-        SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(now))
-    }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(date.uppercase(), style = MaterialTheme.typography.labelSmall, color = XpTokens.Ink3)
-        Spacer(Modifier.width(10.dp))
-        Text(time, style = MaterialTheme.typography.labelSmall, color = XpTokens.Ink3)
     }
 }
 

@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.ZoneId
 
 data class TaskEditState(
     val id: Long = 0L,
@@ -20,6 +22,7 @@ data class TaskEditState(
     val durationMin: Int = 30,
     val notes: String = "",
     val isDone: Boolean = false,
+    val dateEpochDay: Long = LocalDate.now(ZoneId.systemDefault()).toEpochDay(),
 ) {
     val timeHHmm: String get() = "%02d:%02d".format(hour, minute)
     val isNew: Boolean get() = id == 0L
@@ -28,9 +31,10 @@ data class TaskEditState(
 class TaskCreateViewModel(
     private val repo: TasksRepository,
     private val id: Long,
+    initialDate: Long,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(TaskEditState())
+    private val _state = MutableStateFlow(TaskEditState(dateEpochDay = initialDate))
     val state: StateFlow<TaskEditState> = _state.asStateFlow()
 
     init {
@@ -44,6 +48,7 @@ class TaskCreateViewModel(
     fun setMinute(m: Int) { _state.value = _state.value.copy(minute = m.coerceIn(0, 59)) }
     fun setLevel(l: ReminderLevel) { _state.value = _state.value.copy(level = l) }
     fun setNotes(s: String) { _state.value = _state.value.copy(notes = s) }
+    fun setDate(epochDay: Long) { _state.value = _state.value.copy(dateEpochDay = epochDay) }
 
     suspend fun save(): Long? {
         val s = _state.value
@@ -57,6 +62,7 @@ class TaskCreateViewModel(
                 durationMin = s.durationMin,
                 notes = s.notes,
                 isDone = s.isDone,
+                dateEpochDay = s.dateEpochDay,
                 createdAt = 0L,         // repo preserves existing / sets now
                 updatedAt = 0L,
             )
@@ -66,10 +72,11 @@ class TaskCreateViewModel(
     class Factory(
         private val repo: TasksRepository,
         private val id: Long,
+        private val initialDate: Long,
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            TaskCreateViewModel(repo, id) as T
+            TaskCreateViewModel(repo, id, initialDate) as T
     }
 }
 
@@ -84,5 +91,6 @@ private fun Task.toEditState(): TaskEditState {
         durationMin = durationMin,
         notes = notes,
         isDone = isDone,
+        dateEpochDay = dateEpochDay,
     )
 }

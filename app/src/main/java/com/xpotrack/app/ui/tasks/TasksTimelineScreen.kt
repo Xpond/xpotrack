@@ -36,16 +36,25 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xpotrack.app.R
 import com.xpotrack.app.ui.components.ConfirmDeleteDialog
+import com.xpotrack.app.ui.components.DateTimeStrip
 import com.xpotrack.app.ui.theme.XpTokens
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.TextStyle
+import java.util.Locale
 
 @Composable
 fun TasksTimelineScreen(
     tasks: List<TaskRow>,
+    selectedDate: Long,
+    datesWithTasks: Set<Long>,
+    onSelectDate: (Long) -> Unit,
     onOpenTask: (Long) -> Unit,
     onDeleteTask: (Long) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var pendingDelete by remember { mutableStateOf<TaskRow?>(null) }
+    var calendarOpen by remember { mutableStateOf(false) }
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -57,8 +66,19 @@ fun TasksTimelineScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
         ) {
-            TasksHeader(tasks)
-            DayChipStrip()
+            TasksHeader(selectedDate = selectedDate, tasks = tasks)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                DayChipStrip(
+                    selectedDate = selectedDate,
+                    datesWithTasks = datesWithTasks,
+                    onSelectDate = onSelectDate,
+                    modifier = Modifier.weight(1f),
+                )
+                CalendarBtn(
+                    onClick = { calendarOpen = true },
+                    modifier = Modifier.padding(end = 14.dp),
+                )
+            }
             TimelineView(
                 tasks = tasks,
                 onTaskTap = onOpenTask,
@@ -66,7 +86,10 @@ fun TasksTimelineScreen(
             )
             Spacer(Modifier.height(120.dp))
         }
-        TasksFab(Modifier.align(Alignment.BottomEnd), onClick = { onOpenTask(0L) })
+        val today = remember { LocalDate.now(ZoneId.systemDefault()).toEpochDay() }
+        if (selectedDate >= today) {
+            TasksFab(Modifier.align(Alignment.BottomEnd), onClick = { onOpenTask(0L) })
+        }
     }
     pendingDelete?.let { task ->
         ConfirmDeleteDialog(
@@ -77,6 +100,32 @@ fun TasksTimelineScreen(
                 onDeleteTask(task.id)
                 pendingDelete = null
             },
+        )
+    }
+    if (calendarOpen) {
+        MonthPickerDialog(
+            selectedEpochDay = selectedDate,
+            datesWithTasks = datesWithTasks,
+            onPick = { picked -> onSelectDate(picked); calendarOpen = false },
+            onDismiss = { calendarOpen = false },
+        )
+    }
+}
+
+@Composable
+private fun CalendarBtn(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .size(36.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_calendar),
+            contentDescription = "Pick date",
+            tint = XpTokens.Ink2,
+            modifier = Modifier.size(16.dp),
         )
     }
 }
@@ -97,19 +146,23 @@ private fun TopHalo() {
 }
 
 @Composable
-private fun TasksHeader(tasks: List<TaskRow>) {
+private fun TasksHeader(selectedDate: Long, tasks: List<TaskRow>) {
     val done = tasks.count { it.done }
     val total = tasks.size
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 22.dp, end = 22.dp, top = 12.dp, bottom = 4.dp),
+            .padding(start = 22.dp, end = 18.dp, top = 14.dp),
         verticalAlignment = Alignment.Bottom,
     ) {
         Column(Modifier.weight(1f)) {
-            Text("Friday · May 16".uppercase(), style = MaterialTheme.typography.labelSmall, color = XpTokens.Ink3)
-            Spacer(Modifier.height(8.dp))
-            Text("Today", style = MaterialTheme.typography.displayLarge, color = XpTokens.Ink)
+            DateTimeStrip()
+            Spacer(Modifier.height(14.dp))
+            Text(
+                titleFor(selectedDate),
+                style = MaterialTheme.typography.displayLarge,
+                color = XpTokens.Ink,
+            )
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(
@@ -122,6 +175,21 @@ private fun TasksHeader(tasks: List<TaskRow>) {
             Spacer(Modifier.height(4.dp))
             Text("done".uppercase(), style = MaterialTheme.typography.labelMedium, color = XpTokens.Ink3)
         }
+    }
+}
+
+// "Today" only for today. Tomorrow/Yesterday for ±1 day. Otherwise weekday
+// name (Monday, Tuesday, …) — date context already shown in DateTimeStrip
+// above and in the day chips below.
+private fun titleFor(selectedEpochDay: Long): String {
+    val today = LocalDate.now(ZoneId.systemDefault()).toEpochDay()
+    return when (selectedEpochDay - today) {
+        0L -> "Today"
+        1L -> "Tomorrow"
+        -1L -> "Yesterday"
+        else -> LocalDate.ofEpochDay(selectedEpochDay)
+            .dayOfWeek
+            .getDisplayName(TextStyle.FULL, Locale.getDefault())
     }
 }
 

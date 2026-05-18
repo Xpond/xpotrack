@@ -12,6 +12,7 @@ data class Task(
     val notes: String = "",
     val isDone: Boolean = false,
     val reminderAt: Long = 0L,  // absolute epoch ms; 0 = unscheduled
+    val dateEpochDay: Long = 0L, // LocalDate.toEpochDay() in device local zone
     val createdAt: Long,
     val updatedAt: Long,
 )

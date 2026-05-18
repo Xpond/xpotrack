@@ -26,8 +26,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,20 +43,37 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.xpotrack.app.R
 import com.xpotrack.app.data.model.ReminderLevel
 import com.xpotrack.app.ui.components.styleFor
 import com.xpotrack.app.ui.theme.XpTokens
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaskCreateSheet(
     vm: TaskCreateViewModel,
+    datesWithTasks: Set<Long> = emptySet(),
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val state by vm.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+    var calendarOpen by remember { mutableStateOf(false) }
+
+    if (calendarOpen) {
+        MonthPickerDialog(
+            selectedEpochDay = state.dateEpochDay,
+            datesWithTasks = datesWithTasks,
+            disablePast = true,
+            onPick = { vm.setDate(it); calendarOpen = false },
+            onDismiss = { calendarOpen = false },
+        )
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -84,6 +103,14 @@ fun TaskCreateSheet(
 
             Spacer(Modifier.height(12.dp))
             NotesField(value = state.notes, onChange = vm::setNotes)
+
+            Spacer(Modifier.height(18.dp))
+            Text("Date".uppercase(), style = MaterialTheme.typography.labelMedium, color = XpTokens.Ink3)
+            Spacer(Modifier.height(8.dp))
+            DateRow(
+                epochDay = state.dateEpochDay,
+                onClick = { calendarOpen = true },
+            )
 
             Spacer(Modifier.height(18.dp))
             Text("Time".uppercase(), style = MaterialTheme.typography.labelMedium, color = XpTokens.Ink3)
@@ -269,13 +296,63 @@ private fun ScheduleButton(state: TaskEditState, onClick: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            "Schedule for ${displayTime(state.hour, state.minute)} today",
+            "Schedule for ${displayTime(state.hour, state.minute)} ${relativeDay(state.dateEpochDay)}",
             color = XpTokens.OnTeal,
             style = MaterialTheme.typography.labelLarge.copy(
                 fontSize = 15.5.sp,
                 fontWeight = FontWeight.SemiBold,
             ),
         )
+    }
+}
+
+@Composable
+private fun DateRow(epochDay: Long, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .border(0.5.dp, XpTokens.Hair, RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_calendar),
+            contentDescription = null,
+            tint = XpTokens.Ink2,
+            modifier = Modifier.size(15.dp),
+        )
+        Spacer(Modifier.width(12.dp))
+        Text(
+            longDate(epochDay),
+            color = XpTokens.Ink,
+            style = MaterialTheme.typography.labelLarge.copy(
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+            ),
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            relativeDay(epochDay).replaceFirstChar { it.titlecase(Locale.getDefault()) },
+            color = XpTokens.Ink3,
+            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
+        )
+    }
+}
+
+private fun longDate(epochDay: Long): String =
+    LocalDate.ofEpochDay(epochDay)
+        .format(DateTimeFormatter.ofPattern("EEEE, MMM d", Locale.getDefault()))
+
+private fun relativeDay(epochDay: Long): String {
+    val today = LocalDate.now(ZoneId.systemDefault()).toEpochDay()
+    return when (epochDay - today) {
+        0L -> "today"
+        1L -> "tomorrow"
+        -1L -> "yesterday"
+        else -> LocalDate.ofEpochDay(epochDay)
+            .format(DateTimeFormatter.ofPattern("MMM d", Locale.getDefault()))
     }
 }
 

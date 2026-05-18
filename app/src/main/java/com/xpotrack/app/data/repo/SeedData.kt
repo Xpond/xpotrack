@@ -3,6 +3,8 @@ package com.xpotrack.app.data.repo
 import com.xpotrack.app.data.db.NoteEntity
 import com.xpotrack.app.data.db.TaskEntity
 import com.xpotrack.app.data.model.ReminderLevel
+import java.time.LocalDate
+import java.time.ZoneId
 
 private val Silent = ReminderLevel.Silent.name
 private val Notify = ReminderLevel.Notify.name
@@ -47,15 +49,18 @@ object SeedData {
         )
     }
 
-    fun tasks(now: Long): List<TaskEntity> = listOf(
-        TaskEntity(title = "Morning pages",          time = "07:00", level = Silent, durationMin = 30, isDone = true, createdAt = now, updatedAt = now),
-        TaskEntity(title = "Stretch + coffee",       time = "08:30", level = Silent, durationMin = 25, isDone = true, createdAt = now, updatedAt = now),
-        TaskEntity(title = "Stand-up — design crit", time = "09:15", level = Notify, durationMin = 30, notes = "Bring the latency numbers from yesterday's run.", createdAt = now, updatedAt = now),
-        TaskEntity(title = "Review Anya's draft",    time = "11:00", level = Notify, durationMin = 60, notes = "Slow down on slide 6 — leakage metaphor first.", createdAt = now, updatedAt = now),
-        TaskEntity(title = "Lunch — Marin Sun",      time = "13:00", level = Silent, durationMin = 60, createdAt = now, updatedAt = now),
-        TaskEntity(title = "Dentist · 18 Hawthorne", time = "14:30", level = Alarm,  durationMin = 45, notes = "Arrive 10m early — new patient forms.", createdAt = now, updatedAt = now),
-        TaskEntity(title = "Call Dad",               time = "16:00", level = Alarm,  durationMin = 20, notes = "Birthday's in 3 weeks — ask what he wants for the cabin trip.", createdAt = now, updatedAt = now),
-        TaskEntity(title = "Bike — Marin loop",      time = "17:30", level = Notify, durationMin = 90, createdAt = now, updatedAt = now),
-        TaskEntity(title = "Read — Cosmicomics",     time = "20:30", level = Silent, durationMin = 45, createdAt = now, updatedAt = now),
-    )
+    fun tasks(now: Long): List<TaskEntity> {
+        val d = LocalDate.now(ZoneId.systemDefault()).toEpochDay()
+        return listOf(
+            TaskEntity(title = "Morning pages",          time = "07:00", level = Silent, durationMin = 30, isDone = true, dateEpochDay = d, createdAt = now, updatedAt = now),
+            TaskEntity(title = "Stretch + coffee",       time = "08:30", level = Silent, durationMin = 25, isDone = true, dateEpochDay = d, createdAt = now, updatedAt = now),
+            TaskEntity(title = "Stand-up — design crit", time = "09:15", level = Notify, durationMin = 30, notes = "Bring the latency numbers from yesterday's run.", dateEpochDay = d, createdAt = now, updatedAt = now),
+            TaskEntity(title = "Review Anya's draft",    time = "11:00", level = Notify, durationMin = 60, notes = "Slow down on slide 6 — leakage metaphor first.", dateEpochDay = d, createdAt = now, updatedAt = now),
+            TaskEntity(title = "Lunch — Marin Sun",      time = "13:00", level = Silent, durationMin = 60, dateEpochDay = d, createdAt = now, updatedAt = now),
+            TaskEntity(title = "Dentist · 18 Hawthorne", time = "14:30", level = Alarm,  durationMin = 45, notes = "Arrive 10m early — new patient forms.", dateEpochDay = d, createdAt = now, updatedAt = now),
+            TaskEntity(title = "Call Dad",               time = "16:00", level = Alarm,  durationMin = 20, notes = "Birthday's in 3 weeks — ask what he wants for the cabin trip.", dateEpochDay = d, createdAt = now, updatedAt = now),
+            TaskEntity(title = "Bike — Marin loop",      time = "17:30", level = Notify, durationMin = 90, dateEpochDay = d, createdAt = now, updatedAt = now),
+            TaskEntity(title = "Read — Cosmicomics",     time = "20:30", level = Silent, durationMin = 45, dateEpochDay = d, createdAt = now, updatedAt = now),
+        )
+    }
 }

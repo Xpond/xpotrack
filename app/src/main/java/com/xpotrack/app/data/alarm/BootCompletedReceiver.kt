@@ -10,9 +10,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-// Android drops exact alarms across reboots; re-arm everything that's still
-// in the future for non-Silent tasks. Recomputes reminderAt so a task whose
-// HH:mm has already passed today rolls to tomorrow.
+// Android drops exact alarms across reboots; re-arm anything still in the
+// future for non-Silent tasks. Past-dated tasks resolve to 0 and stay
+// unscheduled.
 class BootCompletedReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -24,7 +24,7 @@ class BootCompletedReceiver : BroadcastReceiver() {
                 val tasks = app.tasksRepo.observeAll().first()
                 tasks.forEach { task ->
                     if (task.level == ReminderLevel.Silent || task.isDone) return@forEach
-                    val next = app.alarmScheduler.nextOccurrence(task.time)
+                    val next = app.alarmScheduler.nextOccurrence(task.dateEpochDay, task.time)
                     app.tasksRepo.updateReminderAt(task.id, next)
                     app.alarmScheduler.schedule(task.copy(reminderAt = next))
                 }

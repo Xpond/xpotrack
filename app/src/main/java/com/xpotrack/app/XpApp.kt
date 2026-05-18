@@ -69,7 +69,7 @@ class XpApp : Application() {
             // that's Notify/Alarm and not already done.
             tasksRepo.observeAll().first().forEach { task ->
                 if (task.level == ReminderLevel.Silent || task.isDone) return@forEach
-                val next = alarmScheduler.nextOccurrence(task.time, now)
+                val next = alarmScheduler.nextOccurrence(task.dateEpochDay, task.time, now)
                 if (task.reminderAt != next) tasksRepo.updateReminderAt(task.id, next)
                 alarmScheduler.schedule(task.copy(reminderAt = next))
             }
