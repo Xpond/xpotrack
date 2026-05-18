@@ -31,7 +31,10 @@ enum class XpTab(val label: String, val iconRes: Int) {
     Notes("Notes",  R.drawable.ic_tab_notes),
     Tasks("Tasks",  R.drawable.ic_tab_tasks),
     Vault("Vault",  R.drawable.ic_tab_vault),
-    More("More",    R.drawable.ic_tab_settings);
+    // Enum value stays `More` to avoid churning every call site; the user-
+    // facing label was renamed to "Settings" when milestone 13 replaced the
+    // stub with the real screen.
+    More("Settings", R.drawable.ic_tab_settings);
 }
 
 @Composable

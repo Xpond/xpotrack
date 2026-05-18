@@ -74,11 +74,7 @@ fun VaultUnlockScreen(vm: VaultViewModel) {
     LaunchedEffect(Unit) { if (canBiometric) triggerBiometric() }
 
     Column(
-        Modifier.fillMaxSize().background(
-            Brush.verticalGradient(
-                0f to Color(0xFF030B0A), 0.5f to Color(0xFF050D0C), 1f to XpTokens.Bg,
-            ),
-        ).padding(horizontal = 24.dp),
+        Modifier.fillMaxSize().background(XpTokens.Bg).padding(horizontal = 24.dp),
     ) {
         Spacer(Modifier.height(20.dp))
 
@@ -137,13 +133,13 @@ fun VaultUnlockScreen(vm: VaultViewModel) {
 private fun FingerprintBadge() {
     Box(
         Modifier.size(152.dp).clip(CircleShape)
-            .background(Brush.radialGradient(0f to Color(0x145EEAD4), 1f to Color.Transparent))
+            .background(Brush.radialGradient(0f to XpTokens.TealGlow, 1f to Color.Transparent))
             .border(0.5.dp, XpTokens.Teal, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         Box(
             Modifier.size(116.dp).clip(CircleShape)
-                .background(Color(0x0F5EEAD4))
+                .background(XpTokens.TealTint)
                 .border(0.5.dp, XpTokens.Hair2, CircleShape),
             contentAlignment = Alignment.Center,
         ) {

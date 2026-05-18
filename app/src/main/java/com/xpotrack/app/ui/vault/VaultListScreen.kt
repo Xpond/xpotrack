@@ -24,8 +24,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -40,11 +38,7 @@ fun VaultListScreen(
     onNew: () -> Unit,
     onLockNow: () -> Unit,
 ) {
-    Box(
-        Modifier.fillMaxSize().background(
-            Brush.verticalGradient(0f to Color(0xFF050D0C), 0.6f to XpTokens.Bg),
-        ),
-    ) {
+    Box(Modifier.fillMaxSize().background(XpTokens.Bg)) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 100.dp)) {
             Header(onLockNow = onLockNow)
             Spacer(Modifier.height(12.dp))
@@ -77,7 +71,7 @@ private fun Header(onLockNow: () -> Unit) {
         }
         Box(
             Modifier.size(38.dp).clip(CircleShape)
-                .background(Color(0x0F5EEAD4))
+                .background(XpTokens.TealTint)
                 .border(0.5.dp, XpTokens.Teal, CircleShape)
                 .clickable(onClick = onLockNow),
             contentAlignment = Alignment.Center,
@@ -95,7 +89,7 @@ private fun LockedRow(row: LockedNoteRow, onClick: () -> Unit) {
     ) {
         Box(
             Modifier.size(30.dp).clip(RoundedCornerShape(8.dp))
-                .background(Color(0x0F5EEAD4))
+                .background(XpTokens.TealTint)
                 .border(0.5.dp, XpTokens.Hair2, RoundedCornerShape(8.dp))
                 .padding(top = 2.dp),
             contentAlignment = Alignment.Center,

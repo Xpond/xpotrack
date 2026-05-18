@@ -459,15 +459,49 @@ ui/quick/
 
 ---
 
+## Milestone 13 — Settings (light/dark only)  *(MVP-4, shipped 2026-05-18)*
+
+The mockup laid out ~20 toggles across Appearance / Notes / Tasks / Vault / Data groups. After working through which actually map to live behavior, we decided most are speculative for a single-user local app: theme/accent/font assume variants we don't ship; markdown/live-render/word-count are already on by default with no real reason to toggle off; export/backup/restore belong to milestone 14. We collapsed the entire screen to a single live-affecting setting — light/dark theme — and treated the rest of the mockup as deferred or out-of-scope.
+
+**Design decisions locked up front:**
+- **One setting, centered.** No groups, no rows, no surface card. Just `PREFERENCES` eyebrow + `Settings` heading + a centered `Dark | Light` segmented pill. The whole screen is the toggle. Reads as intentional minimalism rather than an empty screen.
+- **Mutable singleton tokens, not CompositionLocal.** `XpTokens.X` is read at 325 sites across 30 files. The idiomatic Compose path (introduce `XpPalette` + `LocalXp` CompositionLocal, migrate every call site to `LocalXp.current.bg`) would have been a 30-file diff for one toggle. Instead, each token became `var ... by mutableStateOf(...)`; the theme switch reassigns the underlying value and every reader recomposes automatically. Trade-off: it's a global mutable singleton, so only one palette is active at a time and `@Preview` composables render with whatever was last applied. Acceptable for this app — no previews in use, no need for side-by-side light/dark.
+- **SharedPreferences, not DataStore.** One Boolean key. DataStore would have been a new dependency for zero benefit, and its async read introduces a "dark for one frame, then snap to light" flash on cold start when the user has picked light. Synchronous `SharedPreferences.getBoolean` in `Application.onCreate()` reads before any composition runs.
+- **More tab repurposed in place.** The `XpTab.More` enum entry kept its name to avoid churning every call site; only the user-facing `label` flipped from `"More"` to `"Settings"`. Routed directly to `SettingsScreen()` from `AppRoot`.
+
+**Files added:**
+
+```
+ui/theme/XpTokens.kt                       # var ... by mutableStateOf + Dark/Light palettes + apply(p)
+data/prefs/ThemePrefs.kt                   # SharedPreferences wrapper, applyCurrent() at boot
+ui/settings/SettingsScreen.kt              # centered pill, single Composable
+```
+
+**Files removed:**
+- `ui/more/MoreStubScreen.kt` (deleted with its parent package — replaced by `ui/settings/`)
+
+**Wiring:**
+- `XpApp.onCreate` constructs `ThemePrefs(this).also { it.applyCurrent() }` before `NotificationChannels.ensure` and before any composition reads tokens.
+- `XpTheme` reads `XpTokens.Ink == Dark.Ink` to pick `darkColorScheme` vs `lightColorScheme` so Material 3 components we don't override (dialogs, ripples) flip with the toggle. The token-equality check works because tokens are state-readable inside a Composable — recomposes whenever the palette swaps.
+- `AppRoot` routes `XpTab.More -> SettingsScreen()` instead of `MoreStubScreen()`. `XpBottomTabs` label updated to `"Settings"`.
+
+**Course-corrections worth keeping:**
+- **Vault had hardcoded "deeper darkness" colors.** Four vault surfaces (list, unlock, setup, locked-note editor) painted their own vertical `Color(0xFF030B0A) → XpTokens.Bg` gradient for a mood effect, plus `Color(0x0F5EEAD4)` teal-tint chips. None of these flipped on theme change. First pass introduced two new tokens (`BgDeep` for the gradient top, `TealTint` for the chips) with light-mode equivalents. That fixed the teal chips but the gradient still read as a visible band at the top of each vault screen in both themes — the user called it "a notch." Cut the gradient entirely; vault now uses flat `XpTokens.Bg` like every other tab. `BgDeep` token deleted as dead, three orphan `Brush`/`Color` imports removed. `TealTint` kept because the chips were genuinely missing a token.
+- **Settings UI iterated twice.** First pass put the pill inside a surface card with an "Appearance" header and a status caption (`"Default"` / `"Light surfaces · teal accent"`). The user pointed out a one-setting screen doesn't need card chrome. Cut the card + caption, centered the pill on the full screen, bumped pill padding to `32dp × 14dp` and font to `15sp` so it reads as the focal element.
+- **`Ink == Dark.Ink` as a "which palette is active" proxy.** Considered adding `XpTokens.isDarkActive()` or threading the boolean through `ThemePrefs`. Both would have added a layer for one comparison in one Composable. The inline check is one line with a comment; kept it.
+- **Out-of-scope toggles documented in deferrals, not built.** Resisted building stub rows for theme/accent/font/etc. just to match the mockup's shape — empty toggles that don't do anything would be theater.
+
+**Verified on device:** Settings tab shows centered Appearance pill with the current preference selected. Tap Light → entire app (all tabs + editors + sheets) recomposes to the light palette in one frame, no flash, no missed surfaces. Tap Dark → reverses. Force-stop + relaunch preserves the selection via SharedPreferences. Vault tab on both themes uses flat `Bg` matching the other tabs — no "notch" band.
+
+**Project shape after this milestone:** ~7160 lines of Kotlin across 72 source files. Net: +3 files (`XpTokens.kt` rewritten, `ThemePrefs.kt` added, `SettingsScreen.kt` added, `MoreStubScreen.kt` deleted), +5 files of vault color-token swaps. Largest new file: `SettingsScreen.kt` at 79 lines.
+
+**Carry-forward deferrals from milestone 13:**
+- ~20 hardcoded teal-tinted backgrounds (`Color(0x0F5EEAD4)`, `Color(0x1A5EEAD4)`, etc.) remain across notes/tasks/quick/categories screens. They render as muted-teal washes on light mode but aren't broken — pre-existing from earlier milestones. Migrate them to `XpTokens.TealTint` (or a small set of tinted-teal tokens) as part of milestone 15 polish.
+- The full settings mockup (Appearance/Notes/Tasks/Vault/Data groups) is **explicitly out of scope** going forward unless a real use case appears. We re-derive each toggle from genuine need, not from the mockup's shape.
+
+---
+
 ## Remaining roadmap
-
-### Milestone 13 — Settings  *(MVP-4)*
-
-`settings.jsx` — all the toggles. Theme/accent/font/density/markdown/live-render/word-count/default-reminder/alarm-ring-length/lock-screen-show/vibrate/auto-lock/hide-previews/export/backup/restore/storage. Replaces the More stub.
-
-- `settings_prefs.xml` via DataStore
-- `SettingsScreen.kt`
-- Wires individual toggles back to the screens that read them (e.g. alarm ring length read by `AlarmRingingActivity`)
 
 ### Milestone 14 — Export for Tailscale + Waybar  *(plan §6)*
 

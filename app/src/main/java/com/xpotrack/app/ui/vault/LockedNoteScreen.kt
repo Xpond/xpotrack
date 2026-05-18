@@ -33,8 +33,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -84,11 +82,7 @@ fun LockedNoteScreen(vm: VaultViewModel, noteId: Long, onBack: () -> Unit) {
     }
     BackHandler(onBack = saveAndBack)
 
-    Column(
-        Modifier.fillMaxSize().background(
-            Brush.verticalGradient(0f to Color(0xFF050D0C), 0.6f to XpTokens.Bg),
-        ),
-    ) {
+    Column(Modifier.fillMaxSize().background(XpTokens.Bg)) {
         TopBar(onBack = saveAndBack)
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
             Spacer(Modifier.height(8.dp))
@@ -114,7 +108,7 @@ private fun TopBar(onBack: () -> Unit) {
         IconChip(R.drawable.ic_chevron_left, "Back", onBack)
         Spacer(Modifier.weight(1f))
         Row(
-            Modifier.clip(CircleShape).background(Color(0x0F5EEAD4))
+            Modifier.clip(CircleShape).background(XpTokens.TealTint)
                 .border(0.5.dp, XpTokens.Hair2, CircleShape)
                 .padding(horizontal = 12.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically,

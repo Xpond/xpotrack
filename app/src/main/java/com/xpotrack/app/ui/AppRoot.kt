@@ -27,7 +27,7 @@ import com.xpotrack.app.ui.categories.CategoryManagerViewModel
 import com.xpotrack.app.ui.categories.CategoryPickerSheet
 import com.xpotrack.app.ui.components.XpBottomTabs
 import com.xpotrack.app.ui.components.XpTab
-import com.xpotrack.app.ui.more.MoreStubScreen
+import com.xpotrack.app.ui.settings.SettingsScreen
 import com.xpotrack.app.ui.notes.NotesEditorScreen
 import com.xpotrack.app.ui.notes.NotesEditorViewModel
 import com.xpotrack.app.ui.notes.NotesListScreen
@@ -200,7 +200,7 @@ private fun TabsScaffold(
                     onOpenTask = { id -> if (id == 0L) onNewTask() else onOpenTask(id) },
                 )
                 XpTab.Vault -> VaultGate(onLockExit = onLockExit)
-                XpTab.More  -> MoreStubScreen()
+                XpTab.More  -> SettingsScreen()
             }
         }
         XpBottomTabs(active = active, onSelect = onSelectTab)

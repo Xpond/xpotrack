@@ -30,8 +30,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -81,11 +79,7 @@ fun VaultSetupScreen(vm: VaultViewModel) {
     }
 
     Column(
-        Modifier.fillMaxSize().background(
-            Brush.verticalGradient(
-                0f to Color(0xFF030B0A), 0.5f to Color(0xFF050D0C), 1f to XpTokens.Bg,
-            ),
-        ).padding(horizontal = 24.dp),
+        Modifier.fillMaxSize().background(XpTokens.Bg).padding(horizontal = 24.dp),
     ) {
         Spacer(Modifier.height(20.dp))
         Box(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp)) {
