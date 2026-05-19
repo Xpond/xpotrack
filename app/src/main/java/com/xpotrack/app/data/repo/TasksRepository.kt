@@ -7,6 +7,8 @@ import com.xpotrack.app.data.model.ReminderLevel
 import com.xpotrack.app.data.model.Task
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.time.DayOfWeek
+import java.time.LocalDate
 
 class TasksRepository(
     private val dao: TaskDao,
@@ -35,6 +37,8 @@ class TasksRepository(
             isDone = task.isDone,
             reminderAt = reminderAt,
             dateEpochDay = task.dateEpochDay,
+            repeat = task.repeat,
+            linkedNoteId = task.linkedNoteId,
             createdAt = existing?.createdAt ?: now,
             updatedAt = now,
         )
@@ -46,6 +50,14 @@ class TasksRepository(
     suspend fun updateReminderAt(id: Long, at: Long) = dao.setReminderAt(id, at)
 
     suspend fun markDone(id: Long) {
+        val existing = dao.getById(id) ?: return
+        if (existing.repeat != "none") {
+            // Repeating tasks never "complete" — they roll forward to the next
+            // occurrence and the alarm re-arms in upsert().
+            val next = nextDateFor(existing.repeat, existing.dateEpochDay)
+            upsert(toDomain(existing).copy(dateEpochDay = next))
+            return
+        }
         dao.markDone(id, System.currentTimeMillis())
         scheduler.cancel(id)
     }
@@ -69,7 +81,28 @@ class TasksRepository(
         isDone = e.isDone,
         reminderAt = e.reminderAt,
         dateEpochDay = e.dateEpochDay,
+        repeat = e.repeat,
+        linkedNoteId = e.linkedNoteId,
         createdAt = e.createdAt,
         updatedAt = e.updatedAt,
     )
+}
+
+// Next occurrence date for a recurring task, given the previous date.
+// "none" returns the same day (caller treats it as "no roll-forward").
+// "daily" → +1 day. "weekly" → +7. "weekdays" → next Mon..Fri (skip Sat/Sun).
+fun nextDateFor(rule: String, fromEpochDay: Long): Long {
+    val d = LocalDate.ofEpochDay(fromEpochDay)
+    return when (rule) {
+        "daily" -> d.plusDays(1).toEpochDay()
+        "weekly" -> d.plusDays(7).toEpochDay()
+        "weekdays" -> {
+            var n = d.plusDays(1)
+            while (n.dayOfWeek == DayOfWeek.SATURDAY || n.dayOfWeek == DayOfWeek.SUNDAY) {
+                n = n.plusDays(1)
+            }
+            n.toEpochDay()
+        }
+        else -> fromEpochDay
+    }
 }

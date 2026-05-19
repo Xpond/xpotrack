@@ -36,7 +36,7 @@ fun DateTimeStrip() {
         SimpleDateFormat("EEEE · MMM d", Locale.getDefault()).format(Date(now))
     }
     val time = remember(now / 60_000L) {
-        SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(now))
+        SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(now))
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(date.uppercase(), style = MaterialTheme.typography.labelSmall, color = XpTokens.Ink3)

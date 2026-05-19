@@ -13,6 +13,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,6 +62,12 @@ fun <T> WheelPicker(
     val state = rememberLazyListState(initialFirstVisibleItemIndex = initialFirst)
     val fling = rememberSnapFlingBehavior(lazyListState = state)
 
+    // The snap-flow LaunchedEffect below keys on `state, size` and never restarts,
+    // so direct captures of `selectedIndex` and `onIndexChange` would freeze at
+    // their initial values. Route them through latest-state holders.
+    val latestSelected by rememberUpdatedState(selectedIndex)
+    val latestOnChange by rememberUpdatedState(onIndexChange)
+
     // Pull external state changes (e.g. AM/PM swap rewriting hour) into the wheel
     // only when the user isn't actively scrolling.
     LaunchedEffect(selectedIndex, size) {
@@ -72,13 +79,15 @@ fun <T> WheelPicker(
         }
     }
 
-    // Emit index changes once scroll settles on a new center slot.
+    // Emit index changes once scroll settles on a new center slot. Only emit
+    // when the user initiated the scroll — programmatic scrolls from the effect
+    // above must not feed back as an onIndexChange.
     LaunchedEffect(state, size) {
         snapshotFlow { state.isScrollInProgress to state.firstVisibleItemIndex }
             .collect { (scrolling, first) ->
                 if (scrolling) return@collect
                 val v = (first + 1).mod(size)
-                if (v != selectedIndex) onIndexChange(v)
+                if (v != latestSelected) latestOnChange(v)
             }
     }
 

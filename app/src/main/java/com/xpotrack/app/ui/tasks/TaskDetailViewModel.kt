@@ -4,11 +4,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.xpotrack.app.data.model.Task
+import com.xpotrack.app.data.repo.NotesRepository
 import com.xpotrack.app.data.repo.TasksRepository
+import com.xpotrack.app.ui.notes.NoteRow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 data class TaskDetailState(
@@ -20,6 +24,7 @@ data class TaskDetailState(
 
 class TaskDetailViewModel(
     private val repo: TasksRepository,
+    notesRepo: NotesRepository,
     private val id: Long,
 ) : ViewModel() {
 
@@ -30,6 +35,10 @@ class TaskDetailViewModel(
     // Initialized once on load; saved on back navigation.
     private val _notesDraft = MutableStateFlow("")
     val notesDraft: StateFlow<String> = _notesDraft.asStateFlow()
+
+    // Live note list — feeds the link picker.
+    val allNotes: StateFlow<List<NoteRow>> = notesRepo.observeAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     init { refresh() }
 
@@ -65,12 +74,28 @@ class TaskDetailViewModel(
         repo.upsert(task.copy(notes = _notesDraft.value))
     }
 
+    fun setLinkedNote(noteId: Long?) {
+        val task = _state.value.task ?: return
+        if (task.linkedNoteId == noteId) return
+        viewModelScope.launch {
+            // Persist current draft alongside the link change so we don't lose
+            // an in-progress notes edit when the upsert below runs.
+            val notes = if (!task.isDone) _notesDraft.value else task.notes
+            repo.upsert(task.copy(linkedNoteId = noteId, notes = notes))
+            refresh()
+        }
+    }
+
     suspend fun markDone() { repo.markDone(id) }
     suspend fun delete()   { repo.delete(id) }
 
-    class Factory(private val repo: TasksRepository, private val id: Long) : ViewModelProvider.Factory {
+    class Factory(
+        private val repo: TasksRepository,
+        private val notesRepo: NotesRepository,
+        private val id: Long,
+    ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            TaskDetailViewModel(repo, id) as T
+            TaskDetailViewModel(repo, notesRepo, id) as T
     }
 }

@@ -13,7 +13,7 @@ import java.time.ZoneId
 
 @Database(
     entities = [NoteEntity::class, TaskEntity::class, CategoryEntity::class, MetaEntity::class, QuickNoteEntity::class],
-    version = 9,
+    version = 11,
     exportSchema = false,
 )
 abstract class XpDatabase : RoomDatabase() {
@@ -40,7 +40,7 @@ abstract class XpDatabase : RoomDatabase() {
             return Room.databaseBuilder(appContext, XpDatabase::class.java, "xpotrack.db")
                 .openHelperFactory(factory)
                 .fallbackToDestructiveMigrationFrom(1, 2, 3, 4, 5, 6, 7)
-                .addMigrations(MIGRATION_8_9)
+                .addMigrations(MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
                 .build()
         }
 
@@ -52,6 +52,20 @@ abstract class XpDatabase : RoomDatabase() {
                 val today = LocalDate.now(ZoneId.systemDefault()).toEpochDay()
                 db.execSQL("ALTER TABLE tasks ADD COLUMN dateEpochDay INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("UPDATE tasks SET dateEpochDay = $today")
+            }
+        }
+
+        // v9→v10: tasks gain a recurrence rule. Existing rows default to "none".
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE tasks ADD COLUMN repeat TEXT NOT NULL DEFAULT 'none'")
+            }
+        }
+
+        // v10→v11: optional pointer to a note row. Nullable — most tasks won't have one.
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE tasks ADD COLUMN linkedNoteId INTEGER")
             }
         }
     }

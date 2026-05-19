@@ -33,6 +33,12 @@ data class TaskEntity(
     // Local-zone day number (LocalDate.toEpochDay). Pairs with `time` to form
     // an absolute moment. Migration v8→v9 backfills existing rows to today.
     val dateEpochDay: Long = 0L,
+    // Recurrence rule: "none" | "daily" | "weekly" | "weekdays". Roll-forward
+    // model — markDone / alarm-fire advances dateEpochDay in place.
+    val repeat: String = "none",
+    // Optional pointer to a row in `notes`. Soft link: deleting the note leaves
+    // the task with a dangling id; the UI resolves null and shows the empty state.
+    val linkedNoteId: Long? = null,
     val createdAt: Long,
     val updatedAt: Long,
 )

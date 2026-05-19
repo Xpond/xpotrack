@@ -13,6 +13,8 @@ data class Task(
     val isDone: Boolean = false,
     val reminderAt: Long = 0L,  // absolute epoch ms; 0 = unscheduled
     val dateEpochDay: Long = 0L, // LocalDate.toEpochDay() in device local zone
+    val repeat: String = "none", // "none" | "daily" | "weekly" | "weekdays"
+    val linkedNoteId: Long? = null,
     val createdAt: Long,
     val updatedAt: Long,
 )

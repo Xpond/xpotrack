@@ -85,7 +85,7 @@ private fun TaskRowItem(task: TaskRow, onClick: () -> Unit, onLongClick: () -> U
                 .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                XpReminderPill(task.level, task.time, PillSize.Sm)
+                XpReminderPill(task.level, formatTime12(task.time), PillSize.Sm)
                 if (task.done) {
                     Spacer(Modifier.width(8.dp))
                     Icon(

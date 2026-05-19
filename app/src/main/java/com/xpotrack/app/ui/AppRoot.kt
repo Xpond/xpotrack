@@ -141,7 +141,7 @@ fun AppRoot() {
                 val id = entry.arguments?.getLong("id") ?: 0L
                 val vm: TaskDetailViewModel = viewModel(
                     key = "task-detail-$id",
-                    factory = TaskDetailViewModel.Factory(app.tasksRepo, id),
+                    factory = TaskDetailViewModel.Factory(app.tasksRepo, app.notesRepo, id),
                 )
                 // Refresh in place when the sheet closes — avoids re-keying the VM,
                 // which would briefly flash an empty state during recreation.
@@ -150,6 +150,7 @@ fun AppRoot() {
                     vm = vm,
                     onBack = { nav.popBackStack() },
                     onEdit = { openSheet(it) },
+                    onOpenNote = { noteId -> nav.navigate("editor/$noteId") },
                 )
             }
         }
@@ -158,7 +159,7 @@ fun AppRoot() {
             val app = LocalContext.current.applicationContext as XpApp
             val vm: TaskCreateViewModel = viewModel(
                 key = "task-create-$id-$sheetToken",
-                factory = TaskCreateViewModel.Factory(app.tasksRepo, id, sheetInitialDate),
+                factory = TaskCreateViewModel.Factory(app.tasksRepo, app.notesRepo, id, sheetInitialDate),
             )
             val allTasks by app.tasksRepo.observeAll().collectAsStateWithLifecycle(emptyList())
             val datesWithTasks = remember(allTasks) {

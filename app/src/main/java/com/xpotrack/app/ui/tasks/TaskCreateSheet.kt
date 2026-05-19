@@ -12,11 +12,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -40,6 +42,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -62,8 +66,11 @@ fun TaskCreateSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val state by vm.state.collectAsStateWithLifecycle()
+    val allNotes by vm.allNotes.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     var calendarOpen by remember { mutableStateOf(false) }
+    var repeatOpen by remember { mutableStateOf(false) }
+    var linkOpen by remember { mutableStateOf(false) }
 
     if (calendarOpen) {
         MonthPickerDialog(
@@ -72,6 +79,24 @@ fun TaskCreateSheet(
             disablePast = true,
             onPick = { vm.setDate(it); calendarOpen = false },
             onDismiss = { calendarOpen = false },
+        )
+    }
+
+    if (repeatOpen) {
+        RepeatPickerDialog(
+            selected = state.repeat,
+            epochDay = state.dateEpochDay,
+            onPick = { vm.setRepeat(it); repeatOpen = false },
+            onDismiss = { repeatOpen = false },
+        )
+    }
+
+    if (linkOpen) {
+        LinkNoteDialog(
+            notes = allNotes,
+            selectedId = state.linkedNoteId,
+            onPick = { vm.setLinkedNote(it); linkOpen = false },
+            onDismiss = { linkOpen = false },
         )
     }
 
@@ -87,6 +112,8 @@ fun TaskCreateSheet(
         Column(
             Modifier
                 .fillMaxWidth()
+                .imePadding()
+                .verticalScroll(rememberScrollState())
                 .padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 28.dp),
         ) {
             Text(
@@ -128,7 +155,18 @@ fun TaskCreateSheet(
             ReminderChips(active = state.level, onSelect = vm::setLevel)
 
             Spacer(Modifier.height(16.dp))
-            RepeatRow()
+            RepeatRow(
+                rule = state.repeat,
+                epochDay = state.dateEpochDay,
+                onClick = { repeatOpen = true },
+            )
+
+            LinkNoteRow(
+                title = state.linkedNoteId?.let { id ->
+                    allNotes.firstOrNull { it.id.toLong() == id }?.title?.ifBlank { "Untitled" }
+                },
+                onClick = { linkOpen = true },
+            )
 
             Spacer(Modifier.height(14.dp))
             ScheduleButton(
@@ -193,10 +231,14 @@ private fun TitleField(value: String, onChange: (String) -> Unit) {
 private fun NotesField(value: String, onChange: (String) -> Unit) {
     val focus = remember { FocusRequester() }
     val interaction = remember { MutableInteractionSource() }
+    val scroll = rememberScrollState()
+    // Fixed ~3-line cap so long notes scroll internally instead of pushing
+    // the rest of the sheet down. lineHeight 20sp × 3 + padding ≈ 76.dp.
     Box(
-        Modifier.fillMaxWidth().heightIn(min = 56.dp)
+        Modifier.fillMaxWidth().height(76.dp)
             .clickable(interactionSource = interaction, indication = null) { focus.requestFocus() }
-            .padding(vertical = 8.dp),
+            .padding(vertical = 8.dp)
+            .verticalScroll(scroll),
     ) {
         BasicTextField(
             value = value, onValueChange = onChange,
@@ -258,7 +300,7 @@ private fun ReminderChips(active: ReminderLevel, onSelect: (ReminderLevel) -> Un
 }
 
 @Composable
-private fun RepeatRow() {
+private fun RepeatRow(rule: String, epochDay: Long, onClick: () -> Unit) {
     Column {
         Box(
             Modifier
@@ -269,13 +311,53 @@ private fun RepeatRow() {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .clickable(onClick = onClick)
                 .padding(vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("Repeat", color = XpTokens.Ink2, style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.5.sp))
             Spacer(Modifier.weight(1f))
             Text(
-                "Never  ›",
+                "${repeatLabel(rule, epochDay)}  ›",
+                color = XpTokens.Ink3,
+                style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun LinkNoteRow(title: String?, onClick: () -> Unit) {
+    Column {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(0.5.dp)
+                .background(XpTokens.Hair)
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Linked note", color = XpTokens.Ink2,
+                style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.5.sp))
+            Spacer(Modifier.width(12.dp))
+            // Title takes the remaining width so long names ellipsize cleanly
+            // instead of pushing the chevron off-screen.
+            Text(
+                title ?: "None",
+                color = XpTokens.Ink3,
+                style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.End,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                "  ›",
                 color = XpTokens.Ink3,
                 style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
             )
@@ -296,7 +378,7 @@ private fun ScheduleButton(state: TaskEditState, onClick: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            "Schedule for ${displayTime(state.hour, state.minute)} ${relativeDay(state.dateEpochDay)}",
+            "Schedule for ${formatTime12(state.timeHHmm)} ${relativeDay(state.dateEpochDay)}",
             color = XpTokens.OnTeal,
             style = MaterialTheme.typography.labelLarge.copy(
                 fontSize = 15.5.sp,
@@ -356,12 +438,3 @@ private fun relativeDay(epochDay: Long): String {
     }
 }
 
-private fun displayTime(h: Int, m: Int): String {
-    val isPm = h >= 12
-    val hh = when {
-        h == 0 -> 12
-        h > 12 -> h - 12
-        else -> h
-    }
-    return "%d:%02d %s".format(hh, m, if (isPm) "PM" else "AM")
-}

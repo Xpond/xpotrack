@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,8 +27,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,6 +50,7 @@ import com.xpotrack.app.ui.components.PillSize
 import com.xpotrack.app.ui.components.ReminderStyle
 import com.xpotrack.app.ui.components.XpReminderPill
 import com.xpotrack.app.ui.components.styleFor
+import com.xpotrack.app.ui.notes.NoteRow
 import com.xpotrack.app.ui.theme.GeistMono
 import com.xpotrack.app.ui.theme.XpTokens
 import kotlinx.coroutines.launch
@@ -60,14 +64,29 @@ fun TaskDetailScreen(
     vm: TaskDetailViewModel,
     onBack: () -> Unit,
     onEdit: (Long) -> Unit,
+    onOpenNote: (Int) -> Unit = {},
 ) {
     val s by vm.state.collectAsStateWithLifecycle()
     val notesDraft by vm.notesDraft.collectAsStateWithLifecycle()
+    val allNotes by vm.allNotes.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+    var linkOpen by remember { mutableStateOf(false) }
     val task = s.task ?: return run { Box(Modifier.fillMaxSize().background(XpTokens.Bg)) {} }
     val style = styleFor(task.level)
+    val linkedNote = remember(allNotes, task.linkedNoteId) {
+        task.linkedNoteId?.let { id -> allNotes.firstOrNull { it.id.toLong() == id } }
+    }
     val saveAndBack: () -> Unit = { scope.launch { vm.saveNotesIfDirty(); onBack() } }
     BackHandler(onBack = saveAndBack)
+
+    if (linkOpen) {
+        LinkNoteDialog(
+            notes = allNotes,
+            selectedId = task.linkedNoteId,
+            onPick = { vm.setLinkedNote(it); linkOpen = false },
+            onDismiss = { linkOpen = false },
+        )
+    }
 
     Column(Modifier.fillMaxSize().background(XpTokens.Bg)) {
         TopBar(
@@ -88,6 +107,12 @@ fun TaskDetailScreen(
             NotesArea(value = notesDraft, enabled = !task.isDone, onChange = vm::onNotesChange)
             Spacer(Modifier.height(22.dp))
             FieldsCard(task, style, onAnyRow = { if (!task.isDone) onEdit(task.id) })
+            Spacer(Modifier.height(18.dp))
+            LinkedNoteSection(
+                note = linkedNote,
+                onPick = { linkOpen = true },
+                onOpen = { linkedNote?.id?.let(onOpenNote) },
+            )
             Spacer(Modifier.height(22.dp))
             ActionRow(
                 done = task.isDone,
@@ -162,7 +187,7 @@ private fun FieldsCard(task: Task, style: ReminderStyle, onAnyRow: () -> Unit) {
             reminderSummary(task.level), valueColor = style.accent, onClick = onAnyRow,
         )
         Divider()
-        FieldRow(R.drawable.ic_repeat, "REPEAT", "Never", onClick = onAnyRow)
+        FieldRow(R.drawable.ic_repeat, "REPEAT", repeatLabel(task.repeat, task.dateEpochDay), onClick = onAnyRow)
     }
 }
 
@@ -182,13 +207,6 @@ private fun dayLabel(epochDay: Long): String {
         else -> LocalDate.ofEpochDay(epochDay)
             .format(DateTimeFormatter.ofPattern("EEE, MMM d", Locale.getDefault()))
     }
-}
-
-private fun formatTime12(time: String): String {
-    val (h24, m) = parseHHmm(time)
-    val isPm = h24 >= 12
-    val h12 = ((h24 + 11) % 12) + 1
-    return "%d:%02d %s".format(h12, m, if (isPm) "PM" else "AM")
 }
 
 @Composable
@@ -228,24 +246,80 @@ private fun Divider() {
 
 @Composable
 private fun NotesArea(value: String, enabled: Boolean, onChange: (String) -> Unit) {
+    val scroll = rememberScrollState()
+    // Cap at ~3 lines (lineHeight 21sp × 3 ≈ 63dp + breathing room). Long notes
+    // scroll internally; the field never pushes the link card or actions down.
     if (!enabled) {
         if (value.isNotBlank()) {
-            Text(value, color = XpTokens.Ink2, fontSize = 14.sp, lineHeight = 21.sp)
+            Box(Modifier.fillMaxWidth().heightIn(max = 72.dp).verticalScroll(scroll)) {
+                Text(value, color = XpTokens.Ink2, fontSize = 14.sp, lineHeight = 21.sp)
+            }
         }
         return
     }
-    BasicTextField(
-        value = value, onValueChange = onChange,
-        textStyle = TextStyle(fontSize = 14.sp, lineHeight = 21.sp, color = XpTokens.Ink2),
-        cursorBrush = SolidColor(XpTokens.Teal),
-        modifier = Modifier.fillMaxWidth(),
-        decorationBox = { inner ->
-            if (value.isEmpty()) {
-                Text("Add notes…", color = XpTokens.Ink3, fontSize = 14.sp, lineHeight = 21.sp)
+    Box(Modifier.fillMaxWidth().heightIn(max = 72.dp).verticalScroll(scroll)) {
+        BasicTextField(
+            value = value, onValueChange = onChange,
+            textStyle = TextStyle(fontSize = 14.sp, lineHeight = 21.sp, color = XpTokens.Ink2),
+            cursorBrush = SolidColor(XpTokens.Teal),
+            modifier = Modifier.fillMaxWidth(),
+            decorationBox = { inner ->
+                if (value.isEmpty()) {
+                    Text("Add notes…", color = XpTokens.Ink3, fontSize = 14.sp, lineHeight = 21.sp)
+                }
+                inner()
+            },
+        )
+    }
+}
+
+@Composable
+private fun LinkedNoteSection(note: NoteRow?, onPick: () -> Unit, onOpen: () -> Unit) {
+    Column(Modifier.fillMaxWidth()) {
+        Text("Linked note".uppercase(),
+            fontFamily = GeistMono, fontSize = 11.5.sp,
+            letterSpacing = 0.05.em, color = XpTokens.Ink3)
+        Spacer(Modifier.height(10.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(XpTokens.Surface1)
+                .border(0.5.dp, XpTokens.Hair, RoundedCornerShape(12.dp))
+                .clickable(onClick = if (note != null) onOpen else onPick)
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                Modifier.size(32.dp).clip(RoundedCornerShape(8.dp))
+                    .background(XpTokens.Teal.copy(alpha = 0.06f))
+                    .border(0.5.dp, XpTokens.Hair2, RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(painterResource(R.drawable.ic_note), null,
+                    tint = XpTokens.TealDim, modifier = Modifier.size(14.dp))
             }
-            inner()
-        },
-    )
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                if (note == null) {
+                    Text("Link a note", fontSize = 13.5.sp, fontWeight = FontWeight.Medium, color = XpTokens.Ink)
+                    Text("Tap to pick from your notes", fontSize = 11.5.sp, color = XpTokens.Ink3)
+                } else {
+                    Text(note.title.ifBlank { "Untitled" },
+                        fontSize = 13.5.sp, fontWeight = FontWeight.Medium, color = XpTokens.Ink, maxLines = 1)
+                    if (note.preview.isNotBlank()) {
+                        Text(note.preview, fontSize = 11.5.sp, color = XpTokens.Ink3, maxLines = 1)
+                    }
+                }
+            }
+            Spacer(Modifier.width(8.dp))
+            if (note != null) {
+                Text("Change", color = XpTokens.Ink3, fontSize = 12.sp,
+                    modifier = Modifier.clickable(onClick = onPick).padding(end = 8.dp))
+            }
+            Icon(painterResource(R.drawable.ic_chevron_right), null,
+                tint = XpTokens.Ink3, modifier = Modifier.size(11.dp))
+        }
+    }
 }
 
 @Composable
