@@ -35,15 +35,19 @@ import com.xpotrack.app.R
 import com.xpotrack.app.data.model.Category
 import com.xpotrack.app.ui.components.ConfirmDeleteDialog
 import com.xpotrack.app.ui.components.DateTimeStrip
+import com.xpotrack.app.ui.quick.QuickNoteEntry
+import com.xpotrack.app.ui.quick.QuickRow
 import com.xpotrack.app.ui.theme.XpTokens
 
 @Composable
 fun NotesListScreen(
-    notes: List<NoteRow>,
+    feed: List<FeedItem>,
     categories: List<Category>,
-    quick: QuickSummary,
     onOpenNote: (Int) -> Unit,
-    onOpenQuick: () -> Unit,
+    onComposeQuick: () -> Unit,
+    onOpenQuickNote: (Long) -> Unit,
+    onKeepQuick: (Long) -> Unit,
+    onDeleteQuick: (Long) -> Unit,
     onDeleteNote: (Int) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -51,7 +55,8 @@ fun NotesListScreen(
     var filterId by remember { mutableStateOf<Long?>(null) }
     var searchOpen by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
-    var pendingDelete by remember { mutableStateOf<NoteRow?>(null) }
+    var pendingDeleteNote by remember { mutableStateOf<NoteRow?>(null) }
+    var pendingDeleteQuick by remember { mutableStateOf<QuickRow?>(null) }
 
     val activeCategory = filterId?.let { id ->
         if (id == 0L) null else categories.firstOrNull { it.id == id }
@@ -61,14 +66,21 @@ fun NotesListScreen(
         filterId == 0L -> "Uncategorized"
         else -> activeCategory?.name ?: "All notes"
     }
-    val byCategory = when (filterId) {
-        null -> notes
-        0L -> notes.filter { it.categoryId == 0L }
-        else -> notes.filter { it.categoryId == filterId }
+    // Quick notes don't belong to a category — only show them under "All".
+    val notesOnly = feed.mapNotNull { (it as? FeedItem.Note)?.row }
+    val byCategory: List<FeedItem> = when (filterId) {
+        null -> feed
+        0L -> feed.filter { it is FeedItem.Note && it.row.categoryId == 0L }
+        else -> feed.filter { it is FeedItem.Note && it.row.categoryId == filterId }
     }
     val q = query.trim()
-    val filtered = if (searchOpen && q.isNotEmpty()) {
-        byCategory.filter { it.title.contains(q, ignoreCase = true) }
+    val filtered: List<FeedItem> = if (searchOpen && q.isNotEmpty()) {
+        byCategory.filter { item ->
+            when (item) {
+                is FeedItem.Note -> item.row.title.contains(q, ignoreCase = true)
+                is FeedItem.Quick -> item.row.text.contains(q, ignoreCase = true)
+            }
+        }
     } else byCategory
 
     Box(
@@ -88,41 +100,62 @@ fun NotesListScreen(
                 NotesHeader(onSearch = { searchOpen = true })
                 NotesFilterBar(
                     label = filterLabel,
-                    totalCount = notes.size,
+                    totalCount = notesOnly.size,
                     categories = categories,
-                    notes = notes,
+                    notes = notesOnly,
                     onPick = { filterId = it },
                     onClear = { filterId = null },
                 )
             }
-            QuickEntryStrip(count = quick.count, oldestLeft = quick.oldestLeft, onClick = onOpenQuick)
+            QuickEntryStrip(onCompose = onComposeQuick)
             Column(
                 Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
             ) {
-                filtered.forEachIndexed { i, note ->
-                    ChronoNoteRow(
-                        note = note,
-                        showTag = filterId == null,
-                        isLast = i == filtered.size - 1,
-                        onOpenNote = onOpenNote,
-                        onLongPress = { pendingDelete = it },
-                    )
+                filtered.forEachIndexed { i, item ->
+                    val isLast = i == filtered.size - 1
+                    when (item) {
+                        is FeedItem.Note -> ChronoNoteRow(
+                            note = item.row,
+                            showTag = filterId == null,
+                            isLast = isLast,
+                            onOpenNote = onOpenNote,
+                            onLongPress = { pendingDeleteNote = it },
+                        )
+                        is FeedItem.Quick -> QuickNoteEntry(
+                            row = item.row,
+                            isLast = isLast,
+                            onKeep = { onKeepQuick(item.row.id) },
+                            onOpen = { onOpenQuickNote(item.row.id) },
+                            onLongPress = { pendingDeleteQuick = item.row },
+                        )
+                    }
                 }
                 Spacer(Modifier.height(100.dp))
             }
         }
         NotesFab(Modifier.align(Alignment.BottomEnd), onClick = { onOpenNote(0) })
     }
-    pendingDelete?.let { note ->
+    pendingDeleteNote?.let { note ->
         ConfirmDeleteDialog(
             title = "Delete note?",
             subject = note.title.ifBlank { "Untitled" },
-            onCancel = { pendingDelete = null },
+            onCancel = { pendingDeleteNote = null },
             onConfirm = {
                 onDeleteNote(note.id)
-                pendingDelete = null
+                pendingDeleteNote = null
+            },
+        )
+    }
+    pendingDeleteQuick?.let { row ->
+        ConfirmDeleteDialog(
+            title = "Delete quick note?",
+            subject = row.text.lineSequence().firstOrNull()?.take(60).orEmpty().ifBlank { "Untitled" },
+            onCancel = { pendingDeleteQuick = null },
+            onConfirm = {
+                onDeleteQuick(row.id)
+                pendingDeleteQuick = null
             },
         )
     }

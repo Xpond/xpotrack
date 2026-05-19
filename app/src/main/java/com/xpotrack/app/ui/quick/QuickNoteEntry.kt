@@ -7,7 +7,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -45,43 +44,40 @@ fun QuickNoteEntry(
     val accent = if (row.expiring) XpTokens.Alarm else XpTokens.TealDim
     val chipBg = if (row.expiring) Color(0x1AFBBF24) else Color(0x0F5EEAD4)
     val chipBorder = if (row.expiring) Color(0x4DFBBF24) else XpTokens.Hair2
-    Column(
-        Modifier
+    Row(
+        modifier = Modifier
             .fillMaxWidth()
             .alpha(if (row.pct < 15) 0.7f else 1f)
             .combinedClickable(onClick = onOpen, onLongClick = onLongPress)
-            .padding(horizontal = 6.dp, vertical = 13.dp),
+            .padding(horizontal = 22.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             row.text.lineSequence().firstOrNull()?.trim().orEmpty().ifEmpty { "Untitled" },
-            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.5.sp, lineHeight = 22.sp),
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 16.sp),
             color = XpTokens.Ink,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
         )
-        Spacer(Modifier.height(8.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(row.ageLabel, style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp), color = XpTokens.Ink3)
-            Spacer(Modifier.width(8.dp))
-            Text("·", style = MaterialTheme.typography.labelMedium, color = XpTokens.Ink3)
-            Spacer(Modifier.width(8.dp))
-            CountdownChip(pct = row.pct, label = row.leftLabel, accent = accent, bg = chipBg, border = chipBorder)
-            Spacer(Modifier.weight(1f))
-            Text(
-                "Keep".uppercase(),
-                style = MaterialTheme.typography.labelSmall,
-                color = XpTokens.Ink3,
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .clickable(onClick = onKeep)
-                    .padding(horizontal = 6.dp, vertical = 2.dp),
-            )
-        }
+        Spacer(Modifier.width(12.dp))
+        CountdownChip(pct = row.pct, label = row.leftLabel, accent = accent, bg = chipBg, border = chipBorder)
+        Spacer(Modifier.width(10.dp))
+        Text(
+            "Keep".uppercase(),
+            style = MaterialTheme.typography.labelSmall,
+            color = XpTokens.Ink3,
+            modifier = Modifier
+                .clip(CircleShape)
+                .clickable(onClick = onKeep)
+                .padding(horizontal = 6.dp, vertical = 2.dp),
+        )
     }
     if (!isLast) {
         Box(
             Modifier
                 .fillMaxWidth()
+                .padding(horizontal = 22.dp)
                 .height(0.5.dp)
                 .background(XpTokens.Hair)
         )

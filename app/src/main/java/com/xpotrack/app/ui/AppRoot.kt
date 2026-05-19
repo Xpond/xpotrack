@@ -34,7 +34,6 @@ import com.xpotrack.app.ui.notes.NotesEditorViewModel
 import com.xpotrack.app.ui.notes.NotesListScreen
 import com.xpotrack.app.ui.notes.NotesViewModel
 import com.xpotrack.app.ui.quick.QuickEditorScreen
-import com.xpotrack.app.ui.quick.QuickNotesScreen
 import com.xpotrack.app.ui.quick.QuickNotesViewModel
 import com.xpotrack.app.ui.tasks.TaskCreateSheet
 import com.xpotrack.app.ui.tasks.TaskCreateViewModel
@@ -84,20 +83,8 @@ fun AppRoot() {
                     onOpenTask = { id -> nav.navigate("task/$id") },
                     onNewTask = { date -> openNewSheet(date) },
                     onLockExit = { activeTab = XpTab.Notes },
-                    onOpenQuick = { nav.navigate("quick") },
-                )
-            }
-            composable("quick") {
-                val app = LocalContext.current.applicationContext as XpApp
-                val vm: QuickNotesViewModel = viewModel(
-                    key = "quick-notes",
-                    factory = QuickNotesViewModel.Factory(app.quickNotesRepo),
-                )
-                QuickNotesScreen(
-                    vm = vm,
-                    onBack = { nav.popBackStack() },
-                    onCompose = { nav.navigate("quick/edit/0") },
-                    onOpen = { id -> nav.navigate("quick/edit/$id") },
+                    onComposeQuick = { nav.navigate("quick/edit/0") },
+                    onOpenQuickNote = { id -> nav.navigate("quick/edit/$id") },
                 )
             }
             composable(
@@ -110,7 +97,11 @@ fun AppRoot() {
                     key = "quick-notes",
                     factory = QuickNotesViewModel.Factory(app.quickNotesRepo),
                 )
-                QuickEditorScreen(vm = vm, noteId = id, onBack = { nav.popBackStack() })
+                QuickEditorScreen(
+                    vm = vm,
+                    noteId = id,
+                    onBack = { nav.popBackStack() },
+                )
             }
             composable(
                 route = "editor/{id}",
@@ -219,15 +210,15 @@ private fun TabsScaffold(
     onOpenTask: (Long) -> Unit,
     onNewTask: (Long) -> Unit,
     onLockExit: () -> Unit,
-    onOpenQuick: () -> Unit,
+    onComposeQuick: () -> Unit,
+    onOpenQuickNote: (Long) -> Unit,
 ) {
     val app = LocalContext.current.applicationContext as XpApp
     val notesVm: NotesViewModel = viewModel(factory = NotesViewModel.Factory(app.notesRepo, app.categoryRepo, app.quickNotesRepo))
     val tasksVm: TasksViewModel = viewModel(factory = TasksViewModel.Factory(app.tasksRepo))
-    val notes by notesVm.notes.collectAsStateWithLifecycle()
+    val feed by notesVm.feed.collectAsStateWithLifecycle()
     val tasks by tasksVm.tasks.collectAsStateWithLifecycle()
     val cats by notesVm.categories.collectAsStateWithLifecycle()
-    val quick by notesVm.quickSummary.collectAsStateWithLifecycle()
     val selectedDate by tasksVm.selectedDate.collectAsStateWithLifecycle()
     val datesWithTasks by tasksVm.datesWithTasks.collectAsStateWithLifecycle()
 
@@ -235,9 +226,12 @@ private fun TabsScaffold(
         Box(Modifier.weight(1f)) {
             when (active) {
                 XpTab.Notes -> NotesListScreen(
-                    notes = notes, categories = cats, quick = quick,
+                    feed = feed, categories = cats,
                     onOpenNote = onOpenNote,
-                    onOpenQuick = onOpenQuick,
+                    onComposeQuick = onComposeQuick,
+                    onOpenQuickNote = onOpenQuickNote,
+                    onKeepQuick = notesVm::keepQuick,
+                    onDeleteQuick = notesVm::deleteQuick,
                     onDeleteNote = notesVm::delete,
                 )
                 XpTab.Tasks -> TasksTimelineScreen(

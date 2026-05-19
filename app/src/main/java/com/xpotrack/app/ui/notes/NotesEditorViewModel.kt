@@ -92,6 +92,7 @@ class NotesEditorViewModel(
                 categoryId = s.categoryId,
                 categoryName = s.categoryName,  // ignored on write — repo reads from FK
                 when_ = "",
+                updatedAt = 0L,                 // ignored on write — repo sets via now()
             )
         )
     }

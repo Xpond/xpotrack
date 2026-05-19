@@ -11,4 +11,5 @@ data class NoteRow(
     val categoryId: Long,        // 0 = uncategorized
     val categoryName: String,    // resolved at repo edge; falls back to "Uncategorized"
     val when_: String,
+    val updatedAt: Long,         // raw timestamp for cross-source interleaving
 )

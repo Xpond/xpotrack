@@ -62,6 +62,7 @@ class NotesRepository(
             categoryId = cat?.id ?: 0L,
             categoryName = cat?.name ?: "Uncategorized",
             when_ = formatWhen(e.updatedAt),
+            updatedAt = e.updatedAt,
         )
     }
 }

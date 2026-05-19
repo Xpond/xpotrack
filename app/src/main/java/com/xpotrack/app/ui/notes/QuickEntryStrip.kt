@@ -20,16 +20,11 @@ import com.xpotrack.app.R
 import com.xpotrack.app.ui.theme.XpTokens
 
 @Composable
-fun QuickEntryStrip(count: Int = 0, oldestLeft: String? = null, onClick: () -> Unit = {}) {
-    val subtitle = when {
-        count == 0 -> "tap to jot"
-        oldestLeft == null -> "$count disappearing"
-        else -> "$count disappearing · oldest in $oldestLeft"
-    }
+fun QuickEntryStrip(onCompose: () -> Unit = {}) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(onClick = onCompose)
             .padding(horizontal = 22.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -47,11 +42,10 @@ fun QuickEntryStrip(count: Int = 0, oldestLeft: String? = null, onClick: () -> U
         )
         Spacer(Modifier.width(10.dp))
         Text(
-            subtitle,
+            "tap to jot — gone in 24h",
             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
             color = XpTokens.Ink3,
             modifier = Modifier.weight(1f),
         )
-        Text("›", color = XpTokens.Ink3, fontSize = 16.sp)
     }
 }

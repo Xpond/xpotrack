@@ -39,7 +39,11 @@ import com.xpotrack.app.R
 import com.xpotrack.app.ui.theme.XpTokens
 
 @Composable
-fun QuickEditorScreen(vm: QuickNotesViewModel, noteId: Long, onBack: () -> Unit) {
+fun QuickEditorScreen(
+    vm: QuickNotesViewModel,
+    noteId: Long,
+    onBack: () -> Unit,
+) {
     var text by remember { mutableStateOf("") }
     var initial by remember { mutableStateOf("") }
     val focus = remember { FocusRequester() }
