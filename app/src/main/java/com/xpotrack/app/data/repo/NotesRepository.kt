@@ -61,6 +61,7 @@ class NotesRepository(
             preview = e.bodyMarkdown,
             categoryId = cat?.id ?: 0L,
             categoryName = cat?.name ?: "Uncategorized",
+            categoryColorHex = cat?.colorHex,
             when_ = formatWhen(e.updatedAt),
             updatedAt = e.updatedAt,
         )

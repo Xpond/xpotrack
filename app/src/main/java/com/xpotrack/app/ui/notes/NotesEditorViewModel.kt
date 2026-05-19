@@ -23,6 +23,10 @@ class NotesEditorViewModel(
     private val _state = MutableStateFlow(EditorState())
     val state: StateFlow<EditorState> = _state.asStateFlow()
 
+    // Snapshot of the loaded note. save() compares against this so opening a
+    // note and backing out without edits doesn't bump updatedAt.
+    private var pristine: Triple<String, String, Long>? = null
+
     init {
         viewModelScope.launch {
             if (noteId > 0) {
@@ -33,9 +37,11 @@ class NotesEditorViewModel(
                         body = existing.preview,
                         categoryId = existing.categoryId,
                         categoryName = existing.categoryName,
+                        categoryColorHex = existing.categoryColorHex,
                         loaded = true,
                         previewMode = true,
                     )
+                    pristine = Triple(existing.title, existing.preview, existing.categoryId)
                 } ?: run { _state.value = _state.value.copy(loaded = true) }
             } else {
                 _state.value = EditorState(loaded = true, categoryId = 0L, categoryName = "Uncategorized")
@@ -70,11 +76,15 @@ class NotesEditorViewModel(
     fun setCategory(id: Long) {
         viewModelScope.launch {
             if (id <= 0L) {
-                _state.value = _state.value.copy(categoryId = 0L, categoryName = "Uncategorized")
+                _state.value = _state.value.copy(
+                    categoryId = 0L, categoryName = "Uncategorized", categoryColorHex = null,
+                )
                 return@launch
             }
-            val name = categories.getById(id)?.name ?: return@launch
-            _state.value = _state.value.copy(categoryId = id, categoryName = name)
+            val c = categories.getById(id) ?: return@launch
+            _state.value = _state.value.copy(
+                categoryId = id, categoryName = c.name, categoryColorHex = c.colorHex,
+            )
         }
     }
 
@@ -84,6 +94,9 @@ class NotesEditorViewModel(
         val hasContent = s.title.isNotBlank() || s.body.isNotBlank()
         if (s.id == 0 && !hasContent) return // empty new note: discard
         if (s.id > 0 && !hasContent) { repo.delete(s.id); return }
+        pristine?.let { (t, b, c) ->
+            if (t == s.title && b == s.body && c == s.categoryId) return
+        }
         repo.upsert(
             NoteRow(
                 id = s.id,
@@ -91,6 +104,7 @@ class NotesEditorViewModel(
                 preview = s.body,
                 categoryId = s.categoryId,
                 categoryName = s.categoryName,  // ignored on write — repo reads from FK
+                categoryColorHex = null,        // ignored on write — repo reads from FK
                 when_ = "",
                 updatedAt = 0L,                 // ignored on write — repo sets via now()
             )
@@ -114,6 +128,7 @@ data class EditorState(
     val body: String = "",
     val categoryId: Long = 0L,
     val categoryName: String = "Uncategorized",
+    val categoryColorHex: String? = null,
     val loaded: Boolean = false,
     val previewMode: Boolean = false,
 )

@@ -12,13 +12,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-// Palette swatches mirrored from category-manager.jsx.
-val CategoryPalette = listOf("#67E8F9", "#86EFAC", "#FCD34D", "#FCA17D", "#A78BFA", "#FCA5A5")
-
 data class CategoryEdit(
     val id: Long = 0L,           // 0 = a new draft
     val name: String = "",
-    val colorHex: String = CategoryPalette[0],
+    val colorHex: String = "#67E8F9",
 ) {
     val isNew: Boolean get() = id == 0L
 }

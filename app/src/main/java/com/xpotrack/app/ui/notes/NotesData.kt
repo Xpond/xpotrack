@@ -8,8 +8,9 @@ data class NoteRow(
     val id: Int,
     val title: String,
     val preview: String,
-    val categoryId: Long,        // 0 = uncategorized
-    val categoryName: String,    // resolved at repo edge; falls back to "Uncategorized"
+    val categoryId: Long,           // 0 = uncategorized
+    val categoryName: String,       // resolved at repo edge; falls back to "Uncategorized"
+    val categoryColorHex: String?,  // null when uncategorized; "#RRGGBB" otherwise
     val when_: String,
-    val updatedAt: Long,         // raw timestamp for cross-source interleaving
+    val updatedAt: Long,            // raw timestamp for cross-source interleaving
 )

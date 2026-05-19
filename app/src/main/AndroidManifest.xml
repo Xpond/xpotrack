@@ -12,6 +12,8 @@
     <application
         android:name=".XpApp"
         android:label="xpotrack"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@style/Theme.Xpotrack"
         android:supportsRtl="true"
         android:allowBackup="false">

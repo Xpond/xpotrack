@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.xpotrack.app.ui.categories.parseHexColor
 import com.xpotrack.app.ui.theme.XpTokens
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -51,7 +52,7 @@ fun ChronoNoteRow(
             Text(
                 note.categoryName.uppercase(),
                 style = MaterialTheme.typography.labelSmall,
-                color = XpTokens.Ink3,
+                color = note.categoryColorHex?.let { parseHexColor(it) } ?: XpTokens.Ink3,
             )
         }
         Spacer(Modifier.width(14.dp))

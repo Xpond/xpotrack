@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xpotrack.app.R
+import com.xpotrack.app.ui.categories.parseHexColor
 import com.xpotrack.app.ui.theme.GeistMono
 import com.xpotrack.app.ui.theme.XpTokens
 import kotlinx.coroutines.launch
@@ -70,8 +71,8 @@ fun NotesEditorScreen(vm: NotesEditorViewModel, onBack: () -> Unit, onPickCatego
         TopBar(
             previewMode = s.previewMode,
             categoryName = s.categoryName,
+            categoryColorHex = s.categoryColorHex,
             metaText = metaLine(s),
-            onBack = saveAndBack,
             onPickCategory = onPickCategory,
             onWrite = { vm.setPreview(false) },
             onPreview = { vm.setPreview(true) },
@@ -120,19 +121,17 @@ private fun metaLine(s: EditorState): String {
 private fun TopBar(
     previewMode: Boolean,
     categoryName: String,
+    categoryColorHex: String?,
     metaText: String,
-    onBack: () -> Unit,
     onPickCategory: () -> Unit,
     onWrite: () -> Unit,
     onPreview: () -> Unit,
 ) {
     Row(
-        Modifier.fillMaxWidth().padding(start = 8.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconChip(R.drawable.ic_chevron_left, "Back", onBack)
-        Spacer(Modifier.width(2.dp))
-        CategoryChip(categoryName, onPickCategory)
+        CategoryChip(categoryName, categoryColorHex, onPickCategory)
         Spacer(Modifier.width(10.dp))
         Text(metaText, color = XpTokens.Ink3, fontSize = 12.sp, letterSpacing = (-0.005).em)
         Spacer(Modifier.weight(1f))
@@ -149,16 +148,17 @@ private fun TopBar(
 }
 
 @Composable
-private fun CategoryChip(name: String, onClick: () -> Unit) {
+private fun CategoryChip(name: String, colorHex: String?, onClick: () -> Unit) {
+    val textColor = colorHex?.let { parseHexColor(it) } ?: XpTokens.Ink2
     Row(
         Modifier.clip(CircleShape).clickable(onClick = onClick)
             .background(XpTokens.Surface1)
             .border(0.5.dp, XpTokens.Hair, CircleShape)
-            .padding(start = 12.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+            .padding(start = 12.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            name, color = XpTokens.Ink2,
+            name, color = textColor,
             fontFamily = GeistMono, fontWeight = FontWeight.Medium,
             fontSize = 11.5.sp, letterSpacing = 0.02.em,
         )
@@ -183,16 +183,6 @@ private fun Segment(label: String, selected: Boolean, onClick: () -> Unit) {
             fontSize = 11.5.sp, letterSpacing = 0.02.em,
             color = if (selected) XpTokens.OnTeal else XpTokens.Ink3,
         )
-    }
-}
-
-@Composable
-private fun IconChip(iconRes: Int, desc: String, onClick: () -> Unit) {
-    Box(
-        Modifier.size(38.dp).clip(CircleShape).clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(painterResource(iconRes), desc, tint = XpTokens.Ink2, modifier = Modifier.size(18.dp))
     }
 }
 

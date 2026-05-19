@@ -181,15 +181,9 @@ private fun EditRow(edit: CategoryEdit, vm: CategoryManagerViewModel, isNew: Boo
             )
         }
         Spacer(Modifier.height(12.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            CategoryPalette.forEach { hex ->
-                val sel = hex == edit.colorHex
-                Box(
-                    Modifier.size(22.dp).clip(CircleShape).background(parseHexColor(hex))
-                        .let { if (sel) it.border(2.dp, XpTokens.Teal, CircleShape) else it }
-                        .clickable { vm.editColor(hex) },
-                )
-            }
+        HuePicker(hex = edit.colorHex, onChange = vm::editColor)
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Spacer(Modifier.weight(1f))
             Text("Cancel", fontSize = 12.5.sp, color = XpTokens.Ink3,
                 modifier = Modifier.clickable(onClick = vm::cancelEdit).padding(horizontal = 8.dp, vertical = 4.dp))

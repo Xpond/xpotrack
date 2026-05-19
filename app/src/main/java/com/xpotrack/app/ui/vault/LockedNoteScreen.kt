@@ -3,8 +3,7 @@ package com.xpotrack.app.ui.vault
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -83,7 +82,7 @@ fun LockedNoteScreen(vm: VaultViewModel, noteId: Long, onBack: () -> Unit) {
     BackHandler(onBack = saveAndBack)
 
     Column(Modifier.fillMaxSize().background(XpTokens.Bg)) {
-        TopBar(onBack = saveAndBack)
+        TopBar()
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
             Spacer(Modifier.height(8.dp))
             Text(
@@ -100,13 +99,12 @@ fun LockedNoteScreen(vm: VaultViewModel, noteId: Long, onBack: () -> Unit) {
 }
 
 @Composable
-private fun TopBar(onBack: () -> Unit) {
+private fun TopBar() {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
     ) {
-        IconChip(R.drawable.ic_chevron_left, "Back", onBack)
-        Spacer(Modifier.weight(1f))
         Row(
             Modifier.clip(CircleShape).background(XpTokens.TealTint)
                 .border(0.5.dp, XpTokens.Hair2, CircleShape)
@@ -118,18 +116,6 @@ private fun TopBar(onBack: () -> Unit) {
             Text("LOCKED", fontSize = 11.sp, color = XpTokens.TealDim,
                 fontFamily = GeistMono, fontWeight = FontWeight.Medium)
         }
-        Spacer(Modifier.weight(1f))
-        IconChip(R.drawable.ic_dots_vertical, "More") {}
-    }
-}
-
-@Composable
-private fun IconChip(iconRes: Int, desc: String, onClick: () -> Unit) {
-    Box(
-        Modifier.size(38.dp).clip(CircleShape).clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(painterResource(iconRes), desc, tint = XpTokens.Ink2, modifier = Modifier.size(18.dp))
     }
 }
 
