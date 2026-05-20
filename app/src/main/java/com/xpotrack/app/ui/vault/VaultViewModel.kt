@@ -9,6 +9,7 @@ import com.xpotrack.app.data.security.VaultKeyStore
 import com.xpotrack.app.data.security.VaultMetaStore
 import com.xpotrack.app.data.security.VaultSession
 import javax.crypto.Cipher
+import javax.crypto.spec.SecretKeySpec
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -81,7 +82,8 @@ class VaultViewModel(
             }
             meta.saveSetup(salt, verifier)
             if (enableBiometric && biometricCipher != null) {
-                val (ct, iv) = VaultKeyStore.wrap(biometricCipher, charsToBytes(pass))
+                // Wrap the derived AES key, not the passphrase. Skips PBKDF2 on unlock.
+                val (ct, iv) = VaultKeyStore.wrap(biometricCipher, key.encoded)
                 meta.saveBiometric(ct, iv)
             }
             session.unlock(key)
@@ -111,13 +113,11 @@ class VaultViewModel(
     fun unlockWithBiometric(cipher: Cipher) {
         verifying.value = true
         viewModelScope.launch {
-            val pass = VaultKeyStore.unwrap(cipher, meta.biometricBlob())
-            val salt = meta.salt()
-            val chars = bytesToChars(pass)
-            val key = withContext(Dispatchers.Default) { VaultCrypto.deriveKey(chars, salt) }
+            // Wrapped blob is the 32-byte AES key itself — no PBKDF2 needed.
+            val keyBytes = VaultKeyStore.unwrap(cipher, meta.biometricBlob())
+            val key = SecretKeySpec(keyBytes, "AES")
             session.unlock(key)
-            java.util.Arrays.fill(pass, 0)
-            java.util.Arrays.fill(chars, ' ')
+            java.util.Arrays.fill(keyBytes, 0)
             unlockError.value = null
             verifying.value = false
         }
@@ -155,18 +155,6 @@ class VaultViewModel(
 
     fun deleteRow(id: Long) {
         viewModelScope.launch { repo.delete(id) }
-    }
-
-    private fun charsToBytes(chars: CharArray): ByteArray {
-        val buf = java.nio.charset.StandardCharsets.UTF_8.encode(java.nio.CharBuffer.wrap(chars))
-        val out = ByteArray(buf.remaining()).also { buf.get(it) }
-        return out
-    }
-
-    private fun bytesToChars(bytes: ByteArray): CharArray {
-        val buf = java.nio.charset.StandardCharsets.UTF_8.decode(java.nio.ByteBuffer.wrap(bytes))
-        val out = CharArray(buf.remaining()).also { buf.get(it) }
-        return out
     }
 
     class Factory(
