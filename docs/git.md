@@ -91,6 +91,42 @@ git branch -d review-base
 
 PR discussion stays in the repo's PR history; the branch goes away.
 
+## Protection layers (don't commit/push to main or stable)
+
+Two layers catch direct edits to `main` / `stable`:
+
+**Local pre-commit hook** (`.git/hooks/pre-commit`) — refuses commits when you're on `main` or `stable`. Catches the mistake before any commit exists. If triggered:
+
+```
+git checkout -b feature/<name>   # staged changes follow you
+git commit -m "..."
+```
+
+The hook is not tracked by git. On a fresh clone, reinstall by copying from another checkout, or recreate:
+
+```sh
+cat > .git/hooks/pre-commit <<'EOF'
+#!/bin/sh
+branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+if [ "$branch" = "main" ] || [ "$branch" = "stable" ]; then
+  echo "ERROR: direct commits to '$branch' are blocked."
+  echo "Create a feature branch: git checkout -b feature/<name>"
+  exit 1
+fi
+EOF
+chmod +x .git/hooks/pre-commit
+```
+
+Bypass (rarely): `git commit --no-verify`.
+
+**GitHub branch protection** (server-side backstop) — set at https://github.com/Xpond/xpotrack/settings/branches for both `main` and `stable`. Enabled:
+
+- Require a pull request before merging
+- Do not allow bypassing the above settings
+- (Force pushes and deletions left disallowed by default)
+
+Catches the case where the local hook is missing (fresh clone, different machine) or was bypassed. Rejects `git push origin main` with "protected branch hook declined."
+
 ## Why `--ff-only` matters
 
 A fast-forward just slides `stable`'s pointer along `main`'s line — no new commit, clean. Without `--ff-only`, if histories ever diverge, git silently creates a merge commit on `stable`, breaking the "stable is just a pointer to a good commit on main" invariant. `--ff-only` enforces that invariant by refusing instead of inventing history.
