@@ -41,7 +41,8 @@ import com.xpotrack.app.ui.theme.XpTokens
 
 @Composable
 fun NotesListScreen(
-    feed: List<FeedItem>,
+    notes: List<FeedItem.Note>,
+    quicks: List<FeedItem.Quick>,
     categories: List<Category>,
     onOpenNote: (Int) -> Unit,
     onComposeQuick: () -> Unit,
@@ -66,8 +67,12 @@ fun NotesListScreen(
         filterId == 0L -> "Uncategorized"
         else -> activeCategory?.name ?: "All notes"
     }
-    // Quick notes don't belong to a category — only show them under "All".
-    val notesOnly = feed.mapNotNull { (it as? FeedItem.Note)?.row }
+    val notesOnly = notes.map { it.row }
+    // Merge here instead of in the VM so notes paint the instant they arrive,
+    // even if quick notes haven't emitted yet. Quick notes belong to "All".
+    val feed: List<FeedItem> = remember(notes, quicks) {
+        (notes + quicks).sortedByDescending { it.sortKey }
+    }
     val byCategory: List<FeedItem> = when (filterId) {
         null -> feed
         0L -> feed.filter { it is FeedItem.Note && it.row.categoryId == 0L }
