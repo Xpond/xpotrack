@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -30,13 +31,18 @@ class NotesViewModel(
     val categories: StateFlow<List<Category>> = categories.observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    // One stream, two sources, interleaved by timestamp. Quick notes carry
-    // their full row shape so the index can render the same chip/keep UI the
-    // old queue screen used.
-    val feed: StateFlow<List<FeedItem>> =
-        combine(repo.observeAll(), quick.observe(), tick) { notes, quicks, now ->
-            val n = notes.map { FeedItem.Note(it, sortKey = it.updatedAt) }
-            val q = quicks.map { e ->
+    // Two separate streams so the index can render notes the instant they're
+    // ready instead of waiting on quick notes too. Combine would block first
+    // emission until every source has emitted at least once. The screen
+    // interleaves them by sortKey at render time.
+    val notes: StateFlow<List<FeedItem.Note>> =
+        repo.observeAll()
+            .map { rows -> rows.map { FeedItem.Note(it, sortKey = it.updatedAt) } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val quicks: StateFlow<List<FeedItem.Quick>> =
+        combine(quick.observe(), tick) { quicks, now ->
+            quicks.map { e ->
                 FeedItem.Quick(
                     row = QuickRow(
                         id = e.id,
@@ -49,7 +55,6 @@ class NotesViewModel(
                     sortKey = e.createdAt,
                 )
             }
-            (n + q).sortedByDescending { it.sortKey }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     init {

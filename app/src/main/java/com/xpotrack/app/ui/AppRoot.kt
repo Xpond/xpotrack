@@ -216,7 +216,8 @@ private fun TabsScaffold(
     val app = LocalContext.current.applicationContext as XpApp
     val notesVm: NotesViewModel = viewModel(factory = NotesViewModel.Factory(app.notesRepo, app.categoryRepo, app.quickNotesRepo))
     val tasksVm: TasksViewModel = viewModel(factory = TasksViewModel.Factory(app.tasksRepo))
-    val feed by notesVm.feed.collectAsStateWithLifecycle()
+    val notes by notesVm.notes.collectAsStateWithLifecycle()
+    val quicks by notesVm.quicks.collectAsStateWithLifecycle()
     val tasks by tasksVm.tasks.collectAsStateWithLifecycle()
     val cats by notesVm.categories.collectAsStateWithLifecycle()
     val selectedDate by tasksVm.selectedDate.collectAsStateWithLifecycle()
@@ -226,7 +227,7 @@ private fun TabsScaffold(
         Box(Modifier.weight(1f)) {
             when (active) {
                 XpTab.Notes -> NotesListScreen(
-                    feed = feed, categories = cats,
+                    notes = notes, quicks = quicks, categories = cats,
                     onOpenNote = onOpenNote,
                     onComposeQuick = onComposeQuick,
                     onOpenQuickNote = onOpenQuickNote,

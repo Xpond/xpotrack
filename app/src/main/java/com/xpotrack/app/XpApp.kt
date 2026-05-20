@@ -60,13 +60,24 @@ class XpApp : Application() {
         quickNotesRepo = QuickNotesRepository(db, db.quickNoteDao())
         QuickNoteSweepWorker.enqueue(this)
 
+        // Preload notes off the main thread and gate the splash on the first
+        // emission so the launcher icon hands off to a populated list.
         appScope.launch {
+            db.noteDao().observeAll().first()
+            SplashGate.notesReady = true
+        }
+
+        val seedJob = appScope.launch {
             val now = System.currentTimeMillis()
             notesRepo.seedIfEmpty(SeedData.notes(now))
             tasksRepo.seedIfEmpty(SeedData.tasks(now))
-            // Seed inserts go straight via the DAO, so they bypass the
-            // schedule-on-upsert path. Walk the table once and arm anything
-            // that's Notify/Alarm and not already done.
+        }
+        // Alarm rearm runs on its own coroutine so it can't queue behind seed
+        // and starve the UI's first notes query. Waits for seed so freshly
+        // seeded tasks get armed too.
+        appScope.launch {
+            seedJob.join()
+            val now = System.currentTimeMillis()
             tasksRepo.observeAll().first().forEach { task ->
                 if (task.level == ReminderLevel.Silent || task.isDone) return@forEach
                 val next = alarmScheduler.nextOccurrence(task.dateEpochDay, task.time, now)
@@ -75,4 +86,10 @@ class XpApp : Application() {
             }
         }
     }
+}
+
+// Splash screen keep-on-screen flag. Flipped once notes are queryable so
+// MainActivity can hand off from the launcher icon to a populated list.
+object SplashGate {
+    @Volatile var notesReady: Boolean = false
 }

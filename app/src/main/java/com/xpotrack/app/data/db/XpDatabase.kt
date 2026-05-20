@@ -36,7 +36,11 @@ abstract class XpDatabase : RoomDatabase() {
             // SQLCipher loads its native libs lazily; call site below is safe pre-Room.
             System.loadLibrary("sqlcipher")
             val passphrase = PassphraseStore(appContext).getOrCreate()
-            val factory = SupportOpenHelperFactory(passphrase)
+            // Pass the key as a raw-hex literal ("x'<64hex>'") so SQLCipher
+            // skips PBKDF2 — the passphrase is already 32 random bytes from
+            // Keystore, so KDF strengthening adds nothing but ~800ms per open.
+            val rawKey = CipherFastKdf.rawKeyLiteral(passphrase)
+            val factory = SupportOpenHelperFactory(rawKey)
             return Room.databaseBuilder(appContext, XpDatabase::class.java, "xpotrack.db")
                 .openHelperFactory(factory)
                 .fallbackToDestructiveMigrationFrom(1, 2, 3, 4, 5, 6, 7)
