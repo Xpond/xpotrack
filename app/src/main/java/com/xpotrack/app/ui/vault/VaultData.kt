@@ -5,7 +5,6 @@ package com.xpotrack.app.ui.vault
 data class LockedNoteRow(
     val id: Long,
     val title: String,
-    val category: String,
     val when_: String,
 )
 

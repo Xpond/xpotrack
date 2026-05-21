@@ -86,7 +86,7 @@ fun TasksTimelineScreen(
         }
         val today = remember { LocalDate.now(ZoneId.systemDefault()).toEpochDay() }
         if (selectedDate >= today) {
-            XpFab(R.drawable.ic_plus, "New task", shadow = true, modifier = Modifier.align(Alignment.BottomEnd).padding(end = 22.dp, bottom = 86.dp), onClick = { onOpenTask(0L) })
+            XpFab(R.drawable.ic_plus, "New task", shadow = true, modifier = Modifier.align(Alignment.BottomEnd).padding(end = 42.dp, bottom = 86.dp), onClick = { onOpenTask(0L) })
         }
     }
     pendingDelete?.let { task ->
