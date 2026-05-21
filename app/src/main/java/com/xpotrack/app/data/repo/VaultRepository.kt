@@ -56,7 +56,6 @@ class VaultRepository(private val dao: NoteDao) {
     private fun toRow(e: NoteEntity): LockedNoteRow = LockedNoteRow(
         id = e.id,
         title = e.title,
-        category = VAULT_LABEL,
         when_ = formatWhen(e.updatedAt),
     )
 }

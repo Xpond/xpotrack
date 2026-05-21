@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,6 +30,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
@@ -74,47 +76,62 @@ fun VaultSetupScreen(vm: VaultViewModel) {
 
     Column(
         Modifier.fillMaxSize().background(XpTokens.Bg).padding(horizontal = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(Modifier.height(20.dp))
-        Box(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(painterResource(R.drawable.ic_lock), null, tint = XpTokens.TealDim, modifier = Modifier.size(11.dp))
+            Spacer(Modifier.size(6.dp))
             Text("VAULT · SETUP", style = MaterialTheme.typography.labelSmall, color = XpTokens.TealDim)
         }
-        Spacer(Modifier.height(8.dp))
-        Text("Create a passphrase", color = XpTokens.Ink, fontSize = 26.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "It encrypts every vault note on this device. There is no recovery if you forget it.",
-            color = XpTokens.Ink2, fontSize = 13.5.sp, lineHeight = 19.sp,
-        )
-        Spacer(Modifier.height(28.dp))
 
-        PassField("Passphrase", pass, { pass = it })
-        Spacer(Modifier.height(14.dp))
-        PassField("Confirm", confirm, { confirm = it })
+        Column(
+            Modifier.weight(1f).fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                "Create a passphrase",
+                color = XpTokens.Ink, fontSize = 26.sp, fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "It encrypts every vault note on this device. There is no recovery if you forget it.",
+                color = XpTokens.Ink2, fontSize = 13.5.sp, lineHeight = 19.sp,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(28.dp))
 
-        if (biometricAvailable) {
-            Spacer(Modifier.height(20.dp))
-            BiometricToggle(enableBio) { enableBio = it }
-        }
-
-        error?.let {
+            PassField("Passphrase", pass, { pass = it })
             Spacer(Modifier.height(14.dp))
-            Text(it, color = XpTokens.Alarm, fontSize = 12.sp)
+            PassField("Confirm", confirm, { confirm = it })
+
+            if (biometricAvailable) {
+                Spacer(Modifier.height(20.dp))
+                BiometricToggle(enableBio) { enableBio = it }
+            }
+
+            error?.let {
+                Spacer(Modifier.height(14.dp))
+                Text(it, color = XpTokens.Alarm, fontSize = 12.sp)
+            }
+
+            Spacer(Modifier.height(24.dp))
+            XpPrimaryButton("Create vault", enabled = pass.isNotEmpty() && confirm.isNotEmpty(), onClick = submit)
         }
 
-        Spacer(Modifier.height(28.dp))
-        XpPrimaryButton("Create vault", enabled = pass.isNotEmpty() && confirm.isNotEmpty(), onClick = submit)
-        Spacer(Modifier.weight(1f))
         Text(
             "Encrypted on this device. Never synced.",
-            color = XpTokens.Ink3, fontSize = 11.sp, modifier = Modifier.padding(bottom = 16.dp),
+            color = XpTokens.Ink3, fontSize = 11.sp,
+            modifier = Modifier.padding(bottom = 16.dp),
         )
     }
 }
 
 @Composable
 private fun PassField(label: String, value: String, onChange: (String) -> Unit) {
-    Column {
+    Column(Modifier.fillMaxWidth()) {
         Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = XpTokens.Ink3)
         Spacer(Modifier.height(8.dp))
         PassInput(value, onChange)
