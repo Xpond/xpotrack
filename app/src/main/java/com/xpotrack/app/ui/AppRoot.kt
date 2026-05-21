@@ -4,7 +4,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.ui.Alignment
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -223,30 +225,32 @@ private fun TabsScaffold(
     val selectedDate by tasksVm.selectedDate.collectAsStateWithLifecycle()
     val datesWithTasks by tasksVm.datesWithTasks.collectAsStateWithLifecycle()
 
-    Column(Modifier.fillMaxSize()) {
-        Box(Modifier.weight(1f)) {
-            when (active) {
-                XpTab.Notes -> NotesListScreen(
-                    notes = notes, quicks = quicks, categories = cats,
-                    onOpenNote = onOpenNote,
-                    onComposeQuick = onComposeQuick,
-                    onOpenQuickNote = onOpenQuickNote,
-                    onKeepQuick = notesVm::keepQuick,
-                    onDeleteQuick = notesVm::deleteQuick,
-                    onDeleteNote = notesVm::delete,
-                )
-                XpTab.Tasks -> TasksTimelineScreen(
-                    tasks = tasks,
-                    selectedDate = selectedDate,
-                    datesWithTasks = datesWithTasks,
-                    onSelectDate = tasksVm::setSelectedDate,
-                    onOpenTask = { id -> if (id == 0L) onNewTask(selectedDate) else onOpenTask(id) },
-                    onDeleteTask = tasksVm::delete,
-                )
-                XpTab.Vault -> VaultGate(onLockExit = onLockExit)
-                XpTab.More  -> SettingsScreen()
-            }
+    Box(Modifier.fillMaxSize()) {
+        when (active) {
+            XpTab.Notes -> NotesListScreen(
+                notes = notes, quicks = quicks, categories = cats,
+                onOpenNote = onOpenNote,
+                onComposeQuick = onComposeQuick,
+                onOpenQuickNote = onOpenQuickNote,
+                onKeepQuick = notesVm::keepQuick,
+                onDeleteQuick = notesVm::deleteQuick,
+                onDeleteNote = notesVm::delete,
+            )
+            XpTab.Tasks -> TasksTimelineScreen(
+                tasks = tasks,
+                selectedDate = selectedDate,
+                datesWithTasks = datesWithTasks,
+                onSelectDate = tasksVm::setSelectedDate,
+                onOpenTask = { id -> if (id == 0L) onNewTask(selectedDate) else onOpenTask(id) },
+                onDeleteTask = tasksVm::delete,
+            )
+            XpTab.Vault -> VaultGate(onLockExit = onLockExit)
+            XpTab.More  -> SettingsScreen()
         }
-        XpBottomTabs(active = active, onSelect = onSelectTab)
+        XpBottomTabs(
+            active = active,
+            onSelect = onSelectTab,
+            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+        )
     }
 }

@@ -28,12 +28,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xpotrack.app.R
 import com.xpotrack.app.ui.components.ConfirmDeleteDialog
+import com.xpotrack.app.ui.components.PinnedHeader
 import com.xpotrack.app.ui.components.XpFab
 import com.xpotrack.app.ui.theme.XpTokens
 
@@ -46,33 +48,40 @@ fun VaultListScreen(
     onDelete: (Long) -> Unit = {},
 ) {
     var pendingDelete by remember { mutableStateOf<LockedNoteRow?>(null) }
+    val density = LocalDensity.current
+    var headerPx by remember { mutableStateOf(0) }
+    val headerDp = with(density) { headerPx.toDp() }
+
     Box(Modifier.fillMaxSize().background(XpTokens.Bg)) {
         if (rows.isEmpty()) {
             Column(Modifier.fillMaxSize()) {
-                Header(onLockNow = onLockNow)
+                Spacer(Modifier.height(headerDp))
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     EmptyState()
                 }
-                Footer()
             }
         } else {
-            Column(Modifier.fillMaxSize()) {
-                Header(onLockNow = onLockNow)
-                Spacer(Modifier.height(12.dp))
-                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = 100.dp)) {
-                    rows.forEachIndexed { i, row ->
-                        LockedRow(
-                            row,
-                            onClick = { onOpen(row.id) },
-                            onLongClick = { pendingDelete = row },
-                        )
-                        if (i < rows.size - 1) {
-                            Box(Modifier.fillMaxWidth().padding(horizontal = 22.dp).height(0.5.dp).background(XpTokens.Hair))
-                        }
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Spacer(Modifier.height(headerDp + 12.dp))
+                rows.forEachIndexed { i, row ->
+                    LockedRow(
+                        row,
+                        onClick = { onOpen(row.id) },
+                        onLongClick = { pendingDelete = row },
+                    )
+                    if (i < rows.size - 1) {
+                        Box(Modifier.fillMaxWidth().padding(horizontal = 22.dp).height(0.5.dp).background(XpTokens.Hair))
                     }
                 }
-                Footer()
+                Spacer(Modifier.height(100.dp))
             }
+        }
+        PinnedHeader(onSize = { headerPx = it.height }) {
+            Header(onLockNow = onLockNow)
         }
         Fab(onClick = onNew)
     }
@@ -158,17 +167,7 @@ private fun EmptyState() {
 }
 
 @Composable
-private fun Footer() {
-    Box(
-        Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 14.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text("Encrypted on this device. Never synced.", color = XpTokens.Ink3, fontSize = 11.sp)
-    }
-}
-
-@Composable
 private fun androidx.compose.foundation.layout.BoxScope.Fab(onClick: () -> Unit) {
     XpFab(R.drawable.ic_plus, "New locked note", shadow = true, onClick = onClick,
-        modifier = Modifier.align(Alignment.BottomEnd).padding(end = 42.dp, bottom = 86.dp))
+        modifier = Modifier.align(Alignment.BottomEnd).padding(end = 50.dp, bottom = 130.dp))
 }
