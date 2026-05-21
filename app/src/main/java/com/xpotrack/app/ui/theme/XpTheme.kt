@@ -1,9 +1,11 @@
 package com.xpotrack.app.ui.theme
 
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 
 @Composable
 fun XpTheme(content: @Composable () -> Unit) {
@@ -27,5 +29,12 @@ fun XpTheme(content: @Composable () -> Unit) {
         surfaceVariant = XpTokens.Surface2, onSurfaceVariant = XpTokens.Ink2,
         error = XpTokens.Alarm,
     )
-    MaterialTheme(colorScheme = scheme, typography = XpTypography, content = content)
+    MaterialTheme(colorScheme = scheme, typography = XpTypography) {
+        // Default any bare Text/BasicTextField (no explicit fontFamily) to Geist
+        // so screens that style text inline still inherit the app font.
+        CompositionLocalProvider(
+            LocalTextStyle provides LocalTextStyle.current.copy(fontFamily = Geist),
+            content = content,
+        )
+    }
 }

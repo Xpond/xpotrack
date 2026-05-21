@@ -59,11 +59,7 @@ fun TasksTimelineScreen(
             .background(XpTokens.Bg),
     ) {
         TopHalo()
-        Column(
-            Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
-        ) {
+        Column(Modifier.fillMaxSize()) {
             TasksHeader(selectedDate = selectedDate, tasks = tasks)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 DayChipStrip(
@@ -77,12 +73,18 @@ fun TasksTimelineScreen(
                     modifier = Modifier.padding(end = 14.dp),
                 )
             }
-            TimelineView(
-                tasks = tasks,
-                onTaskTap = onOpenTask,
-                onTaskLongPress = { pendingDelete = it },
-            )
-            Spacer(Modifier.height(120.dp))
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                TimelineView(
+                    tasks = tasks,
+                    onTaskTap = onOpenTask,
+                    onTaskLongPress = { pendingDelete = it },
+                )
+                Spacer(Modifier.height(120.dp))
+            }
         }
         val today = remember { LocalDate.now(ZoneId.systemDefault()).toEpochDay() }
         if (selectedDate >= today) {

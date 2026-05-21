@@ -25,7 +25,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -99,11 +98,9 @@ private fun TaskRowItem(task: TaskRow, onClick: () -> Unit, onLongClick: () -> U
             Spacer(Modifier.height(3.dp))
             Text(
                 task.label,
-                style = TextStyle(
-                    fontSize = 14.sp,
-                    color = XpTokens.Ink,
-                    textDecoration = if (task.done) TextDecoration.LineThrough else null,
-                ),
+                fontSize = 14.sp,
+                color = XpTokens.Ink,
+                textDecoration = if (task.done) TextDecoration.LineThrough else null,
             )
         }
     }

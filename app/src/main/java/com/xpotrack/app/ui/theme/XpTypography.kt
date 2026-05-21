@@ -9,17 +9,17 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.xpotrack.app.R
 
+// Single-font experiment: everything maps to GeistMono. Only two physical
+// weights ship (Regular, Medium), so SemiBold/Bold synthesize to Medium —
+// Compose will fake-bold past that, which reads worse than just stopping.
 val Geist = FontFamily(
-    Font(R.font.geist_regular, FontWeight.Normal),
-    Font(R.font.geist_medium, FontWeight.Medium),
-    Font(R.font.geist_semibold, FontWeight.SemiBold),
-    Font(R.font.geist_bold, FontWeight.Bold),
-)
-
-val GeistMono = FontFamily(
     Font(R.font.geist_mono_regular, FontWeight.Normal),
     Font(R.font.geist_mono_medium, FontWeight.Medium),
+    Font(R.font.geist_mono_medium, FontWeight.SemiBold),
+    Font(R.font.geist_mono_medium, FontWeight.Bold),
 )
+
+val GeistMono = Geist
 
 val XpTypography = Typography(
     displayLarge = TextStyle(
