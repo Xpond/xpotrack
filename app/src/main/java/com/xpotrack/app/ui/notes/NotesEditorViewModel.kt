@@ -6,8 +6,10 @@ import androidx.lifecycle.viewModelScope
 import com.xpotrack.app.data.repo.CategoryRepository
 import com.xpotrack.app.data.repo.NotesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 // Edits a single note. Loads existing by id (0 = new). Save is suspending —
@@ -20,8 +22,22 @@ class NotesEditorViewModel(
     private val noteId: Int,
 ) : ViewModel() {
 
+    // Internal mutable state holds only what the user types/picks. The category
+    // label + color are resolved live from the categories flow below, so a
+    // delete/rename/recolor of the selected category reflects in the editor
+    // without any manual sync. save() also re-resolves so a dangling categoryId
+    // (selected category deleted while editor was open) never gets persisted.
     private val _state = MutableStateFlow(EditorState())
-    val state: StateFlow<EditorState> = _state.asStateFlow()
+
+    val state: StateFlow<EditorState> = combine(_state, categories.observeAll()) { s, cats ->
+        if (s.categoryId <= 0L) {
+            s.copy(categoryName = "Uncategorized", categoryColorHex = null)
+        } else {
+            val c = cats.firstOrNull { it.id == s.categoryId }
+            if (c == null) s.copy(categoryId = 0L, categoryName = "Uncategorized", categoryColorHex = null)
+            else s.copy(categoryName = c.name, categoryColorHex = c.colorHex)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), EditorState())
 
     // Snapshot of the loaded note. save() compares against this so opening a
     // note and backing out without edits doesn't bump updatedAt.
@@ -36,15 +52,13 @@ class NotesEditorViewModel(
                         title = existing.title,
                         body = existing.preview,
                         categoryId = existing.categoryId,
-                        categoryName = existing.categoryName,
-                        categoryColorHex = existing.categoryColorHex,
                         loaded = true,
                         previewMode = true,
                     )
                     pristine = Triple(existing.title, existing.preview, existing.categoryId)
                 } ?: run { _state.value = _state.value.copy(loaded = true) }
             } else {
-                _state.value = EditorState(loaded = true, categoryId = 0L, categoryName = "Uncategorized")
+                _state.value = EditorState(loaded = true)
             }
         }
     }
@@ -73,20 +87,7 @@ class NotesEditorViewModel(
         }
     }
 
-    fun setCategory(id: Long) {
-        viewModelScope.launch {
-            if (id <= 0L) {
-                _state.value = _state.value.copy(
-                    categoryId = 0L, categoryName = "Uncategorized", categoryColorHex = null,
-                )
-                return@launch
-            }
-            val c = categories.getById(id) ?: return@launch
-            _state.value = _state.value.copy(
-                categoryId = id, categoryName = c.name, categoryColorHex = c.colorHex,
-            )
-        }
-    }
+    fun setCategory(id: Long) { _state.value = _state.value.copy(categoryId = id) }
 
     suspend fun save() {
         val s = _state.value
@@ -94,16 +95,20 @@ class NotesEditorViewModel(
         val hasContent = s.title.isNotBlank() || s.body.isNotBlank()
         if (s.id == 0 && !hasContent) return // empty new note: discard
         if (s.id > 0 && !hasContent) { repo.delete(s.id); return }
+        // Re-resolve the category at save time so a deleted one falls back to
+        // Uncategorized rather than persisting a dangling id.
+        val live = if (s.categoryId <= 0L) null else categories.getById(s.categoryId)
+        val finalId = live?.id ?: 0L
         pristine?.let { (t, b, c) ->
-            if (t == s.title && b == s.body && c == s.categoryId) return
+            if (t == s.title && b == s.body && c == finalId) return
         }
         repo.upsert(
             NoteRow(
                 id = s.id,
                 title = s.title.ifBlank { "Untitled" },
                 preview = s.body,
-                categoryId = s.categoryId,
-                categoryName = s.categoryName,
+                categoryId = finalId,
+                categoryName = live?.name ?: "Uncategorized",
                 categoryColorHex = null,
                 when_ = "",
                 updatedAt = 0L,
