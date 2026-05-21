@@ -22,12 +22,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.xpotrack.app.R
 import com.xpotrack.app.data.model.Category
 import com.xpotrack.app.ui.components.ConfirmDeleteDialog
 import com.xpotrack.app.ui.components.DateTimeStrip
+import com.xpotrack.app.ui.components.NoteActionSheet
 import com.xpotrack.app.ui.components.PinnedHeader
 import com.xpotrack.app.ui.components.XpFab
 import com.xpotrack.app.ui.components.XpIconBtn
@@ -52,8 +54,10 @@ fun NotesListScreen(
     var filterId by remember { mutableStateOf<Long?>(null) }
     var searchOpen by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
+    var sheetNote by remember { mutableStateOf<NoteRow?>(null) }
     var pendingDeleteNote by remember { mutableStateOf<NoteRow?>(null) }
     var pendingDeleteQuick by remember { mutableStateOf<QuickRow?>(null) }
+    val context = LocalContext.current
 
     val activeCategory = filterId?.let { id ->
         if (id == 0L) null else categories.firstOrNull { it.id == id }
@@ -108,7 +112,7 @@ fun NotesListScreen(
                         showTag = filterId == null,
                         isLast = isLast,
                         onOpenNote = onOpenNote,
-                        onLongPress = { pendingDeleteNote = it },
+                        onLongPress = { sheetNote = it },
                     )
                     is FeedItem.Quick -> QuickNoteEntry(
                         row = item.row,
@@ -145,6 +149,20 @@ fun NotesListScreen(
             R.drawable.ic_plus, "New note", shadow = true,
             modifier = Modifier.align(Alignment.BottomEnd).padding(end = 50.dp, bottom = 130.dp),
             onClick = { onOpenNote(0) },
+        )
+    }
+    sheetNote?.let { note ->
+        NoteActionSheet(
+            subject = note.title.ifBlank { "Untitled" },
+            onDismiss = { sheetNote = null },
+            onShare = {
+                shareNoteAsMarkdown(context, note.title, note.preview)
+                sheetNote = null
+            },
+            onDelete = {
+                pendingDeleteNote = note
+                sheetNote = null
+            },
         )
     }
     pendingDeleteNote?.let { note ->
