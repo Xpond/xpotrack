@@ -2,6 +2,7 @@ package com.xpotrack.app.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -43,14 +45,16 @@ fun XpBottomTabs(
     onSelect: (XpTab) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val tint = XpTokens.Bg.copy(alpha = 0.9f)
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .pointerInput(Unit) { detectTapGestures { } }
             .background(
                 Brush.verticalGradient(
                     0f to Color.Transparent,
-                    0.3f to XpTokens.Bg,
-                    1f to XpTokens.Bg,
+                    0.3f to tint,
+                    1f to tint,
                 )
             )
     ) {

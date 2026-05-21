@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -36,6 +37,7 @@ import androidx.compose.ui.unit.sp
 import com.xpotrack.app.R
 import com.xpotrack.app.ui.components.ConfirmDeleteDialog
 import com.xpotrack.app.ui.components.DateTimeStrip
+import com.xpotrack.app.ui.components.PinnedHeader
 import com.xpotrack.app.ui.components.XpFab
 import com.xpotrack.app.ui.theme.XpTokens
 import java.time.LocalDate
@@ -53,13 +55,30 @@ fun TasksTimelineScreen(
 ) {
     var pendingDelete by remember { mutableStateOf<TaskRow?>(null) }
     var calendarOpen by remember { mutableStateOf(false) }
+    val density = LocalDensity.current
+    var headerPx by remember { mutableStateOf(0) }
+    val headerDp = with(density) { headerPx.toDp() }
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(XpTokens.Bg),
     ) {
         TopHalo()
-        Column(Modifier.fillMaxSize()) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()),
+        ) {
+            Spacer(Modifier.height(headerDp))
+            TimelineView(
+                tasks = tasks,
+                onTaskTap = onOpenTask,
+                onTaskLongPress = { pendingDelete = it },
+            )
+            Spacer(Modifier.height(120.dp))
+        }
+        PinnedHeader(onSize = { headerPx = it.height }) {
             TasksHeader(selectedDate = selectedDate, tasks = tasks)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 DayChipStrip(
@@ -73,22 +92,10 @@ fun TasksTimelineScreen(
                     modifier = Modifier.padding(end = 14.dp),
                 )
             }
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-            ) {
-                TimelineView(
-                    tasks = tasks,
-                    onTaskTap = onOpenTask,
-                    onTaskLongPress = { pendingDelete = it },
-                )
-                Spacer(Modifier.height(120.dp))
-            }
         }
         val today = remember { LocalDate.now(ZoneId.systemDefault()).toEpochDay() }
         if (selectedDate >= today) {
-            XpFab(R.drawable.ic_plus, "New task", shadow = true, modifier = Modifier.align(Alignment.BottomEnd).padding(end = 42.dp, bottom = 86.dp), onClick = { onOpenTask(0L) })
+            XpFab(R.drawable.ic_plus, "New task", shadow = true, modifier = Modifier.align(Alignment.BottomEnd).padding(end = 50.dp, bottom = 130.dp), onClick = { onOpenTask(0L) })
         }
     }
     pendingDelete?.let { task ->

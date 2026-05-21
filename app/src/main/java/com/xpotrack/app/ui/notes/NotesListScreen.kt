@@ -22,11 +22,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.xpotrack.app.R
 import com.xpotrack.app.data.model.Category
 import com.xpotrack.app.ui.components.ConfirmDeleteDialog
 import com.xpotrack.app.ui.components.DateTimeStrip
+import com.xpotrack.app.ui.components.PinnedHeader
 import com.xpotrack.app.ui.components.XpFab
 import com.xpotrack.app.ui.components.XpIconBtn
 import com.xpotrack.app.ui.quick.QuickNoteEntry
@@ -82,13 +84,44 @@ fun NotesListScreen(
         }
     } else byCategory
 
+    val density = LocalDensity.current
+    var headerPx by remember { mutableStateOf(0) }
+    val headerDp = with(density) { headerPx.toDp() }
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(XpTokens.Bg),
     ) {
         TopHalo()
-        Column(Modifier.fillMaxSize()) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+        ) {
+            Spacer(Modifier.height(headerDp))
+            filtered.forEachIndexed { i, item ->
+                val isLast = i == filtered.size - 1
+                when (item) {
+                    is FeedItem.Note -> ChronoNoteRow(
+                        note = item.row,
+                        showTag = filterId == null,
+                        isLast = isLast,
+                        onOpenNote = onOpenNote,
+                        onLongPress = { pendingDeleteNote = it },
+                    )
+                    is FeedItem.Quick -> QuickNoteEntry(
+                        row = item.row,
+                        isLast = isLast,
+                        onKeep = { onKeepQuick(item.row.id) },
+                        onOpen = { onOpenQuickNote(item.row.id) },
+                        onLongPress = { pendingDeleteQuick = item.row },
+                    )
+                }
+            }
+            Spacer(Modifier.height(100.dp))
+        }
+        PinnedHeader(onSize = { headerPx = it.height }) {
             if (searchOpen) {
                 NotesSearchBar(
                     query = query,
@@ -107,36 +140,10 @@ fun NotesListScreen(
                 )
             }
             QuickEntryStrip(onCompose = onComposeQuick)
-            Column(
-                Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-            ) {
-                filtered.forEachIndexed { i, item ->
-                    val isLast = i == filtered.size - 1
-                    when (item) {
-                        is FeedItem.Note -> ChronoNoteRow(
-                            note = item.row,
-                            showTag = filterId == null,
-                            isLast = isLast,
-                            onOpenNote = onOpenNote,
-                            onLongPress = { pendingDeleteNote = it },
-                        )
-                        is FeedItem.Quick -> QuickNoteEntry(
-                            row = item.row,
-                            isLast = isLast,
-                            onKeep = { onKeepQuick(item.row.id) },
-                            onOpen = { onOpenQuickNote(item.row.id) },
-                            onLongPress = { pendingDeleteQuick = item.row },
-                        )
-                    }
-                }
-                Spacer(Modifier.height(100.dp))
-            }
         }
         XpFab(
             R.drawable.ic_plus, "New note", shadow = true,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 42.dp, bottom = 86.dp),
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 50.dp, bottom = 130.dp),
             onClick = { onOpenNote(0) },
         )
     }
