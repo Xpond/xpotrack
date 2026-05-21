@@ -26,8 +26,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.xpotrack.app.ui.theme.XpTokens
 
-private val Danger = Color(0xFFF87171)
-
 @Composable
 fun ConfirmDeleteDialog(
     title: String,
@@ -56,7 +54,7 @@ fun ConfirmDeleteDialog(
             ) {
                 DialogBtn(label = "Cancel", color = XpTokens.Ink2, onClick = onCancel)
                 Spacer(Modifier.width(8.dp))
-                DialogBtn(label = "Delete", color = Danger, onClick = onConfirm, bold = true)
+                DialogBtn(label = "Delete", color = XpTokens.Danger, onClick = onConfirm, bold = true)
             }
         }
     }

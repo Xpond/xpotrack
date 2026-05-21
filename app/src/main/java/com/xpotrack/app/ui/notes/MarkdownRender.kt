@@ -127,7 +127,7 @@ private fun TaskList(items: List<Pair<Boolean, String>>, firstIndex: Int, onTogg
 }
 
 @Composable
-private fun Heading(text: String, h1: Boolean) {
+internal fun Heading(text: String, h1: Boolean) {
     Spacer(Modifier.height(if (h1) 8.dp else 20.dp))
     Text(
         text, color = XpTokens.Ink, fontWeight = FontWeight.SemiBold,

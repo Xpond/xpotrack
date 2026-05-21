@@ -69,9 +69,6 @@ interface CategoryDao {
     @Query("SELECT * FROM categories ORDER BY sortOrder ASC, id ASC")
     fun observeAll(): Flow<List<CategoryEntity>>
 
-    @Query("SELECT * FROM categories ORDER BY sortOrder ASC, id ASC")
-    suspend fun all(): List<CategoryEntity>
-
     @Query("SELECT * FROM categories WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): CategoryEntity?
 

@@ -3,8 +3,6 @@ package com.xpotrack.app.data.security
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Base64
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
 import java.security.SecureRandom
 
 // Generates the 32-byte SQLCipher passphrase on first launch and stores it inside
@@ -16,18 +14,7 @@ import java.security.SecureRandom
 
 class PassphraseStore(context: Context) {
 
-    private val prefs: SharedPreferences = run {
-        val masterKey = MasterKey.Builder(context, MasterKey.DEFAULT_MASTER_KEY_ALIAS)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-        EncryptedSharedPreferences.create(
-            context,
-            PREFS_FILE,
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-        )
-    }
+    private val prefs: SharedPreferences = buildEncryptedPrefs(context, PREFS_FILE)
 
     fun getOrCreate(): ByteArray {
         prefs.getString(KEY_PASSPHRASE, null)?.let { return Base64.decode(it, Base64.NO_WRAP) }

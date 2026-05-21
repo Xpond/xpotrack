@@ -10,10 +10,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -31,8 +29,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import com.xpotrack.app.R
 import com.xpotrack.app.ui.theme.XpTokens
 import java.time.DayOfWeek
@@ -60,37 +56,24 @@ fun MonthPickerDialog(
     val selected = remember(selectedEpochDay) { LocalDate.ofEpochDay(selectedEpochDay) }
     var month by remember { mutableStateOf(YearMonth.from(selected)) }
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        Box(
-            Modifier
-                .padding(horizontal = 24.dp)
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
-                .background(XpTokens.Surface1)
-                .border(0.5.dp, XpTokens.Hair, RoundedCornerShape(20.dp))
-                .padding(18.dp),
-        ) {
-            Column {
-                MonthHeader(
-                    month = month,
-                    onPrev = { month = month.minusMonths(1) },
-                    onNext = { month = month.plusMonths(1) },
-                )
-                Spacer(Modifier.size(14.dp))
-                WeekdayRow()
-                Spacer(Modifier.size(6.dp))
-                MonthGrid(
-                    month = month,
-                    selected = selected,
-                    today = today,
-                    datesWithTasks = datesWithTasks,
-                    disablePast = disablePast,
-                    onPick = { d -> onPick(d.toEpochDay()) },
-                )
-            }
+    DialogCard(onDismiss) {
+        Column {
+            MonthHeader(
+                month = month,
+                onPrev = { month = month.minusMonths(1) },
+                onNext = { month = month.plusMonths(1) },
+            )
+            Spacer(Modifier.size(14.dp))
+            WeekdayRow()
+            Spacer(Modifier.size(6.dp))
+            MonthGrid(
+                month = month,
+                selected = selected,
+                today = today,
+                datesWithTasks = datesWithTasks,
+                disablePast = disablePast,
+                onPick = { d -> onPick(d.toEpochDay()) },
+            )
         }
     }
 }

@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xpotrack.app.R
 import com.xpotrack.app.data.model.ReminderLevel
+import com.xpotrack.app.ui.components.XpPrimaryButton
 import com.xpotrack.app.ui.components.styleFor
 import com.xpotrack.app.ui.theme.XpTokens
 import kotlinx.coroutines.launch
@@ -169,13 +170,10 @@ fun TaskCreateSheet(
             )
 
             Spacer(Modifier.height(14.dp))
-            ScheduleButton(
-                state = state,
-                onClick = {
-                    scope.launch {
-                        if (vm.save() != null) onDismiss()
-                    }
-                },
+            XpPrimaryButton(
+                label = "Schedule for ${formatTime12(state.timeHHmm)} ${relativeDay(state.dateEpochDay)}",
+                enabled = state.title.isNotBlank(),
+                onClick = { scope.launch { if (vm.save() != null) onDismiss() } },
             )
         }
     }
@@ -286,11 +284,7 @@ private fun ReminderChips(active: ReminderLevel, onSelect: (ReminderLevel) -> Un
                     modifier = Modifier.size(13.dp),
                 )
                 Text(
-                    when (level) {
-                        ReminderLevel.Silent -> "Silent"
-                        ReminderLevel.Notify -> "Notify"
-                        ReminderLevel.Alarm -> "Alarm"
-                    },
+                    levelLabel(level),
                     style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
                     color = if (isActive) style.tint else XpTokens.Ink2,
                 )
@@ -365,28 +359,6 @@ private fun LinkNoteRow(title: String?, onClick: () -> Unit) {
     }
 }
 
-@Composable
-private fun ScheduleButton(state: TaskEditState, onClick: () -> Unit) {
-    val enabled = state.title.isNotBlank()
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(50.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(if (enabled) XpTokens.Teal else XpTokens.Teal.copy(alpha = 0.35f))
-            .clickable(enabled = enabled, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            "Schedule for ${formatTime12(state.timeHHmm)} ${relativeDay(state.dateEpochDay)}",
-            color = XpTokens.OnTeal,
-            style = MaterialTheme.typography.labelLarge.copy(
-                fontSize = 15.5.sp,
-                fontWeight = FontWeight.SemiBold,
-            ),
-        )
-    }
-}
 
 @Composable
 private fun DateRow(epochDay: Long, onClick: () -> Unit) {
@@ -427,14 +399,4 @@ private fun longDate(epochDay: Long): String =
     LocalDate.ofEpochDay(epochDay)
         .format(DateTimeFormatter.ofPattern("EEEE, MMM d", Locale.getDefault()))
 
-private fun relativeDay(epochDay: Long): String {
-    val today = LocalDate.now(ZoneId.systemDefault()).toEpochDay()
-    return when (epochDay - today) {
-        0L -> "today"
-        1L -> "tomorrow"
-        -1L -> "yesterday"
-        else -> LocalDate.ofEpochDay(epochDay)
-            .format(DateTimeFormatter.ofPattern("MMM d", Locale.getDefault()))
-    }
-}
 

@@ -3,9 +3,9 @@ package com.xpotrack.app.ui.tasks
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -23,8 +23,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import com.xpotrack.app.R
 import com.xpotrack.app.ui.theme.XpTokens
 
@@ -38,55 +36,52 @@ fun RepeatPickerDialog(
     onDismiss: () -> Unit,
 ) {
     val options = listOf("none", "daily", "weekdays", "weekly")
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        Box(
-            Modifier
-                .padding(horizontal = 24.dp)
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
-                .background(XpTokens.Surface1)
-                .border(0.5.dp, XpTokens.Hair, RoundedCornerShape(20.dp))
-                .padding(18.dp),
-        ) {
-            Column {
-                Text(
-                    "Repeat".uppercase(),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = XpTokens.Ink3,
+    DialogCard(onDismiss) {
+        Column {
+            Text(
+                "Repeat".uppercase(),
+                style = MaterialTheme.typography.labelMedium,
+                color = XpTokens.Ink3,
+            )
+            Spacer(Modifier.height(12.dp))
+            options.forEachIndexed { i, rule ->
+                RepeatOption(
+                    label = repeatLabel(rule, epochDay),
+                    isSelected = rule == selected,
+                    onClick = { onPick(rule) },
                 )
-                Spacer(Modifier.height(12.dp))
-                options.forEachIndexed { i, rule ->
-                    RepeatOption(
-                        label = repeatLabel(rule, epochDay),
-                        isSelected = rule == selected,
-                        onClick = { onPick(rule) },
-                    )
-                    if (i < options.lastIndex) Spacer(Modifier.height(4.dp))
-                }
+                if (i < options.lastIndex) Spacer(Modifier.height(4.dp))
             }
         }
     }
 }
 
 @Composable
-private fun RepeatOption(label: String, isSelected: Boolean, onClick: () -> Unit) {
+internal fun SelectableRow(
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    horizontalPadding: Int = 14,
+    verticalPadding: Int = 14,
+    content: @Composable RowScope.() -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(if (isSelected) XpTokens.Teal.copy(alpha = 0.08f) else XpTokens.Surface2)
-            .border(
-                width = 0.5.dp,
-                color = if (isSelected) XpTokens.Teal else XpTokens.Hair,
-                shape = RoundedCornerShape(12.dp),
-            )
+            .border(0.5.dp, if (isSelected) XpTokens.Teal else XpTokens.Hair, RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 14.dp),
+            .padding(horizontal = horizontalPadding.dp, vertical = verticalPadding.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        content()
+        if (isSelected) Icon(painterResource(R.drawable.ic_check), null, tint = XpTokens.Teal, modifier = Modifier.size(14.dp))
+    }
+}
+
+@Composable
+private fun RepeatOption(label: String, isSelected: Boolean, onClick: () -> Unit) {
+    SelectableRow(isSelected, onClick) {
         Text(
             label,
             style = MaterialTheme.typography.labelLarge.copy(
@@ -96,13 +91,5 @@ private fun RepeatOption(label: String, isSelected: Boolean, onClick: () -> Unit
             color = if (isSelected) XpTokens.Teal else XpTokens.Ink,
             modifier = Modifier.weight(1f),
         )
-        if (isSelected) {
-            Icon(
-                painter = painterResource(R.drawable.ic_check),
-                contentDescription = null,
-                tint = XpTokens.Teal,
-                modifier = Modifier.size(14.dp),
-            )
-        }
     }
 }

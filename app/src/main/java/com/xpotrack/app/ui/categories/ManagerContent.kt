@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xpotrack.app.R
 import com.xpotrack.app.data.model.Category
+import com.xpotrack.app.ui.components.XpIconBtn
 import com.xpotrack.app.ui.theme.XpTokens
 
 // Manager content lives inside CategorySheet, so it does not own a
@@ -147,9 +148,9 @@ private fun CategoryRow(c: Category, first: Boolean, onRename: () -> Unit, onDel
         Spacer(Modifier.width(12.dp))
         Text(c.name, fontSize = 14.5.sp, fontWeight = FontWeight.Medium, color = XpTokens.Ink,
             modifier = Modifier.weight(1f))
-        IconBtn(R.drawable.ic_pencil, "Rename", onClick = onRename)
+        XpIconBtn(R.drawable.ic_pencil, "Rename", tint = XpTokens.Ink3, size = 30.dp, iconSize = 14.dp, onClick = onRename)
         Spacer(Modifier.width(2.dp))
-        IconBtn(R.drawable.ic_trash, "Delete", onClick = onDelete)
+        XpIconBtn(R.drawable.ic_trash, "Delete", tint = XpTokens.Ink3, size = 30.dp, iconSize = 14.dp, onClick = onDelete)
     }
 }
 
@@ -162,9 +163,10 @@ private fun EditRow(edit: CategoryEdit, vm: CategoryManagerViewModel, isNew: Boo
             .padding(14.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            val editColor = parseHexColor(edit.colorHex)
             Box(Modifier.size(30.dp).clip(RoundedCornerShape(8.dp))
-                .background(parseHexColor(edit.colorHex).copy(alpha = 0.15f))
-                .border(0.5.dp, parseHexColor(edit.colorHex), RoundedCornerShape(8.dp)))
+                .background(editColor.copy(alpha = 0.15f))
+                .border(0.5.dp, editColor, RoundedCornerShape(8.dp)))
             Spacer(Modifier.width(12.dp))
             BasicTextField(
                 value = edit.name, onValueChange = vm::editName, singleLine = true,
@@ -198,12 +200,3 @@ private fun EditRow(edit: CategoryEdit, vm: CategoryManagerViewModel, isNew: Boo
     }
 }
 
-@Composable
-private fun IconBtn(iconRes: Int, desc: String, onClick: () -> Unit) {
-    Box(
-        Modifier.size(30.dp).clip(CircleShape).clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(painterResource(iconRes), desc, tint = XpTokens.Ink3, modifier = Modifier.size(14.dp))
-    }
-}

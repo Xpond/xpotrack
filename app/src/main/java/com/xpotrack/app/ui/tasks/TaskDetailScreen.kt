@@ -54,10 +54,6 @@ import com.xpotrack.app.ui.notes.NoteRow
 import com.xpotrack.app.ui.theme.GeistMono
 import com.xpotrack.app.ui.theme.XpTokens
 import kotlinx.coroutines.launch
-import java.time.LocalDate
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 @Composable
 fun TaskDetailScreen(
@@ -167,11 +163,6 @@ private fun HeroTime(task: Task, style: ReminderStyle) {
     }
 }
 
-private fun levelLabel(level: ReminderLevel): String = when (level) {
-    ReminderLevel.Silent -> "Silent"
-    ReminderLevel.Notify -> "Notify"
-    ReminderLevel.Alarm  -> "Alarm"
-}
 
 @Composable
 private fun FieldsCard(task: Task, style: ReminderStyle, onAnyRow: () -> Unit) {
@@ -191,23 +182,6 @@ private fun FieldsCard(task: Task, style: ReminderStyle, onAnyRow: () -> Unit) {
     }
 }
 
-private fun reminderSummary(level: ReminderLevel) = when (level) {
-    ReminderLevel.Silent -> "Silent"
-    ReminderLevel.Notify -> "Notify on time"
-    ReminderLevel.Alarm  -> "Alarm — ring for 60s"
-}
-
-private fun dayLabel(epochDay: Long): String {
-    if (epochDay <= 0L) return "Today"
-    val today = LocalDate.now(ZoneId.systemDefault()).toEpochDay()
-    return when (epochDay - today) {
-        0L -> "Today"
-        1L -> "Tomorrow"
-        -1L -> "Yesterday"
-        else -> LocalDate.ofEpochDay(epochDay)
-            .format(DateTimeFormatter.ofPattern("EEE, MMM d", Locale.getDefault()))
-    }
-}
 
 @Composable
 private fun FieldRow(iconRes: Int, label: String, value: String, valueColor: Color = XpTokens.Ink, onClick: () -> Unit) {
