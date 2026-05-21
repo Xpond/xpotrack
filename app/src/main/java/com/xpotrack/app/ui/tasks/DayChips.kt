@@ -74,9 +74,13 @@ fun DayChipStrip(
         initialFirstVisibleItemIndex = selectedIndex.coerceAtLeast(0),
     )
     LaunchedEffect(selectedDate, windowStart) {
-        if (selectedIndex in days.indices) {
-            // Pull the selected chip a bit left of center so users see what
-            // comes after it without scrolling immediately.
+        if (selectedIndex !in days.indices) return@LaunchedEffect
+        // Only scroll when the selected chip isn't already on screen — i.e.
+        // an external jump (month picker, fresh window). Tapping a visible
+        // chip must not shift the strip, or it reads as jitter.
+        val visible = listState.layoutInfo.visibleItemsInfo
+        val onScreen = visible.any { it.index == selectedIndex }
+        if (!onScreen) {
             listState.animateScrollToItem(selectedIndex, scrollOffset = -120)
         }
     }
