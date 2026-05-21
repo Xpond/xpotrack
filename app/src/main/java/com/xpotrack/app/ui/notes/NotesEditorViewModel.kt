@@ -103,10 +103,10 @@ class NotesEditorViewModel(
                 title = s.title.ifBlank { "Untitled" },
                 preview = s.body,
                 categoryId = s.categoryId,
-                categoryName = s.categoryName,  // ignored on write — repo reads from FK
-                categoryColorHex = null,        // ignored on write — repo reads from FK
+                categoryName = s.categoryName,
+                categoryColorHex = null,
                 when_ = "",
-                updatedAt = 0L,                 // ignored on write — repo sets via now()
+                updatedAt = 0L,
             )
         )
     }

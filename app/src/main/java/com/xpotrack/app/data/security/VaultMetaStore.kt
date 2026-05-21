@@ -3,26 +3,13 @@ package com.xpotrack.app.data.security
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Base64
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
 
 // Stores vault setup metadata: KDF salt + verifier hash for passphrase check,
 // and an optional biometric-wrapped passphrase blob. Backed by EncryptedSharedPreferences.
 
 class VaultMetaStore(context: Context) {
 
-    private val prefs: SharedPreferences = run {
-        val masterKey = MasterKey.Builder(context, MasterKey.DEFAULT_MASTER_KEY_ALIAS)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-        EncryptedSharedPreferences.create(
-            context,
-            PREFS_FILE,
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-        )
-    }
+    private val prefs: SharedPreferences = buildEncryptedPrefs(context, PREFS_FILE)
 
     fun isSetup(): Boolean = prefs.contains(KEY_SALT) && prefs.contains(KEY_VERIFIER)
 

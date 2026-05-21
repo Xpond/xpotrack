@@ -11,13 +11,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -32,18 +28,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xpotrack.app.R
 import com.xpotrack.app.data.security.VaultKeyStore
+import com.xpotrack.app.ui.components.XpPrimaryButton
 import com.xpotrack.app.ui.theme.XpTokens
 
 @Composable
@@ -152,37 +146,9 @@ private fun FingerprintBadge() {
 private fun PassphraseEntry(value: String, onChange: (String) -> Unit, verifying: Boolean, onSubmit: () -> Unit) {
     val canSubmit = value.isNotEmpty() && !verifying
     Column(Modifier.fillMaxWidth()) {
-        Box(
-            Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(10.dp))
-                .background(XpTokens.Surface1).border(0.5.dp, XpTokens.Hair, RoundedCornerShape(10.dp))
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            contentAlignment = Alignment.CenterStart,
-        ) {
-            BasicTextField(
-                value = value, onValueChange = onChange,
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                textStyle = androidx.compose.ui.text.TextStyle(
-                    color = XpTokens.Ink, fontSize = 15.sp, fontFamily = com.xpotrack.app.ui.theme.GeistMono,
-                ),
-                cursorBrush = SolidColor(XpTokens.Teal),
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
+        PassInput(value, onChange)
         Spacer(Modifier.height(14.dp))
-        Box(
-            Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(12.dp))
-                .background(if (canSubmit) XpTokens.Teal else XpTokens.Surface2)
-                .clickable(enabled = canSubmit, onClick = onSubmit),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                if (verifying) "Verifying…" else "Unlock",
-                color = if (canSubmit) XpTokens.OnTeal else XpTokens.Ink3,
-                fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-            )
-        }
+        XpPrimaryButton(if (verifying) "Verifying…" else "Unlock", enabled = canSubmit, onClick = onSubmit)
     }
 }
 

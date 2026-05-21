@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xpotrack.app.R
 import com.xpotrack.app.ui.components.ConfirmDeleteDialog
+import com.xpotrack.app.ui.components.XpFab
 import com.xpotrack.app.ui.theme.XpTokens
 
 @Composable
@@ -188,12 +189,6 @@ private fun Footer() {
 
 @Composable
 private fun androidx.compose.foundation.layout.BoxScope.Fab(onClick: () -> Unit) {
-    Box(
-        Modifier.align(Alignment.BottomEnd).padding(end = 22.dp, bottom = 22.dp)
-            .size(56.dp).clip(CircleShape).background(XpTokens.Teal)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(painterResource(R.drawable.ic_plus), "New locked note", tint = XpTokens.OnTeal, modifier = Modifier.size(22.dp))
-    }
+    XpFab(R.drawable.ic_plus, "New locked note", onClick = onClick,
+        modifier = Modifier.align(Alignment.BottomEnd).padding(end = 22.dp, bottom = 22.dp))
 }

@@ -83,15 +83,7 @@ fun NotesEditorScreen(vm: NotesEditorViewModel, onBack: () -> Unit, onPickCatego
         ) {
             Spacer(Modifier.height(8.dp))
             if (s.previewMode) {
-                if (s.title.isNotBlank()) {
-                    Text(
-                        s.title, color = XpTokens.Ink, fontWeight = FontWeight.SemiBold,
-                        fontSize = 30.sp, lineHeight = 33.sp, letterSpacing = (-0.025).em,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Box(Modifier.width(36.dp).height(2.dp).background(XpTokens.Teal))
-                    Spacer(Modifier.height(22.dp))
-                }
+                if (s.title.isNotBlank()) Heading(s.title, h1 = true)
                 MarkdownBody(s.body, onToggleTask = vm::toggleTask)
             } else {
                 TitleField(s.title, vm::onTitleChange, titleFocus)

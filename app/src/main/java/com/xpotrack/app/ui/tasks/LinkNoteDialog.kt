@@ -34,8 +34,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import com.xpotrack.app.R
 import com.xpotrack.app.ui.notes.NoteRow
 import com.xpotrack.app.ui.theme.XpTokens
@@ -55,39 +53,28 @@ fun LinkNoteDialog(
         else notes.filter { it.title.contains(query, ignoreCase = true) ||
             it.preview.contains(query, ignoreCase = true) }
     }
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        Box(
-            Modifier.padding(horizontal = 24.dp).fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
-                .background(XpTokens.Surface1)
-                .border(0.5.dp, XpTokens.Hair, RoundedCornerShape(20.dp))
-                .padding(18.dp),
-        ) {
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Link a note".uppercase(),
-                        style = MaterialTheme.typography.labelMedium, color = XpTokens.Ink3)
-                    Spacer(Modifier.weight(1f))
-                    if (selectedId != null) {
-                        Text("Unlink", color = XpTokens.Ink3, fontSize = 12.sp,
-                            modifier = Modifier.clickable { onPick(null) })
-                    }
+    DialogCard(onDismiss) {
+        Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Link a note".uppercase(),
+                    style = MaterialTheme.typography.labelMedium, color = XpTokens.Ink3)
+                Spacer(Modifier.weight(1f))
+                if (selectedId != null) {
+                    Text("Unlink", color = XpTokens.Ink3, fontSize = 12.sp,
+                        modifier = Modifier.clickable { onPick(null) })
                 }
-                Spacer(Modifier.height(12.dp))
-                SearchBox(value = query, onChange = { query = it })
-                Spacer(Modifier.height(10.dp))
-                if (filtered.isEmpty()) {
-                    EmptyState()
-                } else {
-                    LazyColumn(Modifier.heightIn(max = 360.dp)) {
-                        items(filtered, key = { it.id }) { row ->
-                            NoteOption(row, isSelected = row.id.toLong() == selectedId,
-                                onClick = { onPick(row.id.toLong()) })
-                            Spacer(Modifier.height(4.dp))
-                        }
+            }
+            Spacer(Modifier.height(12.dp))
+            SearchBox(value = query, onChange = { query = it })
+            Spacer(Modifier.height(10.dp))
+            if (filtered.isEmpty()) {
+                EmptyState()
+            } else {
+                LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                    items(filtered, key = { it.id }) { row ->
+                        NoteOption(row, isSelected = row.id.toLong() == selectedId,
+                            onClick = { onPick(row.id.toLong()) })
+                        Spacer(Modifier.height(4.dp))
                     }
                 }
             }
@@ -123,41 +110,20 @@ private fun SearchBox(value: String, onChange: (String) -> Unit) {
 
 @Composable
 private fun NoteOption(row: NoteRow, isSelected: Boolean, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (isSelected) XpTokens.Teal.copy(alpha = 0.08f) else XpTokens.Surface2)
-            .border(
-                width = 0.5.dp,
-                color = if (isSelected) XpTokens.Teal else XpTokens.Hair,
-                shape = RoundedCornerShape(12.dp),
-            )
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    SelectableRow(isSelected, onClick, horizontalPadding = 12, verticalPadding = 10) {
         Box(
             Modifier.size(28.dp).clip(RoundedCornerShape(8.dp))
                 .background(XpTokens.Teal.copy(alpha = 0.06f))
                 .border(0.5.dp, XpTokens.Hair2, RoundedCornerShape(8.dp)),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(painterResource(R.drawable.ic_note), null,
-                tint = XpTokens.TealDim, modifier = Modifier.size(13.dp))
+            Icon(painterResource(R.drawable.ic_note), null, tint = XpTokens.TealDim, modifier = Modifier.size(13.dp))
         }
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text(row.title.ifBlank { "Untitled" },
-                fontSize = 13.5.sp, fontWeight = FontWeight.Medium,
-                color = if (isSelected) XpTokens.Teal else XpTokens.Ink,
-                maxLines = 1)
-            if (row.preview.isNotBlank()) {
-                Text(row.preview, fontSize = 11.5.sp, color = XpTokens.Ink3, maxLines = 1)
-            }
-        }
-        if (isSelected) {
-            Icon(painterResource(R.drawable.ic_check), null,
-                tint = XpTokens.Teal, modifier = Modifier.size(13.dp))
+            Text(row.title.ifBlank { "Untitled" }, fontSize = 13.5.sp, fontWeight = FontWeight.Medium,
+                color = if (isSelected) XpTokens.Teal else XpTokens.Ink, maxLines = 1)
+            if (row.preview.isNotBlank()) Text(row.preview, fontSize = 11.5.sp, color = XpTokens.Ink3, maxLines = 1)
         }
     }
 }

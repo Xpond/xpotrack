@@ -40,6 +40,7 @@ object XpTokens {
     var TealTint by mutableStateOf(Dark.TealTint)
 
     val Radius = 14.dp
+    val Danger = Color(0xFFF87171)
 
     fun apply(p: XpPalette) {
         Bg = p.Bg; Surface1 = p.Surface1; Surface2 = p.Surface2

@@ -5,6 +5,7 @@ import com.xpotrack.app.data.db.CategoryEntity
 import com.xpotrack.app.data.db.NoteDao
 import com.xpotrack.app.data.model.Category
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 // All category lifecycle lives here. Notes screens read the same flow so they
@@ -16,7 +17,7 @@ class CategoryRepository(
 
     fun observeAll(): Flow<List<Category>> = dao.observeAll().map { rows -> rows.map(::toDomain) }
 
-    suspend fun all(): List<Category> = dao.all().map(::toDomain)
+    suspend fun all(): List<Category> = observeAll().first()
 
     suspend fun getById(id: Long): Category? = dao.getById(id)?.let(::toDomain)
 

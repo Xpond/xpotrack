@@ -1,7 +1,6 @@
 package com.xpotrack.app.ui.notes
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,6 +34,7 @@ import com.xpotrack.app.R
 import com.xpotrack.app.data.model.Category
 import com.xpotrack.app.ui.components.ConfirmDeleteDialog
 import com.xpotrack.app.ui.components.DateTimeStrip
+import com.xpotrack.app.ui.components.XpIconBtn
 import com.xpotrack.app.ui.quick.QuickNoteEntry
 import com.xpotrack.app.ui.quick.QuickRow
 import com.xpotrack.app.ui.theme.XpTokens
@@ -194,31 +194,7 @@ private fun NotesHeader(onSearch: () -> Unit) {
             Spacer(Modifier.height(14.dp))
             Text("Notes", style = MaterialTheme.typography.displayLarge, color = XpTokens.Ink)
         }
-        IconBtn(R.drawable.ic_search, "Search", tint = XpTokens.Ink2, onClick = onSearch)
-    }
-}
-
-@Composable
-private fun IconBtn(
-    iconRes: Int,
-    contentDesc: String,
-    tint: Color,
-    onClick: () -> Unit = {},
-) {
-    Box(
-        modifier = Modifier
-            .size(38.dp)
-            .clip(CircleShape)
-            .border(0.5.dp, XpTokens.Hair2, CircleShape)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            painter = painterResource(iconRes),
-            contentDescription = contentDesc,
-            tint = tint,
-            modifier = Modifier.size(18.dp),
-        )
+        XpIconBtn(R.drawable.ic_search, "Search", tint = XpTokens.Ink2, border = true, onClick = onSearch)
     }
 }
 

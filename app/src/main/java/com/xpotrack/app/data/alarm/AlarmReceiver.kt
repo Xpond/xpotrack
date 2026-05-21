@@ -17,6 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 private const val TEAL_ARGB = 0xFF5EEAD4.toInt()
+private const val PI_FLAGS = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
 
 // Fires when AlarmManager dispatches our exact alarm. Routes by level:
 // Notify -> heads-up notification; Alarm -> full-screen activity.
@@ -31,9 +32,10 @@ class AlarmReceiver : BroadcastReceiver() {
         val level = runCatching { ReminderLevel.valueOf(levelName) }.getOrDefault(ReminderLevel.Notify)
 
         NotificationChannels.ensure(context)
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         when (level) {
-            ReminderLevel.Alarm -> launchRinging(context, taskId, title, time)
-            ReminderLevel.Notify -> postNotification(context, taskId, title, time)
+            ReminderLevel.Alarm -> launchRinging(context, nm, taskId, title, time)
+            ReminderLevel.Notify -> postNotification(context, nm, taskId, title, time)
             ReminderLevel.Silent -> Unit
         }
         rollForwardIfRecurring(context, taskId)
@@ -57,12 +59,12 @@ class AlarmReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun postNotification(context: Context, taskId: Long, title: String, time: String) {
+    private fun postNotification(context: Context, nm: NotificationManager, taskId: Long, title: String, time: String) {
         val tap = PendingIntent.getActivity(
             context,
             taskId.toInt(),
             Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            PI_FLAGS,
         )
         val n = NotificationCompat.Builder(context, NotificationChannels.NOTIFY_ID)
             .setSmallIcon(R.drawable.ic_reminder_notify)
@@ -74,11 +76,10 @@ class AlarmReceiver : BroadcastReceiver() {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
-        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(taskId.toInt(), n)
     }
 
-    private fun launchRinging(context: Context, taskId: Long, title: String, time: String) {
+    private fun launchRinging(context: Context, nm: NotificationManager, taskId: Long, title: String, time: String) {
         val full = Intent(context, AlarmRingingActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             putExtra(AlarmRingingActivity.EXTRA_TASK_ID, taskId)
@@ -89,7 +90,7 @@ class AlarmReceiver : BroadcastReceiver() {
             context,
             taskId.toInt(),
             full,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            PI_FLAGS,
         )
         // setFullScreenIntent is the *only* supported path for waking a locked
         // device from a background BroadcastReceiver. The notification system
@@ -107,7 +108,6 @@ class AlarmReceiver : BroadcastReceiver() {
             .setOngoing(true)
             .setAutoCancel(true)
             .build()
-        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(taskId.toInt(), n)
     }
 }

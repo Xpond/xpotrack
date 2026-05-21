@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,13 +11,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -30,17 +26,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
 import com.xpotrack.app.R
 import com.xpotrack.app.data.security.VaultKeyStore
+import com.xpotrack.app.ui.components.XpPrimaryButton
 import com.xpotrack.app.ui.theme.XpTokens
 
 @Composable
@@ -109,7 +103,7 @@ fun VaultSetupScreen(vm: VaultViewModel) {
         }
 
         Spacer(Modifier.height(28.dp))
-        SubmitButton(enabled = pass.isNotEmpty() && confirm.isNotEmpty(), onClick = submit)
+        XpPrimaryButton("Create vault", enabled = pass.isNotEmpty() && confirm.isNotEmpty(), onClick = submit)
         Spacer(Modifier.weight(1f))
         Text(
             "Encrypted on this device. Never synced.",
@@ -123,24 +117,7 @@ private fun PassField(label: String, value: String, onChange: (String) -> Unit) 
     Column {
         Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = XpTokens.Ink3)
         Spacer(Modifier.height(8.dp))
-        Box(
-            Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(10.dp))
-                .background(XpTokens.Surface1).border(0.5.dp, XpTokens.Hair, RoundedCornerShape(10.dp))
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            contentAlignment = Alignment.CenterStart,
-        ) {
-            BasicTextField(
-                value = value, onValueChange = onChange,
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                textStyle = androidx.compose.ui.text.TextStyle(
-                    color = XpTokens.Ink, fontSize = 15.sp, fontFamily = com.xpotrack.app.ui.theme.GeistMono,
-                ),
-                cursorBrush = SolidColor(XpTokens.Teal),
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
+        PassInput(value, onChange)
     }
 }
 
@@ -170,17 +147,3 @@ private fun BiometricToggle(enabled: Boolean, onChange: (Boolean) -> Unit) {
     }
 }
 
-@Composable
-private fun SubmitButton(enabled: Boolean, onClick: () -> Unit) {
-    Box(
-        Modifier.fillMaxWidth().height(50.dp).clip(RoundedCornerShape(12.dp))
-            .background(if (enabled) XpTokens.Teal else XpTokens.Surface2)
-            .clickable(enabled = enabled, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            "Create vault", color = if (enabled) XpTokens.OnTeal else XpTokens.Ink3,
-            fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-        )
-    }
-}

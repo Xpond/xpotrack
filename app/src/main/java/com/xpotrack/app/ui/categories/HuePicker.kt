@@ -132,8 +132,11 @@ private fun HexField(hex: String, onChange: (String) -> Unit, modifier: Modifier
     }
 }
 
+private const val HUE_SAT = 0.75f
+private const val HUE_VAL = 0.95f
+
 private val HueStops: List<Color> = (0..6).map {
-    Color.hsv(hue = (it * 60f) % 360f, saturation = 0.75f, value = 0.95f)
+    Color.hsv(hue = (it * 60f) % 360f, saturation = HUE_SAT, value = HUE_VAL)
 }
 
 private fun angleToHue(p: Offset, w: Float): Float {
@@ -143,7 +146,7 @@ private fun angleToHue(p: Offset, w: Float): Float {
 }
 
 private fun hueToHex(hue: Float): String {
-    val c = Color.hsv(hue = hue, saturation = 0.75f, value = 0.95f)
+    val c = Color.hsv(hue = hue, saturation = HUE_SAT, value = HUE_VAL)
     val r = (c.red * 255).toInt().coerceIn(0, 255)
     val g = (c.green * 255).toInt().coerceIn(0, 255)
     val b = (c.blue * 255).toInt().coerceIn(0, 255)

@@ -48,12 +48,13 @@ fun NotesFilterBar(
                     .padding(vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                val barStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp)
                 if (label == null) {
-                    Text("All notes", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp), color = XpTokens.Ink2)
+                    Text("All notes", style = barStyle, color = XpTokens.Ink2)
                     Spacer(Modifier.width(6.dp))
-                    Text(totalCount.toString(), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp), color = XpTokens.Ink3)
+                    Text(totalCount.toString(), style = barStyle, color = XpTokens.Ink3)
                 } else {
-                    Text(label, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp), color = XpTokens.Teal)
+                    Text(label, style = barStyle, color = XpTokens.Teal)
                 }
                 Spacer(Modifier.width(4.dp))
                 Text("▾", color = XpTokens.Ink3, fontSize = 11.sp)

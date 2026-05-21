@@ -12,24 +12,20 @@ fun XpTheme(content: @Composable () -> Unit) {
     // is how we decide which colorScheme constructor to use — light vs dark
     // affects defaults on Material3 components we don't override.
     val isDark = XpTokens.Ink == Dark.Ink
-    val scheme = if (isDark) {
-        darkColorScheme(
-            primary = XpTokens.Teal, onPrimary = XpTokens.OnTeal,
-            secondary = XpTokens.TealDim,
-            background = XpTokens.Bg, onBackground = XpTokens.Ink,
-            surface = XpTokens.Surface1, onSurface = XpTokens.Ink,
-            surfaceVariant = XpTokens.Surface2, onSurfaceVariant = XpTokens.Ink2,
-            error = XpTokens.Alarm,
-        )
-    } else {
-        lightColorScheme(
-            primary = XpTokens.Teal, onPrimary = XpTokens.OnTeal,
-            secondary = XpTokens.TealDim,
-            background = XpTokens.Bg, onBackground = XpTokens.Ink,
-            surface = XpTokens.Surface1, onSurface = XpTokens.Ink,
-            surfaceVariant = XpTokens.Surface2, onSurfaceVariant = XpTokens.Ink2,
-            error = XpTokens.Alarm,
-        )
-    }
+    val scheme = if (isDark) darkColorScheme(
+        primary = XpTokens.Teal, onPrimary = XpTokens.OnTeal,
+        secondary = XpTokens.TealDim,
+        background = XpTokens.Bg, onBackground = XpTokens.Ink,
+        surface = XpTokens.Surface1, onSurface = XpTokens.Ink,
+        surfaceVariant = XpTokens.Surface2, onSurfaceVariant = XpTokens.Ink2,
+        error = XpTokens.Alarm,
+    ) else lightColorScheme(
+        primary = XpTokens.Teal, onPrimary = XpTokens.OnTeal,
+        secondary = XpTokens.TealDim,
+        background = XpTokens.Bg, onBackground = XpTokens.Ink,
+        surface = XpTokens.Surface1, onSurface = XpTokens.Ink,
+        surfaceVariant = XpTokens.Surface2, onSurfaceVariant = XpTokens.Ink2,
+        error = XpTokens.Alarm,
+    )
     MaterialTheme(colorScheme = scheme, typography = XpTypography, content = content)
 }
