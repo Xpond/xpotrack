@@ -1,6 +1,9 @@
 package com.xpotrack.app.ui.vault
 
+import android.app.Activity
+import android.view.WindowManager
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
@@ -13,7 +16,8 @@ import com.xpotrack.app.XpApp
 
 @Composable
 fun VaultGate(onLockExit: () -> Unit) {
-    val app = LocalContext.current.applicationContext as XpApp
+    val context = LocalContext.current
+    val app = context.applicationContext as XpApp
     val vm: VaultViewModel = viewModel(
         factory = VaultViewModel.Factory(app.vaultRepo, app.vaultMeta, app.vaultSession),
     )
@@ -21,6 +25,14 @@ fun VaultGate(onLockExit: () -> Unit) {
     val locked by vm.locked.collectAsStateWithLifecycle()
 
     LaunchedEffect(phase) { vm.touch() }
+
+    // Block screenshots, screen recording, and the recents thumbnail while the
+    // Vault tab is on screen. Cleared on leaving so notes/tasks remain unaffected.
+    DisposableEffect(Unit) {
+        val window = (context as? Activity)?.window
+        window?.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
+    }
 
     when (val p = phase) {
         VaultPhase.Setup  -> VaultSetupScreen(vm)
