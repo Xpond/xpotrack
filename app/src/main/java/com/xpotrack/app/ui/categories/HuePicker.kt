@@ -5,11 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -42,22 +40,11 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 
-// Hue ring + hex field. Saturation/value are fixed at a readable level so a
-// tapped color always stays visible against XpTokens.Bg.
+// Saturation/value are fixed at a readable level so a tapped color always
+// stays visible against XpTokens.Bg. The ring and the hex field are exposed
+// separately so callers can lay them out however they need.
 @Composable
-fun HuePicker(hex: String, onChange: (String) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        HueRing(hex = hex, onChange = onChange, modifier = Modifier.size(72.dp))
-        HexField(hex = hex, onChange = onChange, modifier = Modifier.weight(1f))
-    }
-}
-
-@Composable
-private fun HueRing(hex: String, onChange: (String) -> Unit, modifier: Modifier = Modifier) {
+internal fun HueRing(hex: String, onChange: (String) -> Unit, modifier: Modifier = Modifier) {
     val hue = remember(hex) { hexToHue(hex) }
     Canvas(
         modifier = modifier
@@ -79,7 +66,9 @@ private fun HueRing(hex: String, onChange: (String) -> Unit, modifier: Modifier 
             style = Stroke(width = ringStroke),
         )
         if (hue != null) {
-            val rad = (hue - 90f) * PI.toFloat() / 180f
+            // Brush.sweepGradient starts at 3 o'clock (positive x-axis) and goes
+            // clockwise, so hue=0 lives at angle 0 — no offset needed.
+            val rad = hue * PI.toFloat() / 180f
             val cx = w / 2f + r * cos(rad)
             val cy = w / 2f + r * sin(rad)
             drawCircle(color = Color.White, radius = ringStroke * 0.55f, center = Offset(cx, cy))
@@ -89,7 +78,7 @@ private fun HueRing(hex: String, onChange: (String) -> Unit, modifier: Modifier 
 }
 
 @Composable
-private fun HexField(hex: String, onChange: (String) -> Unit, modifier: Modifier = Modifier) {
+internal fun HexField(hex: String, onChange: (String) -> Unit, modifier: Modifier = Modifier) {
     var raw by remember(hex) { mutableStateOf(hex.removePrefix("#").uppercase()) }
     Row(
         modifier.clip(RoundedCornerShape(8.dp)).background(XpTokens.Surface1)
@@ -140,9 +129,10 @@ private val HueStops: List<Color> = (0..6).map {
 }
 
 private fun angleToHue(p: Offset, w: Float): Float {
+    // Match Brush.sweepGradient: 0° at 3 o'clock, clockwise.
     val dx = p.x - w / 2f
     val dy = p.y - w / 2f
-    return (atan2(dy, dx) * 180f / PI.toFloat() + 90f + 360f) % 360f
+    return (atan2(dy, dx) * 180f / PI.toFloat() + 360f) % 360f
 }
 
 private fun hueToHex(hue: Float): String {

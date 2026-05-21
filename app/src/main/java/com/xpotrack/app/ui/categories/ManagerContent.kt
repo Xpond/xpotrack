@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -75,11 +76,8 @@ internal fun ManagerContent(
     }
 
     val scrollState = rememberScrollState()
-    LaunchedEffect(edit?.isNew == true) {
-        if (edit?.isNew == true) scrollState.animateScrollTo(Int.MAX_VALUE)
-    }
 
-    Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+    Column(Modifier.fillMaxWidth().imePadding().padding(bottom = 24.dp)) {
         Header(onNew = vm::startCreate)
         Column(
             Modifier.fillMaxWidth().heightIn(max = 360.dp)
@@ -92,8 +90,12 @@ internal fun ManagerContent(
                 else CategoryRow(c, first = i == 0,
                     onRename = { vm.startRename(c) }, onDelete = { vm.askDelete(c) })
             }
-            if (edit?.isNew == true) EditRow(edit!!, vm, isNew = true)
             Spacer(Modifier.height(12.dp))
+        }
+        // New-category editor sits below the list so it never slides under the
+        // keyboard. imePadding above lifts the whole column so it stays reachable.
+        if (edit?.isNew == true) {
+            Box(Modifier.padding(horizontal = 16.dp)) { EditRow(edit!!, vm, isNew = true) }
         }
     }
 
@@ -156,39 +158,52 @@ private fun CategoryRow(c: Category, first: Boolean, onRename: () -> Unit, onDel
 
 @Composable
 private fun EditRow(edit: CategoryEdit, vm: CategoryManagerViewModel, isNew: Boolean = false) {
+    val editColor = parseHexColor(edit.colorHex)
     Column(
         Modifier.fillMaxWidth().padding(vertical = 8.dp).clip(RoundedCornerShape(12.dp))
             .background(Color(0x0A5EEAD4))
             .border(0.5.dp, XpTokens.Teal, RoundedCornerShape(12.dp))
             .padding(14.dp),
     ) {
+        // Wheel on the left; name + hex stack on the right reuses its height.
         Row(verticalAlignment = Alignment.CenterVertically) {
-            val editColor = parseHexColor(edit.colorHex)
-            Box(Modifier.size(30.dp).clip(RoundedCornerShape(8.dp))
-                .background(editColor.copy(alpha = 0.15f))
-                .border(0.5.dp, editColor, RoundedCornerShape(8.dp)))
-            Spacer(Modifier.width(12.dp))
-            BasicTextField(
-                value = edit.name, onValueChange = vm::editName, singleLine = true,
-                textStyle = TextStyle(fontSize = 14.sp, color = XpTokens.Teal, fontWeight = FontWeight.Medium),
-                cursorBrush = SolidColor(XpTokens.Teal),
-                modifier = Modifier.weight(1f),
-                decorationBox = { inner ->
-                    if (edit.name.isEmpty()) Text(
-                        if (isNew) "New category" else "Name",
-                        fontSize = 14.sp, color = XpTokens.Ink3,
-                    )
-                    inner()
-                },
-            )
+            HueRing(hex = edit.colorHex, onChange = vm::editColor, modifier = Modifier.size(64.dp))
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                val nameStyle = TextStyle(
+                    fontSize = 14.sp, lineHeight = 20.sp,
+                    color = XpTokens.Teal, fontWeight = FontWeight.Medium,
+                )
+                BasicTextField(
+                    value = edit.name, onValueChange = vm::editName, singleLine = true,
+                    textStyle = nameStyle,
+                    cursorBrush = SolidColor(XpTokens.Teal),
+                    modifier = Modifier.fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(XpTokens.Surface1)
+                        .border(0.5.dp, editColor.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                        .heightIn(min = 36.dp)
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    decorationBox = { inner ->
+                        Box(contentAlignment = Alignment.CenterStart) {
+                            if (edit.name.isEmpty()) Text(
+                                if (isNew) "New category" else "Name",
+                                style = nameStyle.copy(color = XpTokens.Ink3),
+                            )
+                            inner()
+                        }
+                    },
+                )
+                Spacer(Modifier.height(8.dp))
+                HexField(hex = edit.colorHex, onChange = vm::editColor, modifier = Modifier.fillMaxWidth())
+            }
         }
-        Spacer(Modifier.height(12.dp))
-        HuePicker(hex = edit.colorHex, onChange = vm::editColor)
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Spacer(Modifier.weight(1f))
             Text("Cancel", fontSize = 12.5.sp, color = XpTokens.Ink3,
                 modifier = Modifier.clickable(onClick = vm::cancelEdit).padding(horizontal = 8.dp, vertical = 4.dp))
+            Spacer(Modifier.width(6.dp))
             Box(
                 Modifier.clip(CircleShape).background(XpTokens.Teal)
                     .clickable(onClick = vm::commitEdit).padding(horizontal = 14.dp, vertical = 6.dp),
