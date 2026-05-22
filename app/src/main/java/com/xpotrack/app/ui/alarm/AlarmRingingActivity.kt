@@ -14,7 +14,15 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.lifecycleScope
+import com.xpotrack.app.XpApp
 import com.xpotrack.app.ui.theme.XpTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 // Full-screen takeover for ALARM-level reminders. Wakes the device, dismisses
 // the keyguard (for non-secure locks; secure locks still require user unlock
@@ -36,14 +44,43 @@ class AlarmRingingActivity : ComponentActivity() {
 
         startRingingAndVibrating()
 
+        val app = applicationContext as XpApp
+        var noteSnippet by mutableStateOf<NoteSnippet?>(null)
+        var repeatRule by mutableStateOf("none")
+
+        lifecycleScope.launch {
+            val (repeat, snippet) = withContext(Dispatchers.IO) {
+                val t = app.tasksRepo.getById(taskId)
+                val linked = t?.linkedNoteId?.toInt()?.let { app.notesRepo.getById(it) }
+                val s = when {
+                    linked != null -> NoteSnippet(linked.preview, linked.updatedAt, fromLinked = true)
+                    !t?.notes.isNullOrBlank() -> NoteSnippet(t!!.notes, t.updatedAt, fromLinked = false)
+                    else -> null
+                }
+                (t?.repeat ?: "none") to s
+            }
+            repeatRule = repeat
+            noteSnippet = snippet
+        }
+
         setContent {
             XpTheme {
                 AlarmRingingScreen(
                     title = title,
                     time = time,
-                    onDismiss = {
+                    repeat = repeatRule,
+                    note = noteSnippet,
+                    onSnooze = { minutes ->
+                        app.alarmScheduler.snooze(taskId, title, time, minutes)
                         cancelNotification(taskId)
                         finish()
+                    },
+                    onDone = {
+                        lifecycleScope.launch {
+                            withContext(Dispatchers.IO) { app.tasksRepo.markDone(taskId) }
+                            cancelNotification(taskId)
+                            finish()
+                        }
                     },
                 )
             }
