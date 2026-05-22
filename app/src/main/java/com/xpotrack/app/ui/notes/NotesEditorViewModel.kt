@@ -20,6 +20,7 @@ class NotesEditorViewModel(
     private val repo: NotesRepository,
     private val categories: CategoryRepository,
     private val noteId: Int,
+    private val initialCategoryId: Long = 0L,
 ) : ViewModel() {
 
     // Internal mutable state holds only what the user types/picks. The category
@@ -58,7 +59,7 @@ class NotesEditorViewModel(
                     pristine = Triple(existing.title, existing.preview, existing.categoryId)
                 } ?: run { _state.value = _state.value.copy(loaded = true) }
             } else {
-                _state.value = EditorState(loaded = true)
+                _state.value = EditorState(loaded = true, categoryId = initialCategoryId)
             }
         }
     }
@@ -120,10 +121,11 @@ class NotesEditorViewModel(
         private val repo: NotesRepository,
         private val categories: CategoryRepository,
         private val noteId: Int,
+        private val initialCategoryId: Long = 0L,
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            NotesEditorViewModel(repo, categories, noteId) as T
+            NotesEditorViewModel(repo, categories, noteId, initialCategoryId) as T
     }
 }
 

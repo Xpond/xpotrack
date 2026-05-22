@@ -2,6 +2,7 @@ package com.xpotrack.app.ui.notes
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.core.app.ShareCompat
 import androidx.core.content.FileProvider
 import java.io.File
@@ -32,6 +33,36 @@ fun shareNoteAsMarkdown(context: Context, title: String, body: String) {
         .setStream(uri)
         .setSubject(safeTitle)
         .setChooserTitle("Share note")
+        .createChooserIntent()
+        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    context.startActivity(chooser)
+}
+
+// Multi-note share. Writes each note to cache/shared/ then fires
+// ACTION_SEND_MULTIPLE so the picker treats them as one share.
+fun shareNotesAsMarkdown(context: Context, notes: List<Pair<String, String>>) {
+    if (notes.size == 1) {
+        val (title, body) = notes.first()
+        shareNoteAsMarkdown(context, title, body)
+        return
+    }
+    val dir = File(context.cacheDir, "shared").apply { mkdirs() }
+    val uris = ArrayList<Uri>(notes.size)
+    notes.forEachIndexed { i, (title, body) ->
+        val safe = title.ifBlank { "Untitled" }
+        val md = "# $safe\n\n" + body.trimEnd() + "\n"
+        // Disambiguate same-titled notes with an index suffix.
+        val base = filenameFor(title)
+        val file = File(dir, "$base-${i + 1}.md").apply { writeText(md) }
+        uris += FileProvider.getUriForFile(
+            context, "${context.packageName}.fileprovider", file,
+        )
+    }
+    val chooser = ShareCompat.IntentBuilder(context)
+        .setType("text/markdown")
+        .also { b -> uris.forEach { b.addStream(it) } }
+        .setChooserTitle("Share ${notes.size} notes")
         .createChooserIntent()
         .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
