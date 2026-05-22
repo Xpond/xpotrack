@@ -21,9 +21,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xpotrack.app.data.model.Category
+import com.xpotrack.app.ui.categories.parseHexColor
 import com.xpotrack.app.ui.theme.XpTokens
 
 @Composable
@@ -32,6 +34,7 @@ fun NotesFilterBar(
     totalCount: Int,
     categories: List<Category>,
     notes: List<NoteRow>,
+    activeColorHex: String?,
     onPick: (Long?) -> Unit,
     onClear: () -> Unit,
 ) {
@@ -54,7 +57,8 @@ fun NotesFilterBar(
                     Spacer(Modifier.width(6.dp))
                     Text(totalCount.toString(), style = barStyle, color = XpTokens.Ink3)
                 } else {
-                    Text(label, style = barStyle, color = XpTokens.Teal)
+                    val labelColor = activeColorHex?.let { parseHexColor(it) } ?: XpTokens.Teal
+                    Text(label, style = barStyle, color = labelColor)
                 }
                 Spacer(Modifier.width(4.dp))
                 Text("▾", color = XpTokens.Ink3, fontSize = 11.sp)
@@ -99,15 +103,15 @@ private fun FilterMenu(
             .background(XpTokens.Surface1)
             .border(0.5.dp, XpTokens.Hair2, RoundedCornerShape(10.dp)),
     ) {
-        FilterMenuRow("All notes", notes.size, onClick = { onPick(null) })
+        FilterMenuRow("All notes", notes.size, XpTokens.Ink, onClick = { onPick(null) })
         FilterMenuHeader("BUILT-IN")
         val uncatCount = notes.count { it.categoryId == 0L }
-        FilterMenuRow("Uncategorized", uncatCount, onClick = { onPick(0L) })
+        FilterMenuRow("Uncategorized", uncatCount, XpTokens.Ink, onClick = { onPick(0L) })
         if (categories.isNotEmpty()) {
             FilterMenuHeader("CUSTOM")
             categories.forEach { cat ->
                 val c = notes.count { it.categoryId == cat.id }
-                FilterMenuRow(cat.name, c, onClick = { onPick(cat.id) })
+                FilterMenuRow(cat.name, c, parseHexColor(cat.colorHex), onClick = { onPick(cat.id) })
             }
         }
     }
@@ -124,7 +128,7 @@ private fun FilterMenuHeader(text: String) {
 }
 
 @Composable
-private fun FilterMenuRow(name: String, count: Int, onClick: () -> Unit) {
+private fun FilterMenuRow(name: String, count: Int, color: Color, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -132,7 +136,7 @@ private fun FilterMenuRow(name: String, count: Int, onClick: () -> Unit) {
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(name, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp), color = XpTokens.Ink)
+        Text(name, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp), color = color)
         Spacer(Modifier.weight(1f))
         Spacer(Modifier.width(24.dp))
         Text(count.toString(), style = MaterialTheme.typography.labelSmall, color = XpTokens.Ink3)

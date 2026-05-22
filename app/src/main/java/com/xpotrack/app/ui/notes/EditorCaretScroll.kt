@@ -4,6 +4,7 @@ import androidx.compose.foundation.ScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -14,8 +15,8 @@ import androidx.compose.ui.geometry.Rect
 // keyboard with no scroll response. We track the caret's Y inside the scroll
 // viewport ourselves and animate scroll when it nears the bottom.
 class CaretScrollState(private val scroll: ScrollState) {
-    var viewportHeightPx by mutableStateOf(0)
-    var fieldTopInScrollPx by mutableStateOf(0)
+    var viewportHeightPx by mutableIntStateOf(0)
+    var fieldTopInScrollPx by mutableIntStateOf(0)
     var caretRect by mutableStateOf<Rect?>(null)
 
     suspend fun bringCaretIntoView() {

@@ -10,6 +10,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -52,8 +54,8 @@ fun AppRoot() {
     var sheetTaskId by rememberSaveable { mutableStateOf<Long?>(null) }
     // Date the create sheet should default to when opening a brand-new task.
     // Ignored when editing existing tasks (id != 0L) since the row carries its own.
-    var sheetInitialDate by rememberSaveable { mutableStateOf(0L) }
-    var sheetToken by rememberSaveable { mutableStateOf(0) }
+    var sheetInitialDate by rememberSaveable { mutableLongStateOf(0L) }
+    var sheetToken by rememberSaveable { mutableIntStateOf(0) }
     val openSheet: (Long) -> Unit = { id -> sheetToken += 1; sheetTaskId = id }
     val openNewSheet: (Long) -> Unit = { date ->
         sheetInitialDate = date; sheetToken += 1; sheetTaskId = 0L

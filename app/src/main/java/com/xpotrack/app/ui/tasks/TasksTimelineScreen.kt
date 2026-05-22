@@ -19,6 +19,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -51,13 +52,13 @@ fun TasksTimelineScreen(
     datesWithTasks: Set<Long>,
     onSelectDate: (Long) -> Unit,
     onOpenTask: (Long) -> Unit,
-    onDeleteTask: (Long) -> Unit = {},
     modifier: Modifier = Modifier,
+    onDeleteTask: (Long) -> Unit = {},
 ) {
     var pendingDelete by remember { mutableStateOf<TaskRow?>(null) }
     var calendarOpen by remember { mutableStateOf(false) }
     val density = LocalDensity.current
-    var headerPx by remember { mutableStateOf(0) }
+    var headerPx by remember { mutableIntStateOf(0) }
     val headerDp = with(density) { headerPx.toDp() }
     val today = remember { LocalDate.now(ZoneId.systemDefault()).toEpochDay() }
 

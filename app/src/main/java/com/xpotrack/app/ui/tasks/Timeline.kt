@@ -37,9 +37,9 @@ import com.xpotrack.app.ui.theme.XpTokens
 @Composable
 fun TimelineView(
     tasks: List<TaskRow>,
+    modifier: Modifier = Modifier,
     onTaskTap: (Long) -> Unit = {},
     onTaskLongPress: (TaskRow) -> Unit = {},
-    modifier: Modifier = Modifier,
 ) {
     val sorted = tasks.sortedBy {
         val (h, m) = parseHHmm(it.time); h * 60 + m
