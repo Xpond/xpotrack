@@ -8,6 +8,7 @@ import android.content.Intent
 import com.xpotrack.app.MainActivity
 import com.xpotrack.app.data.model.ReminderLevel
 import com.xpotrack.app.data.model.Task
+import com.xpotrack.app.data.repo.nextDateFor
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -21,24 +22,39 @@ class AlarmScheduler(private val context: Context) {
     private val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
     // Resolves a task's (dateEpochDay, HH:mm) into an absolute epoch-ms.
-    // Returns 0 if the moment is in the past — schedule() then no-ops, so
-    // overdue tasks never re-arm an alarm. dateEpochDay == 0L means "no date
-    // set" (pre-migration default) and is also treated as unscheduled.
+    // For recurring tasks, rolls the date forward by `repeat` until it lands
+    // in the future — so an overdue daily task re-arms for the next valid
+    // occurrence rather than getting stuck at reminderAt=0.
+    // Returns 0 only for non-recurring overdue tasks or unscheduled rows
+    // (dateEpochDay == 0L, the pre-migration default).
     fun nextOccurrence(
         dateEpochDay: Long,
         timeHHmm: String,
+        repeat: String = "none",
         now: Long = System.currentTimeMillis(),
     ): Long {
         if (dateEpochDay <= 0L) return 0L
         val (h, m) = timeHHmm.split(":").map { it.toInt() }
         val zone = ZoneId.systemDefault()
-        val ms = LocalDate.ofEpochDay(dateEpochDay)
-            .atTime(LocalTime.of(h, m))
-            .atZone(zone)
-            .toInstant()
-            .toEpochMilli()
-        return if (ms > now) ms else 0L
+        var day = dateEpochDay
+        var ms = epochMs(day, h, m, zone)
+        if (ms > now) return ms
+        if (repeat == "none") return 0L
+        // Bounded loop guards against a misconfigured rule that fails to
+        // advance the date — without this, "none" disguised as something else
+        // would spin forever.
+        repeat(MAX_ROLL_STEPS) {
+            val nextDay = nextDateFor(repeat, day)
+            if (nextDay <= day) return 0L
+            day = nextDay
+            ms = epochMs(day, h, m, zone)
+            if (ms > now) return ms
+        }
+        return 0L
     }
+
+    private fun epochMs(epochDay: Long, h: Int, m: Int, zone: ZoneId): Long =
+        LocalDate.ofEpochDay(epochDay).atTime(LocalTime.of(h, m)).atZone(zone).toInstant().toEpochMilli()
 
     fun schedule(task: Task) {
         cancel(task.id)
@@ -58,10 +74,15 @@ class AlarmScheduler(private val context: Context) {
     }
 
     fun cancel(taskId: Long) {
+        cancelRequest(taskId.toInt())
+        cancelRequest(taskId.toInt() xor SNOOZE_SALT)
+    }
+
+    private fun cancelRequest(requestCode: Int) {
         val intent = Intent(context, AlarmReceiver::class.java).apply { action = ACTION_FIRE }
         val pi = PendingIntent.getBroadcast(
             context,
-            taskId.toInt(),
+            requestCode,
             intent,
             PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
         ) ?: return
@@ -120,5 +141,6 @@ class AlarmScheduler(private val context: Context) {
         const val EXTRA_TITLE = "title"
         const val EXTRA_TIME = "time"
         private const val SNOOZE_SALT = 0x5E0_0_2E
+        private const val MAX_ROLL_STEPS = 4000  // ~11 years of daily roll-forward
     }
 }

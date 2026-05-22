@@ -97,6 +97,9 @@ fun NotesListScreen(
             }
         }
     } else byCategory
+    // Multi-select operates on the currently visible notes — not the full
+    // collection. Select-All in a filtered view picks only what the user sees.
+    val visibleNotes: List<NoteRow> = filtered.mapNotNull { (it as? FeedItem.Note)?.row }
 
     val density = LocalDensity.current
     var headerPx by remember { mutableIntStateOf(0) }
@@ -108,11 +111,13 @@ fun NotesListScreen(
             .background(XpTokens.Bg),
     ) {
         TopHalo()
-        if (filtered.isEmpty() && !(searchOpen && q.isNotEmpty())) {
+        if (filtered.isEmpty()) {
             Column(Modifier.fillMaxSize()) {
                 Spacer(Modifier.height(headerDp))
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    val (title, helper) = emptyCopy(filterId, activeCategory?.name)
+                    val searching = searchOpen && q.isNotEmpty()
+                    val (title, helper) = if (searching) "No matches for “$q”" to "Try a different search"
+                        else emptyCopy(filterId, activeCategory?.name)
                     EmptyState(title, helper)
                 }
             }
@@ -173,15 +178,16 @@ fun NotesListScreen(
             QuickEntryStrip(onCompose = onComposeQuick)
         }
         if (selectMode) {
+            val visibleIds = visibleNotes.map { it.id }.toSet()
             SelectionBar(
                 count = selected.size,
-                allSelected = selected.size == notesOnly.size && notesOnly.isNotEmpty(),
+                allSelected = visibleIds.isNotEmpty() && selected.containsAll(visibleIds),
                 onToggleAll = {
-                    selected = if (selected.size == notesOnly.size) emptySet()
-                    else notesOnly.map { it.id }.toSet()
+                    selected = if (selected.containsAll(visibleIds)) selected - visibleIds
+                    else selected + visibleIds
                 },
                 onShare = {
-                    val pairs = notesOnly.filter { it.id in selected }
+                    val pairs = visibleNotes.filter { it.id in selected }
                         .map { it.title to it.preview }
                     if (pairs.isNotEmpty()) shareNotesAsMarkdown(context, pairs)
                 },

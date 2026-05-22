@@ -100,8 +100,14 @@ class NotesEditorViewModel(
         // Uncategorized rather than persisting a dangling id.
         val live = if (s.categoryId <= 0L) null else categories.getById(s.categoryId)
         val finalId = live?.id ?: 0L
-        pristine?.let { (t, b, c) ->
-            if (t == s.title && b == s.body && c == finalId) return
+        val p = pristine
+        if (p != null && p.first == s.title && p.second == s.body) {
+            // Title + body unchanged. Category-only changes don't bump updatedAt
+            // — reclassifying isn't a content edit. Deletion-driven fallback
+            // (live == null) is already reflected in the DB via clearCategory,
+            // so nothing to write.
+            if (p.third != finalId && live != null) repo.setCategory(s.id, finalId)
+            return
         }
         repo.upsert(
             NoteRow(

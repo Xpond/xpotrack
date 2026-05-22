@@ -29,7 +29,13 @@ fun ZoomedText(zoom: Float, content: @Composable () -> Unit) {
 // before verticalScroll/text selection do. Once a second finger lands we claim
 // the gesture by consuming every event — including any backlog from the first
 // finger — so scroll doesn't pick up drift while the pinch is happening.
-fun Modifier.pinchZoom(zoom: Float, onZoom: (Float) -> Unit): Modifier =
+// `onZoom` fires every frame for live UI; `onZoomEnd` fires once on release so
+// callers can persist without writing on every frame.
+fun Modifier.pinchZoom(
+    zoom: Float,
+    onZoom: (Float) -> Unit,
+    onZoomEnd: (Float) -> Unit = {},
+): Modifier =
     pointerInput(Unit) {
         var current = zoom
         awaitEachGesture {
@@ -48,5 +54,6 @@ fun Modifier.pinchZoom(zoom: Float, onZoom: (Float) -> Unit): Modifier =
                 }
                 if (zooming) event.changes.forEach { if (it.pressed) it.consume() }
             } while (event.changes.any { it.pressed })
+            if (zooming) onZoomEnd(current)
         }
     }

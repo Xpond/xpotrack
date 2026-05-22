@@ -8,13 +8,8 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import com.xpotrack.app.MainActivity
 import com.xpotrack.app.R
-import com.xpotrack.app.XpApp
 import com.xpotrack.app.data.model.ReminderLevel
-import com.xpotrack.app.data.repo.nextDateFor
 import com.xpotrack.app.ui.alarm.AlarmRingingActivity
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 private const val TEAL_ARGB = 0xFF5EEAD4.toInt()
 private const val PI_FLAGS = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -38,25 +33,8 @@ class AlarmReceiver : BroadcastReceiver() {
             ReminderLevel.Notify -> postNotification(context, nm, taskId, title, time)
             ReminderLevel.Silent -> Unit
         }
-        rollForwardIfRecurring(context, taskId)
-    }
-
-    // Repeating tasks auto-advance to the next occurrence so the alarm
-    // re-arms. Non-recurring tasks fall through untouched.
-    private fun rollForwardIfRecurring(context: Context, taskId: Long) {
-        if (taskId <= 0L) return
-        val app = context.applicationContext as? XpApp ?: return
-        val pending = goAsync()
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val task = app.tasksRepo.getById(taskId) ?: return@launch
-                if (task.repeat == "none") return@launch
-                val next = nextDateFor(task.repeat, task.dateEpochDay)
-                app.tasksRepo.upsert(task.copy(dateEpochDay = next, isDone = false))
-            } finally {
-                pending.finish()
-            }
-        }
+        // Recurrence advances on user dismissal (markDone), never on fire —
+        // otherwise marking done would double-count.
     }
 
     private fun postNotification(context: Context, nm: NotificationManager, taskId: Long, title: String, time: String) {

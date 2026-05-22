@@ -27,6 +27,9 @@ interface NoteDao {
     @Query("UPDATE notes SET categoryId = NULL WHERE categoryId = :fromId")
     suspend fun clearCategory(fromId: Long)
 
+    @Query("UPDATE notes SET categoryId = :categoryId WHERE id = :id")
+    suspend fun setCategory(id: Long, categoryId: Long?)
+
     @Query("SELECT COUNT(*) FROM notes WHERE categoryId = :id AND isLocked = 0")
     suspend fun countInCategory(id: Long): Int
 }
@@ -41,9 +44,6 @@ interface TaskDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(row: TaskEntity): Long
-
-    @Query("UPDATE tasks SET reminderAt = :at WHERE id = :id")
-    suspend fun setReminderAt(id: Long, at: Long)
 
     @Query("UPDATE tasks SET isDone = 1, updatedAt = :now WHERE id = :id")
     suspend fun markDone(id: Long, now: Long)

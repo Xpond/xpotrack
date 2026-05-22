@@ -96,12 +96,16 @@ fun NotesEditorScreen(vm: NotesEditorViewModel, onBack: () -> Unit, onPickCatego
     Box(Modifier.fillMaxSize().background(XpTokens.Bg).imePadding()) {
         Column(
             Modifier.fillMaxSize()
-                .onGloballyPositioned { caret.viewportHeightPx = it.size.height }
+                // Pinned header overlays the top of this scroll container, so
+                // subtract its height: the visible runway for the caret is
+                // below the header, not the full Column.
+                .onGloballyPositioned { caret.viewportHeightPx = it.size.height - headerPx }
                 .verticalScroll(bodyScroll)
-                .pinchZoom(zoom) { next ->
-                    zoom = next
-                    zoomPrefs.zoom = next
-                }
+                .pinchZoom(
+                    zoom = zoom,
+                    onZoom = { zoom = it },
+                    onZoomEnd = { zoomPrefs.zoom = it },
+                )
                 .padding(horizontal = if (s.previewMode) 26.dp else 24.dp),
         ) {
             Spacer(Modifier.height(headerDp))
