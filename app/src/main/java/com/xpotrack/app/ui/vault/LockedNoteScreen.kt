@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -36,6 +38,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
@@ -43,7 +46,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xpotrack.app.R
-import com.xpotrack.app.ui.components.cutoutSafeTopPadding
+import com.xpotrack.app.ui.components.PinnedHeader
 import com.xpotrack.app.ui.notes.CaretScrollEffect
 import com.xpotrack.app.ui.notes.CaretScrollState
 import com.xpotrack.app.ui.notes.rememberCaretScroll
@@ -97,15 +100,18 @@ fun LockedNoteScreen(vm: VaultViewModel, noteId: Long, onBack: () -> Unit) {
     val caret = rememberCaretScroll(bodyScroll)
     CaretScrollEffect(caret, selectionKey = body.selection)
 
-    Column(Modifier.fillMaxSize().background(XpTokens.Bg).cutoutSafeTopPadding().imePadding()) {
-        TopBar()
+    val density = LocalDensity.current
+    var headerPx by remember { mutableIntStateOf(0) }
+    val headerDp = with(density) { headerPx.toDp() }
+
+    Box(Modifier.fillMaxSize().background(XpTokens.Bg).imePadding()) {
         Column(
             Modifier.fillMaxSize()
                 .onGloballyPositioned { caret.viewportHeightPx = it.size.height }
                 .verticalScroll(bodyScroll)
                 .padding(horizontal = 24.dp),
         ) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(headerDp))
             Text(
                 "$category${if (noteId == 0L) "" else " · Updated just now"}",
                 style = MaterialTheme.typography.labelMedium, color = XpTokens.Ink3,
@@ -115,6 +121,9 @@ fun LockedNoteScreen(vm: VaultViewModel, noteId: Long, onBack: () -> Unit) {
             Spacer(Modifier.height(22.dp))
             BodyField(body, { body = it }, caret)
             Spacer(Modifier.height(120.dp))
+        }
+        PinnedHeader(onSize = { headerPx = it.height }) {
+            TopBar()
         }
     }
 }

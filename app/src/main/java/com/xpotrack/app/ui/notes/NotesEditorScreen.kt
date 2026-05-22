@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -44,6 +45,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextRange
@@ -56,7 +58,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xpotrack.app.R
 import com.xpotrack.app.XpApp
 import com.xpotrack.app.ui.categories.parseHexColor
-import com.xpotrack.app.ui.components.cutoutSafeTopPadding
+import com.xpotrack.app.ui.components.PinnedHeader
 import com.xpotrack.app.ui.theme.GeistMono
 import com.xpotrack.app.ui.theme.XpTokens
 import kotlinx.coroutines.launch
@@ -87,18 +89,13 @@ fun NotesEditorScreen(vm: NotesEditorViewModel, onBack: () -> Unit, onPickCatego
     val caret = rememberCaretScroll(bodyScroll)
     CaretScrollEffect(caret, selectionKey = bodyTfv.selection)
 
-    Column(Modifier.fillMaxSize().background(XpTokens.Bg).cutoutSafeTopPadding().imePadding()) {
-        TopBar(
-            previewMode = s.previewMode,
-            categoryName = s.categoryName,
-            categoryColorHex = s.categoryColorHex,
-            metaText = metaLine(s),
-            onPickCategory = onPickCategory,
-            onWrite = { vm.setPreview(false) },
-            onPreview = { vm.setPreview(true) },
-        )
+    val density = LocalDensity.current
+    var headerPx by remember { mutableIntStateOf(0) }
+    val headerDp = with(density) { headerPx.toDp() }
+
+    Box(Modifier.fillMaxSize().background(XpTokens.Bg).imePadding()) {
         Column(
-            Modifier.weight(1f).fillMaxWidth()
+            Modifier.fillMaxSize()
                 .onGloballyPositioned { caret.viewportHeightPx = it.size.height }
                 .verticalScroll(bodyScroll)
                 .pinchZoom(zoom) { next ->
@@ -107,6 +104,7 @@ fun NotesEditorScreen(vm: NotesEditorViewModel, onBack: () -> Unit, onPickCatego
                 }
                 .padding(horizontal = if (s.previewMode) 26.dp else 24.dp),
         ) {
+            Spacer(Modifier.height(headerDp))
             ZoomedText(zoom) {
                 Spacer(Modifier.height(8.dp))
                 if (s.previewMode) {
@@ -132,8 +130,19 @@ fun NotesEditorScreen(vm: NotesEditorViewModel, onBack: () -> Unit, onPickCatego
                 Spacer(Modifier.height(16.dp))
             }
         }
+        PinnedHeader(onSize = { headerPx = it.height }) {
+            TopBar(
+                previewMode = s.previewMode,
+                categoryName = s.categoryName,
+                categoryColorHex = s.categoryColorHex,
+                metaText = metaLine(s),
+                onPickCategory = onPickCategory,
+                onWrite = { vm.setPreview(false) },
+                onPreview = { vm.setPreview(true) },
+            )
+        }
         if (!s.previewMode && imeVisible) {
-            NotesFormatBar(bodyTfv) { tfv ->
+            NotesFormatBar(bodyTfv, modifier = Modifier.align(Alignment.BottomCenter)) { tfv ->
                 bodyTfv = tfv
                 vm.onBodyChange(tfv.text)
             }

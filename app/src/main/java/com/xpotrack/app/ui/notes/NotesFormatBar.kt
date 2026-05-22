@@ -1,5 +1,6 @@
 package com.xpotrack.app.ui.notes
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,9 +28,14 @@ import com.xpotrack.app.ui.theme.XpTokens
 // operate on the line containing the caret; wrap marks (bold, italic) wrap the
 // selection or insert empty wrappers at the caret.
 @Composable
-fun NotesFormatBar(value: TextFieldValue, onChange: (TextFieldValue) -> Unit) {
+fun NotesFormatBar(
+    value: TextFieldValue,
+    modifier: Modifier = Modifier,
+    onChange: (TextFieldValue) -> Unit,
+) {
     Row(
-        Modifier.fillMaxWidth()
+        modifier.fillMaxWidth()
+            .background(XpTokens.Bg)
             .border(0.5.dp, XpTokens.Hair, RoundedCornerShape(0.dp))
             .navigationBarsPadding()
             .padding(horizontal = 8.dp, vertical = 8.dp),
