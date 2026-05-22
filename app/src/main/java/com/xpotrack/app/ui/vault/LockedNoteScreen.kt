@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -33,11 +34,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xpotrack.app.R
+import com.xpotrack.app.ui.notes.CaretScrollEffect
+import com.xpotrack.app.ui.notes.CaretScrollState
+import com.xpotrack.app.ui.notes.rememberCaretScroll
 import com.xpotrack.app.ui.theme.GeistMono
 import com.xpotrack.app.ui.theme.XpTokens
 import kotlinx.coroutines.launch
@@ -46,7 +54,7 @@ import kotlinx.coroutines.launch
 fun LockedNoteScreen(vm: VaultViewModel, noteId: Long, onBack: () -> Unit) {
     var loaded by remember(noteId) { mutableStateOf(false) }
     var title by remember(noteId) { mutableStateOf("") }
-    var body by remember(noteId) { mutableStateOf("") }
+    var body by remember(noteId) { mutableStateOf(TextFieldValue("")) }
     val category = "Vault"  // category picker deferred per milestone 11
     val titleFocus = remember(noteId) { FocusRequester() }
     val scope = rememberCoroutineScope()
@@ -54,7 +62,10 @@ fun LockedNoteScreen(vm: VaultViewModel, noteId: Long, onBack: () -> Unit) {
     LaunchedEffect(noteId) {
         if (noteId == 0L) { loaded = true; return@LaunchedEffect }
         val existing = vm.loadNote(noteId)
-        if (existing != null) { title = existing.title; body = existing.body }
+        if (existing != null) {
+            title = existing.title
+            body = TextFieldValue(existing.body, TextRange(existing.body.length))
+        }
         loaded = true
     }
 
@@ -65,7 +76,7 @@ fun LockedNoteScreen(vm: VaultViewModel, noteId: Long, onBack: () -> Unit) {
     val saveAndBack: () -> Unit = {
         scope.launch {
             val trimmed = title.trim()
-            val hasContent = trimmed.isNotEmpty() || body.isNotEmpty()
+            val hasContent = trimmed.isNotEmpty() || body.text.isNotEmpty()
             if (noteId == 0L && !hasContent) {
                 // Empty new note — discard.
             } else if (noteId > 0L && !hasContent) {
@@ -73,7 +84,7 @@ fun LockedNoteScreen(vm: VaultViewModel, noteId: Long, onBack: () -> Unit) {
             } else {
                 vm.saveNote(LockedNote(
                     id = noteId, title = trimmed.ifEmpty { "Untitled" }, category = category,
-                    body = body, updatedAt = System.currentTimeMillis(),
+                    body = body.text, updatedAt = System.currentTimeMillis(),
                 ))
             }
             onBack()
@@ -81,9 +92,18 @@ fun LockedNoteScreen(vm: VaultViewModel, noteId: Long, onBack: () -> Unit) {
     }
     BackHandler(onBack = saveAndBack)
 
-    Column(Modifier.fillMaxSize().background(XpTokens.Bg)) {
+    val bodyScroll = rememberScrollState()
+    val caret = rememberCaretScroll(bodyScroll)
+    CaretScrollEffect(caret, selectionKey = body.selection)
+
+    Column(Modifier.fillMaxSize().background(XpTokens.Bg).imePadding()) {
         TopBar()
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
+        Column(
+            Modifier.fillMaxSize()
+                .onGloballyPositioned { caret.viewportHeightPx = it.size.height }
+                .verticalScroll(bodyScroll)
+                .padding(horizontal = 24.dp),
+        ) {
             Spacer(Modifier.height(8.dp))
             Text(
                 "$category${if (noteId == 0L) "" else " · Updated just now"}",
@@ -92,7 +112,7 @@ fun LockedNoteScreen(vm: VaultViewModel, noteId: Long, onBack: () -> Unit) {
             Spacer(Modifier.height(14.dp))
             TitleField(title, { title = it }, titleFocus)
             Spacer(Modifier.height(22.dp))
-            BodyField(body, { body = it })
+            BodyField(body, { body = it }, caret)
             Spacer(Modifier.height(120.dp))
         }
     }
@@ -140,17 +160,23 @@ private fun TitleField(value: String, onChange: (String) -> Unit, focus: FocusRe
 }
 
 @Composable
-private fun BodyField(value: String, onChange: (String) -> Unit) {
+private fun BodyField(value: TextFieldValue, onChange: (TextFieldValue) -> Unit, caret: CaretScrollState) {
     BasicTextField(
         value = value, onValueChange = onChange,
         textStyle = LocalTextStyle.current.copy(
-            fontSize = 14.5.sp, lineHeight = 24.sp, color = XpTokens.Ink,
+            fontSize = 14.5.sp, lineHeight = 24.sp, color = XpTokens.BodyInk,
             fontFamily = GeistMono,
         ),
         cursorBrush = SolidColor(XpTokens.Teal),
-        modifier = Modifier.fillMaxWidth(),
+        onTextLayout = { layout ->
+            caret.caretRect = layout.getCursorRect(
+                value.selection.start.coerceIn(0, value.text.length)
+            )
+        },
+        modifier = Modifier.fillMaxWidth()
+            .onGloballyPositioned { caret.fieldTopInScrollPx = it.positionInParent().y.toInt() },
         decorationBox = { inner ->
-            if (value.isEmpty()) Text(
+            if (value.text.isEmpty()) Text(
                 "Account numbers, passwords, codes. Encrypted with your vault key.",
                 fontSize = 14.sp, color = XpTokens.Ink4, fontFamily = GeistMono,
             )

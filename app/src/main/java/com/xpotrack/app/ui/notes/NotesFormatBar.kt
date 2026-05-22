@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -32,7 +31,6 @@ fun NotesFormatBar(value: TextFieldValue, onChange: (TextFieldValue) -> Unit) {
     Row(
         Modifier.fillMaxWidth()
             .border(0.5.dp, XpTokens.Hair, RoundedCornerShape(0.dp))
-            .imePadding()
             .navigationBarsPadding()
             .padding(horizontal = 8.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,

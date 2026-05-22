@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
@@ -24,9 +25,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.xpotrack.app.ui.notes.CaretScrollEffect
+import com.xpotrack.app.ui.notes.rememberCaretScroll
 import com.xpotrack.app.ui.theme.XpTokens
 
 @Composable
@@ -35,14 +42,14 @@ fun QuickEditorScreen(
     noteId: Long,
     onBack: () -> Unit,
 ) {
-    var text by remember { mutableStateOf("") }
+    var tfv by remember { mutableStateOf(TextFieldValue("")) }
     var initial by remember { mutableStateOf("") }
     val focus = remember { FocusRequester() }
 
     LaunchedEffect(noteId) {
         if (noteId != 0L) {
             val existing = vm.getText(noteId)
-            text = existing
+            tfv = TextFieldValue(existing, TextRange(existing.length))
             initial = existing
         } else {
             focus.requestFocus()
@@ -50,7 +57,7 @@ fun QuickEditorScreen(
     }
 
     val saveAndBack: () -> Unit = {
-        val trimmed = text.trim()
+        val trimmed = tfv.text.trim()
         when {
             noteId == 0L && trimmed.isNotEmpty() -> vm.add(trimmed)
             noteId != 0L && trimmed != initial.trim() -> {
@@ -61,10 +68,15 @@ fun QuickEditorScreen(
     }
     BackHandler(onBack = saveAndBack)
 
-    Column(Modifier.fillMaxSize().background(XpTokens.Bg)) {
+    val bodyScroll = rememberScrollState()
+    val caret = rememberCaretScroll(bodyScroll)
+    CaretScrollEffect(caret, selectionKey = tfv.selection)
+
+    Column(Modifier.fillMaxSize().background(XpTokens.Bg).imePadding()) {
         Column(
             Modifier.fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .onGloballyPositioned { caret.viewportHeightPx = it.size.height }
+                .verticalScroll(bodyScroll)
                 .padding(horizontal = 24.dp),
         ) {
             Spacer(Modifier.height(16.dp))
@@ -77,13 +89,19 @@ fun QuickEditorScreen(
             )
             Spacer(Modifier.height(16.dp))
             BasicTextField(
-                value = text,
-                onValueChange = { text = it },
-                textStyle = LocalTextStyle.current.copy(fontSize = 16.sp, lineHeight = 26.sp, color = XpTokens.Ink),
+                value = tfv,
+                onValueChange = { tfv = it },
+                textStyle = LocalTextStyle.current.copy(fontSize = 16.sp, lineHeight = 26.sp, color = XpTokens.BodyInk),
                 cursorBrush = SolidColor(XpTokens.Teal),
-                modifier = Modifier.fillMaxWidth().focusRequester(focus),
+                onTextLayout = { layout ->
+                    caret.caretRect = layout.getCursorRect(
+                        tfv.selection.start.coerceIn(0, tfv.text.length)
+                    )
+                },
+                modifier = Modifier.fillMaxWidth().focusRequester(focus)
+                    .onGloballyPositioned { caret.fieldTopInScrollPx = it.positionInParent().y.toInt() },
                 decorationBox = { inner ->
-                    if (text.isEmpty()) Text(
+                    if (tfv.text.isEmpty()) Text(
                         "Jot something — gone tomorrow. First line becomes the title.",
                         fontSize = 15.5.sp, lineHeight = 25.sp, color = XpTokens.Ink4,
                     )

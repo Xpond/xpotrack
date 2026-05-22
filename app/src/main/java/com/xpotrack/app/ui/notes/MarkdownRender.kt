@@ -116,7 +116,7 @@ private fun TaskList(items: List<Pair<Boolean, String>>, firstIndex: Int, onTogg
             Spacer(Modifier.width(12.dp))
             Text(
                 inline(text),
-                color = if (checked) XpTokens.Ink3 else XpTokens.Ink,
+                color = if (checked) XpTokens.Ink3 else XpTokens.BodyInk,
                 fontSize = 16.sp, lineHeight = 25.sp,
                 textDecoration = if (checked) TextDecoration.LineThrough else TextDecoration.None,
             )
@@ -145,7 +145,7 @@ internal fun Heading(text: String, h1: Boolean) {
 @Composable
 private fun Paragraph(text: String) {
     Text(
-        inline(text), color = XpTokens.Ink,
+        inline(text), color = XpTokens.BodyInk,
         fontSize = 16.sp, lineHeight = 27.sp, letterSpacing = (-0.003).em,
     )
     Spacer(Modifier.height(14.dp))
@@ -157,7 +157,7 @@ private fun BulletList(items: List<String>) {
         Row {
             Text("—", color = XpTokens.Teal, fontWeight = FontWeight.Medium, fontSize = 16.sp, lineHeight = 25.sp)
             Spacer(Modifier.width(12.dp))
-            Text(inline(item), color = XpTokens.Ink, fontSize = 16.sp, lineHeight = 25.sp)
+            Text(inline(item), color = XpTokens.BodyInk, fontSize = 16.sp, lineHeight = 25.sp)
         }
         Spacer(Modifier.height(8.dp))
     }
@@ -174,7 +174,7 @@ private fun Quote(text: String) {
     ) {
         Box(Modifier.width(2.dp).background(XpTokens.Teal))
         Text(
-            text, color = XpTokens.Ink, fontStyle = FontStyle.Italic,
+            text, color = XpTokens.BodyInk, fontStyle = FontStyle.Italic,
             fontSize = 18.sp, lineHeight = 27.sp, letterSpacing = (-0.005).em,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
         )
@@ -193,7 +193,7 @@ private fun CodeBlock(lines: List<String>) {
             .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
         lines.forEach {
-            Text(it, fontFamily = GeistMono, fontSize = 13.sp, lineHeight = 22.sp, color = XpTokens.Ink)
+            Text(it, fontFamily = GeistMono, fontSize = 13.sp, lineHeight = 22.sp, color = XpTokens.BodyInk)
         }
     }
     Spacer(Modifier.height(18.dp))
