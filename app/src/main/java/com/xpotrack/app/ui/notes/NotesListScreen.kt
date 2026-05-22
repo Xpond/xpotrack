@@ -1,5 +1,6 @@
 package com.xpotrack.app.ui.notes
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,8 +32,8 @@ import com.xpotrack.app.data.model.Category
 import com.xpotrack.app.ui.components.ConfirmDeleteDialog
 import com.xpotrack.app.ui.components.DateTimeStrip
 import com.xpotrack.app.ui.components.EmptyState
-import com.xpotrack.app.ui.components.NoteActionSheet
 import com.xpotrack.app.ui.components.PinnedHeader
+import com.xpotrack.app.ui.components.SelectionBar
 import com.xpotrack.app.ui.components.XpFab
 import com.xpotrack.app.ui.components.XpIconBtn
 import com.xpotrack.app.ui.quick.QuickNoteEntry
@@ -45,6 +46,7 @@ fun NotesListScreen(
     quicks: List<FeedItem.Quick>,
     categories: List<Category>,
     onOpenNote: (Int) -> Unit,
+    onNewNote: (Long) -> Unit,
     onComposeQuick: () -> Unit,
     onOpenQuickNote: (Long) -> Unit,
     onKeepQuick: (Long) -> Unit,
@@ -57,10 +59,14 @@ fun NotesListScreen(
     var filterId by rememberSaveable { mutableStateOf<Long?>(null) }
     var searchOpen by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
-    var sheetNote by remember { mutableStateOf<NoteRow?>(null) }
-    var pendingDeleteNote by remember { mutableStateOf<NoteRow?>(null) }
+    var selectMode by remember { mutableStateOf(false) }
+    var selected by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    var pendingBulkDelete by remember { mutableStateOf(false) }
     var pendingDeleteQuick by remember { mutableStateOf<QuickRow?>(null) }
     val context = LocalContext.current
+    BackHandler(enabled = selectMode) {
+        selectMode = false; selected = emptySet()
+    }
 
     val activeCategory = filterId?.let { id ->
         if (id == 0L) null else categories.firstOrNull { it.id == id }
@@ -122,8 +128,16 @@ fun NotesListScreen(
                         note = item.row,
                         showTag = filterId == null,
                         isLast = isLast,
-                        onOpenNote = onOpenNote,
-                        onLongPress = { sheetNote = it },
+                        onOpenNote = { id ->
+                            if (selectMode) {
+                                selected = if (id in selected) selected - id else selected + id
+                            } else onOpenNote(id)
+                        },
+                        onLongPress = { row ->
+                            selectMode = true
+                            selected = selected + row.id
+                        },
+                        selected = item.row.id in selected,
                     )
                     is FeedItem.Quick -> QuickNoteEntry(
                         row = item.row,
@@ -156,34 +170,43 @@ fun NotesListScreen(
             }
             QuickEntryStrip(onCompose = onComposeQuick)
         }
-        XpFab(
-            R.drawable.ic_plus, "New note", shadow = true,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 50.dp, bottom = 130.dp),
-            onClick = { onOpenNote(0) },
-        )
+        if (selectMode) {
+            SelectionBar(
+                count = selected.size,
+                allSelected = selected.size == notesOnly.size && notesOnly.isNotEmpty(),
+                onToggleAll = {
+                    selected = if (selected.size == notesOnly.size) emptySet()
+                    else notesOnly.map { it.id }.toSet()
+                },
+                onShare = {
+                    val pairs = notesOnly.filter { it.id in selected }
+                        .map { it.title to it.preview }
+                    if (pairs.isNotEmpty()) shareNotesAsMarkdown(context, pairs)
+                },
+                onDelete = { if (selected.isNotEmpty()) pendingBulkDelete = true },
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 110.dp),
+            )
+        } else {
+            XpFab(
+                R.drawable.ic_plus, "New note", shadow = true,
+                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 50.dp, bottom = 130.dp),
+                onClick = { onNewNote(filterId ?: 0L) },
+            )
+        }
     }
-    sheetNote?.let { note ->
-        NoteActionSheet(
-            subject = note.title.ifBlank { "Untitled" },
-            onDismiss = { sheetNote = null },
-            onShare = {
-                shareNoteAsMarkdown(context, note.title, note.preview)
-                sheetNote = null
-            },
-            onDelete = {
-                pendingDeleteNote = note
-                sheetNote = null
-            },
-        )
-    }
-    pendingDeleteNote?.let { note ->
+    if (pendingBulkDelete) {
+        val n = selected.size
         ConfirmDeleteDialog(
-            title = "Delete note?",
-            subject = note.title.ifBlank { "Untitled" },
-            onCancel = { pendingDeleteNote = null },
+            title = if (n == 1) "Delete note?" else "Delete $n notes?",
+            subject = if (n == 1)
+                notesOnly.firstOrNull { it.id in selected }?.title?.ifBlank { "Untitled" } ?: "Untitled"
+            else "$n notes",
+            onCancel = { pendingBulkDelete = false },
             onConfirm = {
-                onDeleteNote(note.id)
-                pendingDeleteNote = null
+                selected.forEach(onDeleteNote)
+                selected = emptySet()
+                selectMode = false
+                pendingBulkDelete = false
             },
         )
     }

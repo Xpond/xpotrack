@@ -82,6 +82,7 @@ fun AppRoot() {
                     active = activeTab,
                     onSelectTab = { activeTab = it },
                     onOpenNote = { id -> nav.navigate("editor/$id") },
+                    onNewNote = { catId -> nav.navigate("editor/0?cat=$catId") },
                     onOpenTask = { id -> nav.navigate("task/$id") },
                     onNewTask = { date -> openNewSheet(date) },
                     onLockExit = { activeTab = XpTab.Notes },
@@ -106,14 +107,18 @@ fun AppRoot() {
                 )
             }
             composable(
-                route = "editor/{id}",
-                arguments = listOf(navArgument("id") { type = NavType.IntType }),
+                route = "editor/{id}?cat={cat}",
+                arguments = listOf(
+                    navArgument("id") { type = NavType.IntType },
+                    navArgument("cat") { type = NavType.LongType; defaultValue = 0L },
+                ),
             ) { entry ->
                 val app = LocalContext.current.applicationContext as XpApp
                 val id = entry.arguments?.getInt("id") ?: 0
+                val cat = entry.arguments?.getLong("cat") ?: 0L
                 val vm: NotesEditorViewModel = viewModel(
-                    key = "editor-$id",
-                    factory = NotesEditorViewModel.Factory(app.notesRepo, app.categoryRepo, id),
+                    key = "editor-$id-$cat",
+                    factory = NotesEditorViewModel.Factory(app.notesRepo, app.categoryRepo, id, cat),
                 )
                 NotesEditorScreen(
                     vm = vm, onBack = { nav.popBackStack() },
@@ -209,6 +214,7 @@ private fun TabsScaffold(
     active: XpTab,
     onSelectTab: (XpTab) -> Unit,
     onOpenNote: (Int) -> Unit,
+    onNewNote: (Long) -> Unit,
     onOpenTask: (Long) -> Unit,
     onNewTask: (Long) -> Unit,
     onLockExit: () -> Unit,
@@ -230,6 +236,7 @@ private fun TabsScaffold(
             XpTab.Notes -> NotesListScreen(
                 notes = notes, quicks = quicks, categories = cats,
                 onOpenNote = onOpenNote,
+                onNewNote = onNewNote,
                 onComposeQuick = onComposeQuick,
                 onOpenQuickNote = onOpenQuickNote,
                 onKeepQuick = notesVm::keepQuick,
