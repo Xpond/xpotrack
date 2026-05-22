@@ -67,10 +67,6 @@ class TasksRepository(
         dao.delete(id)
     }
 
-    suspend fun seedIfEmpty(seed: List<TaskEntity>) {
-        if (dao.count() == 0) dao.insertAll(seed)
-    }
-
     private fun toDomain(e: TaskEntity): Task = Task(
         id = e.id,
         title = e.title,

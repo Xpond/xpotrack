@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xpotrack.app.R
 import com.xpotrack.app.ui.components.ConfirmDeleteDialog
+import com.xpotrack.app.ui.components.EmptyState
 import com.xpotrack.app.ui.components.PinnedHeader
 import com.xpotrack.app.ui.components.XpFab
 import com.xpotrack.app.ui.theme.XpTokens
@@ -57,7 +58,7 @@ fun VaultListScreen(
             Column(Modifier.fillMaxSize()) {
                 Spacer(Modifier.height(headerDp))
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    EmptyState()
+                    EmptyState("No locked notes", "Tap + to add one")
                 }
             }
         } else {
@@ -151,18 +152,6 @@ private fun LockedRow(row: LockedNoteRow, onClick: () -> Unit, onLongClick: () -
             row.when_,
             style = MaterialTheme.typography.labelSmall, color = XpTokens.Ink3,
         )
-    }
-}
-
-@Composable
-private fun EmptyState() {
-    Column(
-        Modifier.fillMaxWidth().padding(horizontal = 22.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text("No locked notes", color = XpTokens.Ink2, fontSize = 14.sp)
-        Spacer(Modifier.height(6.dp))
-        Text("Tap + to add one", color = XpTokens.Ink3, fontSize = 12.sp)
     }
 }
 
