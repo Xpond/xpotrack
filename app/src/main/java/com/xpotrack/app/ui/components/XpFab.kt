@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.dp
 import com.xpotrack.app.ui.theme.XpTokens
 
 @Composable
-fun XpFab(iconRes: Int, contentDesc: String, shadow: Boolean = false, modifier: Modifier = Modifier, onClick: () -> Unit) {
+fun XpFab(iconRes: Int, contentDesc: String, modifier: Modifier = Modifier, shadow: Boolean = false, onClick: () -> Unit) {
     Box(
         modifier
             .size(56.dp)

@@ -16,6 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -51,8 +52,8 @@ fun NotesListScreen(
     onOpenQuickNote: (Long) -> Unit,
     onKeepQuick: (Long) -> Unit,
     onDeleteQuick: (Long) -> Unit,
-    onDeleteNote: (Int) -> Unit = {},
     modifier: Modifier = Modifier,
+    onDeleteNote: (Int) -> Unit = {},
 ) {
     // null = "All notes"; 0L = Uncategorized; >0 = a category id.
     // Saveable so the filter survives navigating to the editor and back.
@@ -98,7 +99,7 @@ fun NotesListScreen(
     } else byCategory
 
     val density = LocalDensity.current
-    var headerPx by remember { mutableStateOf(0) }
+    var headerPx by remember { mutableIntStateOf(0) }
     val headerDp = with(density) { headerPx.toDp() }
 
     Box(
@@ -164,6 +165,7 @@ fun NotesListScreen(
                     totalCount = notesOnly.size,
                     categories = categories,
                     notes = notesOnly,
+                    activeColorHex = activeCategory?.colorHex,
                     onPick = { filterId = it },
                     onClear = { filterId = null },
                 )
