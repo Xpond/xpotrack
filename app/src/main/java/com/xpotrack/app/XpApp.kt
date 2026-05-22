@@ -1,6 +1,7 @@
 package com.xpotrack.app
 
 import android.app.Application
+import android.util.Log
 import com.xpotrack.app.data.alarm.AlarmScheduler
 import com.xpotrack.app.data.alarm.NotificationChannels
 import com.xpotrack.app.data.db.XpDatabase
@@ -64,19 +65,25 @@ class XpApp : Application() {
         QuickNoteSweepWorker.enqueue(this)
 
         // Preload notes off the main thread and gate the splash on the first
-        // emission so the launcher icon hands off to a populated list.
+        // emission so the launcher icon hands off to a populated list. Release
+        // the gate in finally so a DB failure surfaces as an app screen rather
+        // than an indefinite splash.
         appScope.launch {
-            db.noteDao().observeAll().first()
-            SplashGate.notesReady = true
+            try {
+                db.noteDao().observeAll().first()
+            } catch (t: Throwable) {
+                Log.e("XpApp", "Notes preload failed; releasing splash anyway", t)
+            } finally {
+                SplashGate.notesReady = true
+            }
         }
 
         appScope.launch {
-            val now = System.currentTimeMillis()
             tasksRepo.observeAll().first().forEach { task ->
                 if (task.level == ReminderLevel.Silent || task.isDone) return@forEach
-                val next = alarmScheduler.nextOccurrence(task.dateEpochDay, task.time, now)
-                if (task.reminderAt != next) tasksRepo.updateReminderAt(task.id, next)
-                alarmScheduler.schedule(task.copy(reminderAt = next))
+                // Re-upsert so overdue recurring tasks roll forward on the row
+                // itself (not just the alarm), keeping date + reminderAt in sync.
+                tasksRepo.upsert(task)
             }
         }
     }

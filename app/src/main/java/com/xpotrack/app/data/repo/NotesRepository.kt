@@ -43,6 +43,11 @@ class NotesRepository(
 
     suspend fun delete(id: Int) = dao.delete(id.toLong())
 
+    // Category-only change — does NOT bump updatedAt. Reclassifying a note
+    // shouldn't jump it to the top of the list.
+    suspend fun setCategory(id: Int, categoryId: Long) =
+        dao.setCategory(id.toLong(), categoryId.takeIf { it > 0L })
+
     private fun toUi(e: NoteEntity, byId: Map<Long, Category>): NoteRow {
         val cat = e.categoryId?.let { byId[it] }
         return NoteRow(

@@ -8,7 +8,9 @@ import com.xpotrack.app.data.model.Task
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.DayOfWeek
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 
 class TasksRepository(
     private val dao: TaskDao,
@@ -26,7 +28,12 @@ class TasksRepository(
         // to the time wheel always re-target the next occurrence. Silent tasks
         // keep reminderAt = 0L; the scheduler then becomes a no-op.
         val reminderAt = if (task.level == ReminderLevel.Silent) 0L
-            else scheduler.nextOccurrence(task.dateEpochDay, task.time, now)
+            else scheduler.nextOccurrence(task.dateEpochDay, task.time, task.repeat, now)
+        // Mirror the rolled-forward date onto the row so the UI shows the
+        // next valid occurrence instead of the missed one.
+        val effectiveDate = if (reminderAt > 0L)
+            Instant.ofEpochMilli(reminderAt).atZone(ZoneId.systemDefault()).toLocalDate().toEpochDay()
+            else task.dateEpochDay
         val entity = TaskEntity(
             id = task.id,
             title = task.title,
@@ -36,7 +43,7 @@ class TasksRepository(
             notes = task.notes,
             isDone = task.isDone,
             reminderAt = reminderAt,
-            dateEpochDay = task.dateEpochDay,
+            dateEpochDay = effectiveDate,
             repeat = task.repeat,
             linkedNoteId = task.linkedNoteId,
             createdAt = existing?.createdAt ?: now,
@@ -46,8 +53,6 @@ class TasksRepository(
         scheduler.schedule(toDomain(entity).copy(id = if (task.id == 0L) newId else task.id))
         return newId
     }
-
-    suspend fun updateReminderAt(id: Long, at: Long) = dao.setReminderAt(id, at)
 
     suspend fun markDone(id: Long) {
         val existing = dao.getById(id) ?: return
