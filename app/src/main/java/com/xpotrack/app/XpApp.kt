@@ -11,7 +11,6 @@ import com.xpotrack.app.data.quick.QuickNoteSweepWorker
 import com.xpotrack.app.data.repo.CategoryRepository
 import com.xpotrack.app.data.repo.NotesRepository
 import com.xpotrack.app.data.repo.QuickNotesRepository
-import com.xpotrack.app.data.repo.SeedData
 import com.xpotrack.app.data.repo.TasksRepository
 import com.xpotrack.app.data.repo.VaultRepository
 import com.xpotrack.app.data.security.VaultMetaStore
@@ -71,16 +70,7 @@ class XpApp : Application() {
             SplashGate.notesReady = true
         }
 
-        val seedJob = appScope.launch {
-            val now = System.currentTimeMillis()
-            notesRepo.seedIfEmpty(SeedData.notes(now))
-            tasksRepo.seedIfEmpty(SeedData.tasks(now))
-        }
-        // Alarm rearm runs on its own coroutine so it can't queue behind seed
-        // and starve the UI's first notes query. Waits for seed so freshly
-        // seeded tasks get armed too.
         appScope.launch {
-            seedJob.join()
             val now = System.currentTimeMillis()
             tasksRepo.observeAll().first().forEach { task ->
                 if (task.level == ReminderLevel.Silent || task.isDone) return@forEach

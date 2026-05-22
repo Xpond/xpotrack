@@ -89,10 +89,7 @@ fun TaskDetailScreen(
             counter = if (s.indexToday > 0) "Task · ${s.indexToday} of ${s.totalToday} today" else "Task",
             onBack = saveAndBack,
         )
-        Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-                .padding(horizontal = 22.dp),
-        ) {
+        Column(Modifier.fillMaxSize().padding(horizontal = 22.dp)) {
             HeroTime(task, style)
             Spacer(Modifier.height(10.dp))
             Text(
@@ -109,13 +106,13 @@ fun TaskDetailScreen(
                 onPick = { linkOpen = true },
                 onOpen = { linkedNote?.id?.let(onOpenNote) },
             )
-            Spacer(Modifier.height(22.dp))
+            Spacer(Modifier.weight(1f))
             ActionRow(
                 done = task.isDone,
                 onMarkDone = { scope.launch { vm.saveNotesIfDirty(); vm.markDone(); onBack() } },
                 onDelete = { scope.launch { vm.delete(); onBack() } },
             )
-            Spacer(Modifier.height(48.dp))
+            Spacer(Modifier.height(24.dp))
         }
     }
 }

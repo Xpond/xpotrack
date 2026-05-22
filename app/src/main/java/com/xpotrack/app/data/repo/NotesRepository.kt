@@ -43,10 +43,6 @@ class NotesRepository(
 
     suspend fun delete(id: Int) = dao.delete(id.toLong())
 
-    suspend fun seedIfEmpty(seed: List<NoteEntity>) {
-        if (dao.count() == 0) dao.insertAll(seed)
-    }
-
     private fun toUi(e: NoteEntity, byId: Map<Long, Category>): NoteRow {
         val cat = e.categoryId?.let { byId[it] }
         return NoteRow(

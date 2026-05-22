@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,6 +30,7 @@ import com.xpotrack.app.R
 import com.xpotrack.app.data.model.Category
 import com.xpotrack.app.ui.components.ConfirmDeleteDialog
 import com.xpotrack.app.ui.components.DateTimeStrip
+import com.xpotrack.app.ui.components.EmptyState
 import com.xpotrack.app.ui.components.NoteActionSheet
 import com.xpotrack.app.ui.components.PinnedHeader
 import com.xpotrack.app.ui.components.XpFab
@@ -51,7 +53,8 @@ fun NotesListScreen(
     modifier: Modifier = Modifier,
 ) {
     // null = "All notes"; 0L = Uncategorized; >0 = a category id.
-    var filterId by remember { mutableStateOf<Long?>(null) }
+    // Saveable so the filter survives navigating to the editor and back.
+    var filterId by rememberSaveable { mutableStateOf<Long?>(null) }
     var searchOpen by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var sheetNote by remember { mutableStateOf<NoteRow?>(null) }
@@ -98,7 +101,15 @@ fun NotesListScreen(
             .background(XpTokens.Bg),
     ) {
         TopHalo()
-        Column(
+        if (filtered.isEmpty() && !(searchOpen && q.isNotEmpty())) {
+            Column(Modifier.fillMaxSize()) {
+                Spacer(Modifier.height(headerDp))
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    val (title, helper) = emptyCopy(filterId, activeCategory?.name)
+                    EmptyState(title, helper)
+                }
+            }
+        } else Column(
             Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
@@ -187,6 +198,12 @@ fun NotesListScreen(
             },
         )
     }
+}
+
+private fun emptyCopy(filterId: Long?, categoryName: String?): Pair<String, String> = when {
+    filterId == null -> "No notes yet" to "Tap + to write your first"
+    filterId == 0L -> "Nothing uncategorized" to "Notes without a category land here"
+    else -> "Nothing in ${categoryName ?: "this category"}" to "Tap + to add the first"
 }
 
 @Composable

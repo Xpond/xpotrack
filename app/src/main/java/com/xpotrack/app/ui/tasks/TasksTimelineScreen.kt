@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.sp
 import com.xpotrack.app.R
 import com.xpotrack.app.ui.components.ConfirmDeleteDialog
 import com.xpotrack.app.ui.components.DateTimeStrip
+import com.xpotrack.app.ui.components.EmptyState
 import com.xpotrack.app.ui.components.PinnedHeader
 import com.xpotrack.app.ui.components.XpFab
 import com.xpotrack.app.ui.theme.XpTokens
@@ -58,6 +59,7 @@ fun TasksTimelineScreen(
     val density = LocalDensity.current
     var headerPx by remember { mutableStateOf(0) }
     val headerDp = with(density) { headerPx.toDp() }
+    val today = remember { LocalDate.now(ZoneId.systemDefault()).toEpochDay() }
 
     Box(
         modifier = modifier
@@ -65,7 +67,19 @@ fun TasksTimelineScreen(
             .background(XpTokens.Bg),
     ) {
         TopHalo()
-        Column(
+        if (tasks.isEmpty()) {
+            val (title, helper) = when {
+                selectedDate < today -> "No tasks that day" to "Past days stay as they were"
+                selectedDate == today -> "Nothing scheduled today" to "Tap + to add the first"
+                else -> "Nothing scheduled" to "Tap + to plan this day"
+            }
+            Column(Modifier.fillMaxSize()) {
+                Spacer(Modifier.height(headerDp))
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    EmptyState(title, helper)
+                }
+            }
+        } else Column(
             Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
@@ -93,7 +107,6 @@ fun TasksTimelineScreen(
                 )
             }
         }
-        val today = remember { LocalDate.now(ZoneId.systemDefault()).toEpochDay() }
         if (selectedDate >= today) {
             XpFab(R.drawable.ic_plus, "New task", shadow = true, modifier = Modifier.align(Alignment.BottomEnd).padding(end = 50.dp, bottom = 130.dp), onClick = { onOpenTask(0L) })
         }
