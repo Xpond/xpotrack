@@ -13,6 +13,9 @@ import android.os.VibratorManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -36,6 +39,7 @@ class AlarmRingingActivity : ComponentActivity() {
         showOverLockScreen()
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        hideStatusBarImmersive()
 
         val taskId = intent.getLongExtra(EXTRA_TASK_ID, -1L)
         val title = intent.getStringExtra(EXTRA_TITLE) ?: "Reminder"
@@ -84,6 +88,12 @@ class AlarmRingingActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    private fun hideStatusBarImmersive() {
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        controller.hide(WindowInsetsCompat.Type.statusBars())
     }
 
     private fun showOverLockScreen() {

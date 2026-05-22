@@ -38,6 +38,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xpotrack.app.R
 import com.xpotrack.app.data.security.VaultKeyStore
 import com.xpotrack.app.ui.components.XpPrimaryButton
+import com.xpotrack.app.ui.components.cutoutSafeTopPadding
 import com.xpotrack.app.ui.theme.XpTokens
 
 @Composable
@@ -68,10 +69,8 @@ fun VaultUnlockScreen(vm: VaultViewModel) {
     LaunchedEffect(Unit) { if (canBiometric) triggerBiometric() }
 
     Column(
-        Modifier.fillMaxSize().background(XpTokens.Bg).padding(horizontal = 24.dp),
+        Modifier.fillMaxSize().background(XpTokens.Bg).cutoutSafeTopPadding().padding(horizontal = 24.dp),
     ) {
-        Spacer(Modifier.height(20.dp))
-
         Column(
             Modifier.weight(1f).fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,

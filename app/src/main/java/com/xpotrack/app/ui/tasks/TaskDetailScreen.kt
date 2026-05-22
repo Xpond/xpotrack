@@ -49,6 +49,7 @@ import com.xpotrack.app.data.model.Task
 import com.xpotrack.app.ui.components.PillSize
 import com.xpotrack.app.ui.components.ReminderStyle
 import com.xpotrack.app.ui.components.XpReminderPill
+import com.xpotrack.app.ui.components.cutoutSafeTopPadding
 import com.xpotrack.app.ui.components.styleFor
 import com.xpotrack.app.ui.notes.NoteRow
 import com.xpotrack.app.ui.theme.GeistMono
@@ -67,7 +68,7 @@ fun TaskDetailScreen(
     val allNotes by vm.allNotes.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     var linkOpen by remember { mutableStateOf(false) }
-    val task = s.task ?: return run { Box(Modifier.fillMaxSize().background(XpTokens.Bg)) {} }
+    val task = s.task ?: return run { Box(Modifier.fillMaxSize().background(XpTokens.Bg).cutoutSafeTopPadding()) {} }
     val style = styleFor(task.level)
     val linkedNote = remember(allNotes, task.linkedNoteId) {
         task.linkedNoteId?.let { id -> allNotes.firstOrNull { it.id.toLong() == id } }
@@ -84,7 +85,7 @@ fun TaskDetailScreen(
         )
     }
 
-    Column(Modifier.fillMaxSize().background(XpTokens.Bg)) {
+    Column(Modifier.fillMaxSize().background(XpTokens.Bg).cutoutSafeTopPadding()) {
         TopBar(
             counter = if (s.indexToday > 0) "Task · ${s.indexToday} of ${s.totalToday} today" else "Task",
             onBack = saveAndBack,
@@ -120,7 +121,7 @@ fun TaskDetailScreen(
 @Composable
 private fun TopBar(counter: String, onBack: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconChip(R.drawable.ic_chevron_left, "Back", onBack)

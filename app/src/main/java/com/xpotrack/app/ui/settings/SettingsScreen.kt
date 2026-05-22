@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xpotrack.app.XpApp
+import com.xpotrack.app.ui.components.cutoutSafeTopPadding
 import com.xpotrack.app.ui.theme.XpTokens
 
 @Composable
@@ -38,9 +39,9 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
 
     Column(
         modifier = modifier.fillMaxSize().background(XpTokens.Bg)
+            .cutoutSafeTopPadding()
             .padding(horizontal = 22.dp),
     ) {
-        Spacer(Modifier.height(12.dp))
         Text("PREFERENCES", style = MaterialTheme.typography.labelSmall, color = XpTokens.Ink3)
         Spacer(Modifier.height(8.dp))
         Text("Settings", style = MaterialTheme.typography.displayLarge, color = XpTokens.Ink)

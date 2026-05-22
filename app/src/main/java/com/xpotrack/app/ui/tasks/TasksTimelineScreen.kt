@@ -173,7 +173,7 @@ private fun TasksHeader(selectedDate: Long, tasks: List<TaskRow>) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 22.dp, end = 18.dp, top = 14.dp),
+            .padding(start = 22.dp, end = 18.dp),
         verticalAlignment = Alignment.Bottom,
     ) {
         Column(Modifier.weight(1f)) {

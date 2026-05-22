@@ -103,7 +103,7 @@ fun VaultListScreen(
 @Composable
 private fun Header(onLockNow: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 12.dp),
+        Modifier.fillMaxWidth().padding(start = 22.dp, end = 22.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {

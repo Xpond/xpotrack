@@ -15,6 +15,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.fragment.app.FragmentActivity
 import com.xpotrack.app.ui.AppRoot
 import com.xpotrack.app.ui.theme.XpTheme
@@ -29,6 +32,7 @@ class MainActivity : FragmentActivity() {
         splash.setKeepOnScreenCondition { !SplashGate.notesReady }
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        hideStatusBarImmersive()
         maybeRequestNotificationPermission()
         setContent {
             XpTheme { AppRoot() }
@@ -38,6 +42,12 @@ class MainActivity : FragmentActivity() {
     override fun onResume() {
         super.onResume()
         promptFullScreenIntentIfNeeded()
+    }
+
+    private fun hideStatusBarImmersive() {
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        controller.hide(WindowInsetsCompat.Type.statusBars())
     }
 
     private fun maybeRequestNotificationPermission() {
