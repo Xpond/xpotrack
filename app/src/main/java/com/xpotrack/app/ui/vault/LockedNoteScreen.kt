@@ -43,6 +43,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xpotrack.app.R
+import com.xpotrack.app.ui.components.cutoutSafeTopPadding
 import com.xpotrack.app.ui.notes.CaretScrollEffect
 import com.xpotrack.app.ui.notes.CaretScrollState
 import com.xpotrack.app.ui.notes.rememberCaretScroll
@@ -96,7 +97,7 @@ fun LockedNoteScreen(vm: VaultViewModel, noteId: Long, onBack: () -> Unit) {
     val caret = rememberCaretScroll(bodyScroll)
     CaretScrollEffect(caret, selectionKey = body.selection)
 
-    Column(Modifier.fillMaxSize().background(XpTokens.Bg).imePadding()) {
+    Column(Modifier.fillMaxSize().background(XpTokens.Bg).cutoutSafeTopPadding().imePadding()) {
         TopBar()
         Column(
             Modifier.fillMaxSize()
@@ -121,7 +122,7 @@ fun LockedNoteScreen(vm: VaultViewModel, noteId: Long, onBack: () -> Unit) {
 @Composable
 private fun TopBar() {
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {

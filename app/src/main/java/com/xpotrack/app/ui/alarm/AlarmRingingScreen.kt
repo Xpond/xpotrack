@@ -7,7 +7,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
 import androidx.compose.ui.Alignment
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -16,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.xpotrack.app.ui.theme.XpTokens
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AlarmRingingScreen(
     title: String,
@@ -35,7 +40,8 @@ fun AlarmRingingScreen(
                     1f to XpTokens.Bg,
                 )
             )
-            .systemBarsPadding()
+            .navigationBarsPadding()
+            .padding(WindowInsets.statusBarsIgnoringVisibility.asPaddingValues())
             .padding(horizontal = 24.dp, vertical = 16.dp),
         contentAlignment = Alignment.Center,
     ) {

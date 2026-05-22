@@ -56,6 +56,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xpotrack.app.R
 import com.xpotrack.app.XpApp
 import com.xpotrack.app.ui.categories.parseHexColor
+import com.xpotrack.app.ui.components.cutoutSafeTopPadding
 import com.xpotrack.app.ui.theme.GeistMono
 import com.xpotrack.app.ui.theme.XpTokens
 import kotlinx.coroutines.launch
@@ -86,7 +87,7 @@ fun NotesEditorScreen(vm: NotesEditorViewModel, onBack: () -> Unit, onPickCatego
     val caret = rememberCaretScroll(bodyScroll)
     CaretScrollEffect(caret, selectionKey = bodyTfv.selection)
 
-    Column(Modifier.fillMaxSize().background(XpTokens.Bg).imePadding()) {
+    Column(Modifier.fillMaxSize().background(XpTokens.Bg).cutoutSafeTopPadding().imePadding()) {
         TopBar(
             previewMode = s.previewMode,
             categoryName = s.categoryName,
@@ -156,7 +157,7 @@ private fun TopBar(
     onPreview: () -> Unit,
 ) {
     Row(
-        Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         CategoryChip(categoryName, categoryColorHex, onPickCategory)

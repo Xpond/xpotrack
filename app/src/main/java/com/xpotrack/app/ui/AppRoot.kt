@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.ui.Alignment
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -76,7 +76,7 @@ fun AppRoot() {
         Modifier
             .fillMaxSize()
             .background(XpTokens.Bg)
-            .systemBarsPadding(),
+            .navigationBarsPadding(),
     ) {
         NavHost(navController = nav, startDestination = "tabs") {
             composable("tabs") {

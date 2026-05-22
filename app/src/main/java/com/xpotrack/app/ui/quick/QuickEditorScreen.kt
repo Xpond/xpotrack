@@ -32,6 +32,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.xpotrack.app.ui.components.cutoutSafeTopPadding
 import com.xpotrack.app.ui.notes.CaretScrollEffect
 import com.xpotrack.app.ui.notes.rememberCaretScroll
 import com.xpotrack.app.ui.theme.XpTokens
@@ -72,14 +73,13 @@ fun QuickEditorScreen(
     val caret = rememberCaretScroll(bodyScroll)
     CaretScrollEffect(caret, selectionKey = tfv.selection)
 
-    Column(Modifier.fillMaxSize().background(XpTokens.Bg).imePadding()) {
+    Column(Modifier.fillMaxSize().background(XpTokens.Bg).cutoutSafeTopPadding().imePadding()) {
         Column(
             Modifier.fillMaxSize()
                 .onGloballyPositioned { caret.viewportHeightPx = it.size.height }
                 .verticalScroll(bodyScroll)
                 .padding(horizontal = 24.dp),
         ) {
-            Spacer(Modifier.height(16.dp))
             Text(
                 "Quick · disappears in 24h",
                 style = MaterialTheme.typography.labelMedium,

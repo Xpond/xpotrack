@@ -37,6 +37,7 @@ import androidx.fragment.app.FragmentActivity
 import com.xpotrack.app.R
 import com.xpotrack.app.data.security.VaultKeyStore
 import com.xpotrack.app.ui.components.XpPrimaryButton
+import com.xpotrack.app.ui.components.cutoutSafeTopPadding
 import com.xpotrack.app.ui.theme.XpTokens
 
 @Composable
@@ -75,10 +76,9 @@ fun VaultSetupScreen(vm: VaultViewModel) {
     }
 
     Column(
-        Modifier.fillMaxSize().background(XpTokens.Bg).padding(horizontal = 24.dp),
+        Modifier.fillMaxSize().background(XpTokens.Bg).cutoutSafeTopPadding().padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Spacer(Modifier.height(20.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(painterResource(R.drawable.ic_lock), null, tint = XpTokens.TealDim, modifier = Modifier.size(11.dp))
             Spacer(Modifier.size(6.dp))
