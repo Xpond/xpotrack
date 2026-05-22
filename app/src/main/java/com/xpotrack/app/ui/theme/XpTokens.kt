@@ -26,6 +26,10 @@ object XpTokens {
     var Ink3 by mutableStateOf(Dark.Ink3)
     var Ink4 by mutableStateOf(Dark.Ink4)
 
+    // Body copy ink. In dark mode this is intentionally dimmer than Ink so long
+    // reads feel softer; in light mode it matches Ink (already on a pale bg).
+    var BodyInk by mutableStateOf(Dark.BodyInk)
+
     var Hair by mutableStateOf(Dark.Hair)
     var Hair2 by mutableStateOf(Dark.Hair2)
 
@@ -46,6 +50,7 @@ object XpTokens {
         Bg = p.Bg; Surface1 = p.Surface1; Surface2 = p.Surface2
         Teal = p.Teal; TealDim = p.TealDim; TealGlow = p.TealGlow
         Ink = p.Ink; Ink2 = p.Ink2; Ink3 = p.Ink3; Ink4 = p.Ink4
+        BodyInk = p.BodyInk
         Hair = p.Hair; Hair2 = p.Hair2
         Silent = p.Silent; Notify = p.Notify; Alarm = p.Alarm
         OnTeal = p.OnTeal
@@ -57,6 +62,7 @@ data class XpPalette(
     val Bg: Color, val Surface1: Color, val Surface2: Color,
     val Teal: Color, val TealDim: Color, val TealGlow: Color,
     val Ink: Color, val Ink2: Color, val Ink3: Color, val Ink4: Color,
+    val BodyInk: Color,
     val Hair: Color, val Hair2: Color,
     val Silent: Color, val Notify: Color, val Alarm: Color,
     val OnTeal: Color,
@@ -74,6 +80,7 @@ val Dark = XpPalette(
     Ink2 = Color(0xFF8FA8A4),
     Ink3 = Color(0xFF4F6663),
     Ink4 = Color(0xFF2C3F3D),
+    BodyInk = Color(0xFFADC0BD),
     Hair = Color(0x125EEAD4),
     Hair2 = Color(0x1F5EEAD4),
     Silent = Color(0xFF6B807D),
@@ -96,6 +103,7 @@ val Light = XpPalette(
     Ink2 = Color(0xFF3F5754),
     Ink3 = Color(0xFF6B8481),
     Ink4 = Color(0xFFA8BCB9),
+    BodyInk = Color(0xFF06100F),
     Hair = Color(0x1F0D9488),
     Hair2 = Color(0x330D9488),
     Silent = Color(0xFF6B807D),

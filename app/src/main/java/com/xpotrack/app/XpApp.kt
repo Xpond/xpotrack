@@ -5,6 +5,7 @@ import com.xpotrack.app.data.alarm.AlarmScheduler
 import com.xpotrack.app.data.alarm.NotificationChannels
 import com.xpotrack.app.data.db.XpDatabase
 import com.xpotrack.app.data.model.ReminderLevel
+import com.xpotrack.app.data.prefs.EditorZoomPrefs
 import com.xpotrack.app.data.prefs.ThemePrefs
 import com.xpotrack.app.data.quick.QuickNoteSweepWorker
 import com.xpotrack.app.data.repo.CategoryRepository
@@ -42,12 +43,15 @@ class XpApp : Application() {
         private set
     lateinit var themePrefs: ThemePrefs
         private set
+    lateinit var editorZoomPrefs: EditorZoomPrefs
+        private set
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
         super.onCreate()
         themePrefs = ThemePrefs(this).also { it.applyCurrent() }
+        editorZoomPrefs = EditorZoomPrefs(this)
         NotificationChannels.ensure(this)
         val db = XpDatabase.get(this)
         alarmScheduler = AlarmScheduler(this)

@@ -8,10 +8,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -25,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -36,7 +41,11 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
@@ -45,11 +54,13 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xpotrack.app.R
+import com.xpotrack.app.XpApp
 import com.xpotrack.app.ui.categories.parseHexColor
 import com.xpotrack.app.ui.theme.GeistMono
 import com.xpotrack.app.ui.theme.XpTokens
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun NotesEditorScreen(vm: NotesEditorViewModel, onBack: () -> Unit, onPickCategory: () -> Unit) {
     val s by vm.state.collectAsStateWithLifecycle()
@@ -62,12 +73,20 @@ fun NotesEditorScreen(vm: NotesEditorViewModel, onBack: () -> Unit, onPickCatego
     // VM finishes loading, then mirrored back via onBodyChange. Toolbar inserts
     // mutate this directly so the caret can land in the right spot.
     var bodyTfv by remember(s.loaded, s.id) { mutableStateOf(TextFieldValue(s.body, TextRange(s.body.length))) }
+    val imeVisible = WindowInsets.isImeVisible
+
+    val zoomPrefs = (LocalContext.current.applicationContext as XpApp).editorZoomPrefs
+    var zoom by remember { mutableFloatStateOf(zoomPrefs.zoom) }
 
     LaunchedEffect(s.loaded, s.id) {
         if (s.loaded && s.id == 0 && !s.previewMode) titleFocus.requestFocus()
     }
 
-    Column(Modifier.fillMaxSize().background(XpTokens.Bg)) {
+    val bodyScroll = rememberScrollState()
+    val caret = rememberCaretScroll(bodyScroll)
+    CaretScrollEffect(caret, selectionKey = bodyTfv.selection)
+
+    Column(Modifier.fillMaxSize().background(XpTokens.Bg).imePadding()) {
         TopBar(
             previewMode = s.previewMode,
             categoryName = s.categoryName,
@@ -78,24 +97,41 @@ fun NotesEditorScreen(vm: NotesEditorViewModel, onBack: () -> Unit, onPickCatego
             onPreview = { vm.setPreview(true) },
         )
         Column(
-            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
+            Modifier.weight(1f).fillMaxWidth()
+                .onGloballyPositioned { caret.viewportHeightPx = it.size.height }
+                .verticalScroll(bodyScroll)
+                .pinchZoom(zoom) { next ->
+                    zoom = next
+                    zoomPrefs.zoom = next
+                }
                 .padding(horizontal = if (s.previewMode) 26.dp else 24.dp),
         ) {
-            Spacer(Modifier.height(8.dp))
-            if (s.previewMode) {
-                if (s.title.isNotBlank()) Heading(s.title, h1 = true)
-                MarkdownBody(s.body, onToggleTask = vm::toggleTask)
-            } else {
-                TitleField(s.title, vm::onTitleChange, titleFocus)
-                Spacer(Modifier.height(12.dp))
-                BodyField(bodyTfv) { tfv ->
-                    bodyTfv = tfv
-                    if (tfv.text != s.body) vm.onBodyChange(tfv.text)
+            ZoomedText(zoom) {
+                Spacer(Modifier.height(8.dp))
+                if (s.previewMode) {
+                    if (s.title.isNotBlank()) Heading(s.title, h1 = true)
+                    MarkdownBody(s.body, onToggleTask = vm::toggleTask)
+                } else {
+                    TitleField(s.title, vm::onTitleChange, titleFocus)
+                    Spacer(Modifier.height(12.dp))
+                    BodyField(
+                        value = bodyTfv,
+                        onChange = { tfv ->
+                            bodyTfv = tfv
+                            if (tfv.text != s.body) vm.onBodyChange(tfv.text)
+                        },
+                        onTextLayout = { layout ->
+                            caret.caretRect = layout.getCursorRect(
+                                bodyTfv.selection.start.coerceIn(0, bodyTfv.text.length)
+                            )
+                        },
+                        onFieldPositioned = { caret.fieldTopInScrollPx = it },
+                    )
                 }
+                Spacer(Modifier.height(16.dp))
             }
-            Spacer(Modifier.height(120.dp))
         }
-        if (!s.previewMode) {
+        if (!s.previewMode && imeVisible) {
             NotesFormatBar(bodyTfv) { tfv ->
                 bodyTfv = tfv
                 vm.onBodyChange(tfv.text)
@@ -199,12 +235,19 @@ private fun TitleField(value: String, onChange: (String) -> Unit, focus: FocusRe
 }
 
 @Composable
-private fun BodyField(value: TextFieldValue, onChange: (TextFieldValue) -> Unit) {
+private fun BodyField(
+    value: TextFieldValue,
+    onChange: (TextFieldValue) -> Unit,
+    onTextLayout: (TextLayoutResult) -> Unit,
+    onFieldPositioned: (Int) -> Unit,
+) {
     BasicTextField(
         value = value, onValueChange = onChange,
-        textStyle = LocalTextStyle.current.copy(fontSize = 16.sp, lineHeight = 26.sp, color = XpTokens.Ink),
+        textStyle = LocalTextStyle.current.copy(fontSize = 16.sp, lineHeight = 26.sp, color = XpTokens.BodyInk),
         cursorBrush = SolidColor(XpTokens.Teal),
-        modifier = Modifier.fillMaxWidth(),
+        onTextLayout = onTextLayout,
+        modifier = Modifier.fillMaxWidth()
+            .onGloballyPositioned { onFieldPositioned(it.positionInParent().y.toInt()) },
         decorationBox = { inner ->
             if (value.text.isEmpty()) Text(
                 "Start writing. Markdown shortcuts work — # for heading, > for quote, ``` for code.",
