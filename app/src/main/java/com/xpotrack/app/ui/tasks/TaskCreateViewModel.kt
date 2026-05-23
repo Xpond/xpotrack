@@ -15,12 +15,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
 
 data class TaskEditState(
     val id: Long = 0L,
     val title: String = "",
-    val hour: Int = 16,         // 0..23
+    val hour: Int = 0,          // 0..23
     val minute: Int = 0,        // 0..59
     val level: ReminderLevel = ReminderLevel.Alarm,
     val durationMin: Int = 30,
@@ -41,7 +42,11 @@ class TaskCreateViewModel(
     initialDate: Long,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(TaskEditState(dateEpochDay = initialDate))
+    private val _state = MutableStateFlow(
+        LocalTime.now().let { now ->
+            TaskEditState(dateEpochDay = initialDate, hour = now.hour, minute = now.minute)
+        }
+    )
     val state: StateFlow<TaskEditState> = _state.asStateFlow()
 
     val allNotes: StateFlow<List<NoteRow>> = notesRepo.observeAll()
