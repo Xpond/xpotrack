@@ -3,46 +3,26 @@
 Local-only Android notes + tasks app. Kotlin + Compose, Room behind SQLCipher, no network.
 
 ## Read these first
-- `docs/goal.md` — original technical plan (stack, data model, alarms, encryption, export)
-- `docs/design-spec.md` — palette, type, screen priority, **fidelity rule** (§1a), Compose-vs-CSS gaps (§10)
-- `docs/progress.md` — running log of every milestone shipped + the roadmap at the bottom
-- `misc/mockups/screens/*.jsx` — the design source of truth. Every screen must match these.
+- `docs/progress.md` — feature-by-feature snapshot of what ships + the gotchas worth keeping
 
 ## Non-negotiable rules
-- **Design fidelity is exact, no compromises.** Mockups are the spec. CSS-vs-Compose gaps are flagged in `design-spec.md` §10 and resolved with the user before deviation.
-- **Local only.** No network code. No analytics. No cloud. Plan §1.
-- **Milestone discipline.** Build + install + on-device verify before each next milestone. Never accumulate untested code.
+- **Local only.** No network code. No analytics. No cloud.
+- **Verify on device before next change.** Build + install + smoke-test the affected surface. Don't accumulate untested code.
 - Follow `~/.claude/CLAUDE.md` (Karpathy rules) — surgical changes, simplicity first, files near 200 lines.
 
 ## Stack
-- Kotlin 2.1.0, Compose BOM 2024.12, AGP 8.7.3, JDK 21, Gradle 8.10.2
-- `compileSdk = 35`, `minSdk = 29`, `targetSdk = 35`
-- Room 2.6.1 + SQLCipher 4.6.1 (whole-DB encryption)
-- AndroidX EncryptedSharedPreferences for the 32-byte DB passphrase
-- KSP for Room codegen, no Hilt (manual DI via `XpApp`)
+- Kotlin 2.1.0, Compose BOM 2024.12, AGP 8.7.3, Gradle 8.10.2. Builds on JDK 21; compiles to JVM 17 bytecode.
+- `compileSdk = 35`, `minSdk = 29`, `targetSdk = 35`. APK pinned to `arm64-v8a`.
+- Room 2.6.1 + SQLCipher 4.6.1 (whole-DB encryption). Schema currently at v11.
+- AndroidX EncryptedSharedPreferences for the 32-byte DB passphrase + vault metadata.
+- KSP for Room codegen, no Hilt (manual DI via `XpApp`).
 
 ## Project shape
-```
-app/src/main/java/com/xpotrack/app/
-  MainActivity.kt · XpApp.kt           # entry + DI container
-  data/
-    model/ReminderLevel.kt             # pure domain enum
-    db/{Entities,Daos,XpDatabase}.kt   # Room + SQLCipher wiring
-    repo/{Notes,Tasks}Repository.kt    # entity ↔ UI model mapping
-    repo/SeedData.kt                   # mockup data on first launch
-    security/PassphraseStore.kt        # Keystore-backed key
-  ui/
-    AppRoot.kt                         # tab state + content router
-    theme/{XpTokens,XpTheme,XpTypography}.kt
-    components/{XpBottomTabs, XpReminderPill, ReminderStyle}.kt
-    notes/{NotesData, NotesListScreen, NotesCategoryView,
-           NotesChronoView, QuickEntryStrip, NotesViewModel}.kt
-    tasks/{TasksData, TasksTimelineScreen, DayChips, Timeline, TasksViewModel}.kt
-    vault/VaultStubScreen.kt           # placeholder until milestone 10
-    more/MoreStubScreen.kt             # placeholder until milestone 13
-app/src/main/res/
-  drawable/ic_*.xml    font/geist_*.ttf    values/{strings,themes}.xml
-```
+
+- `data/` — `alarm/`, `db/`, `model/`, `prefs/`, `quick/`, `repo/`, `security/`. Pure Kotlin and Android; no Compose imports.
+- `ui/` — `AppRoot.kt` + per-tab packages (`notes`, `tasks`, `quick`, `vault`, `categories`, `settings`, `alarm`) + `theme/` + `components/`. Imports from `data/`, never the reverse.
+
+For the full file tree see `docs/progress.md` (Architecture section).
 
 ## Build & deploy
 ```
@@ -60,15 +40,15 @@ Phone is iQOO Neo 7 (Android 14, SDK 34) over wireless adb on LAN. Tailscale + A
 ui  ──imports──→  data
 data ──no imports──→  ui*
 ```
-*Exception: repositories import `NoteRow` / `TaskRow` from `ui/notes` and `ui/tasks`. Those are plain data classes with no Compose deps. Move to a `domain/` package when a third feature surface forces the issue (likely milestone 8 — alarms need a domain `Task`).
+*Exception: repositories import `NoteRow` / `TaskRow` from `ui/notes` and `ui/tasks`. Those are plain data classes with no Compose deps. Domain models (`Task`, `Category`, `ReminderLevel`) live in `data/model/` — kept there rather than carved into a separate `domain/` package because the import graph stays clean and the second layer added complexity without payoff.
 
 ## Conventions
-- Tokens from `system.jsx` live in `XpTokens.kt` — every color is hex-equivalent to the mockup CSS.
+- Color tokens live in `XpTokens.kt`. Light + Dark palettes; each token is `var ... by mutableStateOf(...)` so swapping the palette recomposes every reader (see `progress.md` → Theming for the trade-off).
 - Vector drawables (`res/drawable/ic_*.xml`) for SVG icons. `Icon` composable applies `tint` per call site.
-- Geist + Geist Mono bundled as `.ttf` in `res/font/`. No Google Fonts at runtime.
-- No `Modifier.shadow()` for teal glow — Compose shadows are grayscale. Use stacked `drawBehind` radial gradients (see `design-spec.md` §10).
+- Only `GeistMono` bundled as `.ttf` in `res/font/`. The `Geist` alias in `XpTypography.kt` resolves to the mono family — proportional Geist was dropped. No Google Fonts at runtime.
+- Teal glow on the FAB uses `Modifier.shadow(ambientColor = Teal, spotColor = Teal)` (API 28+ tinted shadows). The old "Compose shadows are grayscale" workaround with stacked `drawBehind` radial gradients is no longer needed.
 - DAOs return `Flow<List<…>>`. ViewModels expose `StateFlow` via `stateIn(WhileSubscribed(5_000))`. UI collects with `collectAsStateWithLifecycle()`.
-- Seed runs once per fresh install (`dao.count() == 0` guard). Uninstall destroys the Keystore key and makes the DB unrecoverable — feature, not bug.
+- Seed data is gone — fresh installs land on empty lists with adaptive `EmptyState` copy. Uninstall destroys the Keystore key and makes the DB unrecoverable — feature, not bug.
 
 ## MCP Tools
 
