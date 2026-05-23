@@ -1,5 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Local-only app. Nothing leaves the device.
+  - cloud-backup: Google Auto Backup (Android 12+). Doubly disabled because
+    android:allowBackup="false" already blocks it; the explicit excludes are
+    defense in depth.
+  - device-transfer: D2D copy (Pixel Setup, Smart Switch, etc.) — independent
+    of allowBackup on Android 12+, so the excludes here are the *only* gate.
+-->
 <data-extraction-rules>
-    <cloud-backup />
-    <device-transfer />
+    <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="file" />
+        <exclude domain="external" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="file" />
+        <exclude domain="external" />
+    </device-transfer>
 </data-extraction-rules>

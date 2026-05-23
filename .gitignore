@@ -17,3 +17,9 @@ local.properties
 *.aab
 *.ap_
 *.dex
+
+# Signing
+*.jks
+*.keystore
+*.p12
+release.properties
