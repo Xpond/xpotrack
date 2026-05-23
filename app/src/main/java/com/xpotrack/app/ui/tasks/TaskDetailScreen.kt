@@ -58,7 +58,6 @@ fun TaskDetailScreen(
     Column(Modifier.fillMaxSize().background(XpTokens.Bg).cutoutSafeTopPadding()) {
         TopBar(
             counter = if (s.indexToday > 0) "Task · ${s.indexToday} of ${s.totalToday} today" else "Task",
-            onBack = saveAndBack,
         )
         Column(Modifier.fillMaxSize().padding(horizontal = 22.dp)) {
             HeroTime(task, style)
