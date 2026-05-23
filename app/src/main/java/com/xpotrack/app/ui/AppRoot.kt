@@ -105,7 +105,7 @@ fun AppRoot() {
                 QuickEditorScreen(
                     vm = vm,
                     noteId = id,
-                    onBack = { nav.popBackStack() },
+                    onBack = { nav.popBackStack(route = "tabs", inclusive = false) },
                 )
             }
             composable(
@@ -123,7 +123,7 @@ fun AppRoot() {
                     factory = NotesEditorViewModel.Factory(app.notesRepo, app.categoryRepo, id, cat),
                 )
                 NotesEditorScreen(
-                    vm = vm, onBack = { nav.popBackStack() },
+                    vm = vm, onBack = { nav.popBackStack(route = "tabs", inclusive = false) },
                     onPickCategory = {
                         sheetMode = CategorySheetMode.Picker
                         categoryRequest = CategoryRequest(
@@ -148,7 +148,7 @@ fun AppRoot() {
                 LaunchedEffect(sheetToken) { vm.refresh() }
                 TaskDetailScreen(
                     vm = vm,
-                    onBack = { nav.popBackStack() },
+                    onBack = { nav.popBackStack(route = "tabs", inclusive = false) },
                     onEdit = { openSheet(it) },
                     onOpenNote = { noteId -> nav.navigate("editor/$noteId") },
                 )

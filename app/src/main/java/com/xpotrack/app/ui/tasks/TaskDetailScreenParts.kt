@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
@@ -46,16 +45,13 @@ import com.xpotrack.app.ui.theme.GeistMono
 import com.xpotrack.app.ui.theme.XpTokens
 
 @Composable
-internal fun TopBar(counter: String, onBack: () -> Unit) {
+internal fun TopBar(counter: String) {
     Row(
         Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
     ) {
-        IconChip(R.drawable.ic_chevron_left, "Back", onBack)
-        Spacer(Modifier.weight(1f))
         Text(counter, style = MaterialTheme.typography.labelMedium, color = XpTokens.Ink3)
-        Spacer(Modifier.weight(1f))
-        Spacer(Modifier.size(38.dp)) // keep counter centered (mirrors back chip width)
     }
 }
 
@@ -255,12 +251,3 @@ internal fun ActionRow(done: Boolean, onMarkDone: () -> Unit, onDelete: () -> Un
     }
 }
 
-@Composable
-private fun IconChip(iconRes: Int, desc: String, onClick: () -> Unit) {
-    Box(
-        Modifier.size(38.dp).clip(CircleShape).clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(painterResource(iconRes), desc, tint = XpTokens.Ink2, modifier = Modifier.size(18.dp))
-    }
-}
