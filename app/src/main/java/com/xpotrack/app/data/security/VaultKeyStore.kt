@@ -8,14 +8,14 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-// Keystore AES-GCM key gated by biometric auth. Wraps the user's vault passphrase
-// bytes so that a successful BiometricPrompt unwraps them without re-typing.
+// Keystore AES-GCM key gated by biometric auth. Wraps the derived vault AES key
+// bytes so that a successful BiometricPrompt unwraps them without re-running PBKDF2.
 //
 // Flow:
 //   1) initEncryptCipher() returns a Cipher in ENCRYPT_MODE — pass to BiometricPrompt.
-//      On success, call wrap(cipher, passphraseBytes) → (ciphertext, iv) to persist.
+//      On success, call wrap(cipher, keyBytes) → (ciphertext, iv) to persist.
 //   2) initDecryptCipher(iv) returns one in DECRYPT_MODE — pass to prompt.
-//      On success, call unwrap(cipher, ciphertext) → passphraseBytes.
+//      On success, call unwrap(cipher, ciphertext) → keyBytes.
 //
 // The Cipher must be auth-bound: invalidatedByBiometricEnrollment so adding/removing
 // a fingerprint nukes the key (and the user falls back to passphrase).

@@ -6,7 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-// Mirrors misc/mockups/screens/system.jsx for the dark palette. Fields are
+// Color palette for the app. Fields are
 // `var ... by mutableStateOf(...)` so the Settings light/dark toggle can swap
 // the live palette in place and every call site recomposes automatically.
 // Trade-off: this is a global mutable singleton, so there's only one active
