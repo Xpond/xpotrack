@@ -23,8 +23,8 @@ private inline fun relativeOr(
     }
 }
 
-private val MONTH_DAY = DateTimeFormatter.ofPattern("MMM d", Locale.getDefault())
-private val EEE_MONTH_DAY = DateTimeFormatter.ofPattern("EEE, MMM d", Locale.getDefault())
+private val MONTH_DAY = DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH)
+private val EEE_MONTH_DAY = DateTimeFormatter.ofPattern("EEE, MMM d", Locale.ENGLISH)
 
 fun relativeDay(epochDay: Long): String =
     relativeOr(epochDay, "today", "tomorrow", "yesterday") { it.format(MONTH_DAY) }
