@@ -32,6 +32,15 @@ abstract class XpDatabase : RoomDatabase() {
             }
         }
 
+        // Backup hook: collapse WAL into the main DB file so a byte-for-byte
+        // copy is consistent. TRUNCATE empties the -wal file on success, so
+        // the backup only needs the main file. DB stays open — cached DAOs
+        // across the app keep working.
+        fun checkpointForBackup(context: Context) {
+            val db = get(context)
+            db.query("PRAGMA wal_checkpoint(TRUNCATE)", null).use { it.moveToFirst() }
+        }
+
         private fun build(appContext: Context): XpDatabase {
             // SQLCipher loads its native libs lazily; call site below is safe pre-Room.
             System.loadLibrary("sqlcipher")
