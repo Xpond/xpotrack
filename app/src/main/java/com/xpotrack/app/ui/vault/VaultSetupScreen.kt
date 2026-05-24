@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -76,7 +77,7 @@ fun VaultSetupScreen(vm: VaultViewModel) {
     }
 
     Column(
-        Modifier.fillMaxSize().background(XpTokens.Bg).cutoutSafeTopPadding().padding(horizontal = 24.dp),
+        Modifier.fillMaxSize().background(XpTokens.Bg).cutoutSafeTopPadding().imePadding().padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -120,12 +121,6 @@ fun VaultSetupScreen(vm: VaultViewModel) {
             Spacer(Modifier.height(24.dp))
             XpPrimaryButton("Create vault", enabled = pass.isNotEmpty() && confirm.isNotEmpty(), onClick = submit)
         }
-
-        Text(
-            "Encrypted on this device. Never synced.",
-            color = XpTokens.Ink3, fontSize = 11.sp,
-            modifier = Modifier.padding(bottom = 16.dp),
-        )
     }
 }
 

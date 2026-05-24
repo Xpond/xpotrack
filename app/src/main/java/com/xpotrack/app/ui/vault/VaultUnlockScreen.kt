@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -22,6 +23,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,6 +42,7 @@ import com.xpotrack.app.data.security.VaultKeyStore
 import com.xpotrack.app.ui.components.XpPrimaryButton
 import com.xpotrack.app.ui.components.cutoutSafeTopPadding
 import com.xpotrack.app.ui.theme.XpTokens
+import kotlinx.coroutines.launch
 
 @Composable
 fun VaultUnlockScreen(vm: VaultViewModel) {
@@ -47,8 +50,11 @@ fun VaultUnlockScreen(vm: VaultViewModel) {
     val biometricAvailable = remember { VaultBiometric.isAvailable(activity) }
     val hasBiometricBlob = remember { vm.hasBiometric() }
     val canBiometric = biometricAvailable && hasBiometricBlob
+    val canEnroll = biometricAvailable && !hasBiometricBlob
+    val scope = rememberCoroutineScope()
 
     var showPassphrase by remember { mutableStateOf(!canBiometric) }
+    var enrollArmed by remember { mutableStateOf(false) }
     var pass by remember { mutableStateOf("") }
     val err by vm.unlockError.collectAsStateWithLifecycle()
     val verifying by vm.verifying.collectAsStateWithLifecycle()
@@ -65,18 +71,45 @@ fun VaultUnlockScreen(vm: VaultViewModel) {
         )
     }
 
+    // Unlock with passphrase. If enrollment is armed (badge tapped while no blob),
+    // run the biometric enroll prompt after verify succeeds, save the wrapped key,
+    // then commit. Any enroll outcome — success, cancel, error — still commits the
+    // unlock so the user isn't trapped.
+    val submitPassphrase = {
+        scope.launch {
+            val key = vm.verifyPassphrase(pass.toCharArray()) ?: return@launch
+            if (!enrollArmed) { vm.commitUnlock(key); return@launch }
+            val cipher = runCatching { VaultKeyStore.initEncryptCipher() }.getOrNull()
+            if (cipher == null) { vm.commitUnlock(key); return@launch }
+            VaultBiometric.prompt(
+                activity = activity, cipher = cipher,
+                title = "Enable fingerprint unlock",
+                subtitle = "Future opens won't need the passphrase.",
+                onSuccess = { authed -> vm.saveBiometric(key, authed); vm.commitUnlock(key) },
+                onError = { vm.commitUnlock(key) },
+                onCancel = { vm.commitUnlock(key) },
+            )
+        }
+        Unit
+    }
+
     // Auto-trigger fingerprint on first composition if available.
     LaunchedEffect(Unit) { if (canBiometric) triggerBiometric() }
 
     Column(
-        Modifier.fillMaxSize().background(XpTokens.Bg).cutoutSafeTopPadding().padding(horizontal = 24.dp),
+        Modifier.fillMaxSize().background(XpTokens.Bg).cutoutSafeTopPadding().imePadding().padding(horizontal = 24.dp),
     ) {
         Column(
             Modifier.weight(1f).fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            FingerprintBadge()
+            val onBadge: (() -> Unit)? = when {
+                canBiometric -> { { showPassphrase = false; triggerBiometric() } }
+                canEnroll -> { { enrollArmed = true; showPassphrase = true } }
+                else -> null
+            }
+            FingerprintBadge(onClick = onBadge)
             Spacer(Modifier.height(32.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(painterResource(R.drawable.ic_lock), null, tint = XpTokens.TealDim, modifier = Modifier.size(11.dp))
@@ -85,12 +118,17 @@ fun VaultUnlockScreen(vm: VaultViewModel) {
             }
             Spacer(Modifier.height(12.dp))
             Text(
-                if (showPassphrase) "Enter passphrase" else "Touch the sensor",
+                when {
+                    enrollArmed -> "Enable fingerprint"
+                    showPassphrase -> "Enter passphrase"
+                    else -> "Touch the sensor"
+                },
                 color = XpTokens.Ink, fontSize = 24.sp, fontWeight = FontWeight.SemiBold,
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                "Encrypted on this device — never synced.",
+                if (enrollArmed) "Type your passphrase to enable fingerprint unlock."
+                else "Encrypted on this device — never synced.",
                 color = XpTokens.Ink2, fontSize = 13.5.sp,
             )
 
@@ -99,7 +137,7 @@ fun VaultUnlockScreen(vm: VaultViewModel) {
                 PassphraseEntry(
                     pass, { pass = it },
                     verifying = verifying,
-                    onSubmit = { vm.unlockWithPassphrase(pass.toCharArray()) },
+                    onSubmit = submitPassphrase,
                 )
             }
 
@@ -108,26 +146,16 @@ fun VaultUnlockScreen(vm: VaultViewModel) {
                 Text(it, color = XpTokens.Alarm, fontSize = 12.sp)
             }
         }
-
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-        ) {
-            if (!showPassphrase && canBiometric) {
-                FallbackButton("Use passphrase instead") { showPassphrase = true }
-            } else if (canBiometric) {
-                FallbackButton("Use fingerprint") { showPassphrase = false; triggerBiometric() }
-            }
-        }
     }
 }
 
 @Composable
-private fun FingerprintBadge() {
+private fun FingerprintBadge(onClick: (() -> Unit)? = null) {
     Box(
         Modifier.size(152.dp).clip(CircleShape)
             .background(Brush.radialGradient(0f to XpTokens.TealGlow, 1f to Color.Transparent))
-            .border(0.5.dp, XpTokens.Teal, CircleShape),
+            .border(0.5.dp, XpTokens.Teal, CircleShape)
+            .let { if (onClick != null) it.clickable(onClick = onClick) else it },
         contentAlignment = Alignment.Center,
     ) {
         Box(
@@ -151,15 +179,3 @@ private fun PassphraseEntry(value: String, onChange: (String) -> Unit, verifying
     }
 }
 
-@Composable
-private fun FallbackButton(label: String, onClick: () -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.clip(CircleShape)
-            .border(0.5.dp, XpTokens.Hair2, CircleShape)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 22.dp, vertical = 11.dp),
-    ) {
-        Text(label, color = XpTokens.Ink2, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-    }
-}
