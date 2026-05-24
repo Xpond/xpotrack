@@ -9,6 +9,7 @@ import com.xpotrack.app.data.security.VaultKeyStore
 import com.xpotrack.app.data.security.VaultMetaStore
 import com.xpotrack.app.data.security.VaultSession
 import javax.crypto.Cipher
+import javax.crypto.SecretKey
 import javax.crypto.spec.SecretKeySpec
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -93,21 +94,29 @@ class VaultViewModel(
 
     // --- Unlock paths ---
 
-    fun unlockWithPassphrase(pass: CharArray) {
+    // Returns the derived AES key on success, or null after publishing an error.
+    // Callers can interpose a biometric enroll step before commitUnlock.
+    suspend fun verifyPassphrase(pass: CharArray): SecretKey? {
         unlockError.value = null
         verifying.value = true
-        viewModelScope.launch {
-            val salt = meta.salt()
-            val candidate = withContext(Dispatchers.Default) { VaultCrypto.deriveVerifier(pass, salt) }
-            if (!VaultCrypto.constantTimeEquals(candidate, meta.verifier())) {
-                unlockError.value = "Wrong passphrase"
-                verifying.value = false
-                return@launch
-            }
-            val key = withContext(Dispatchers.Default) { VaultCrypto.deriveKey(pass, salt) }
-            session.unlock(key)
+        val salt = meta.salt()
+        val candidate = withContext(Dispatchers.Default) { VaultCrypto.deriveVerifier(pass, salt) }
+        if (!VaultCrypto.constantTimeEquals(candidate, meta.verifier())) {
+            unlockError.value = "Wrong passphrase"
             verifying.value = false
+            return null
         }
+        return withContext(Dispatchers.Default) { VaultCrypto.deriveKey(pass, salt) }
+    }
+
+    fun commitUnlock(key: SecretKey) {
+        session.unlock(key)
+        verifying.value = false
+    }
+
+    fun saveBiometric(key: SecretKey, cipher: Cipher) {
+        val (ct, iv) = VaultKeyStore.wrap(cipher, key.encoded)
+        meta.saveBiometric(ct, iv)
     }
 
     fun unlockWithBiometric(cipher: Cipher) {
