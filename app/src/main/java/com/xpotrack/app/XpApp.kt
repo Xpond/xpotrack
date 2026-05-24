@@ -4,6 +4,7 @@ import android.app.Application
 import android.util.Log
 import com.xpotrack.app.data.alarm.AlarmScheduler
 import com.xpotrack.app.data.alarm.NotificationChannels
+import com.xpotrack.app.data.backup.BackupManager
 import com.xpotrack.app.data.db.XpDatabase
 import com.xpotrack.app.data.model.ReminderLevel
 import com.xpotrack.app.data.prefs.EditorZoomPrefs
@@ -45,6 +46,8 @@ class XpApp : Application() {
         private set
     lateinit var editorZoomPrefs: EditorZoomPrefs
         private set
+    lateinit var backupManager: BackupManager
+        private set
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -62,6 +65,7 @@ class XpApp : Application() {
         vaultMeta = VaultMetaStore(this)
         vaultSession = VaultSession()
         quickNotesRepo = QuickNotesRepository(db, db.quickNoteDao())
+        backupManager = BackupManager(this)
         QuickNoteSweepWorker.enqueue(this)
 
         // Preload notes off the main thread and gate the splash on the first

@@ -80,6 +80,28 @@ Vault notes live in the same `notes` table behind an `isLocked` flag with `encry
 
 ---
 
+## Backup
+
+User-driven encrypted export / restore, gated by a backup passphrase. One file → `xpotrack-<iso-ts>.xpb`, written via SAF `CreateDocument` to a user-chosen location (no MediaStore, no cloud, no auto-upload). File layout: `magic(4) "XPB1" | version(1) | salt(16) | iv(12) | AES-GCM(ciphertext+tag)`. Plaintext is a length-prefixed bundle: `[manifest JSON][SQLCipher .db bytes][secure prefs JSON][plain prefs JSON]`. Crypto reuses `VaultCrypto` — PBKDF2-HMAC-SHA256 (210k, 256-bit) + AES-256-GCM, same primitives as the vault.
+
+Restore reads the file via SAF `OpenDocument`, decodes, validates schema ≤ current, stages the DB to `xpotrack.db.restore`, commits prefs, swaps the DB file (deleting `-wal` / `-shm` sidecars first), then triggers a process restart driven from the foreground Activity. `restartApp(activity)` writes a `restored_pending` flag to `xp_restart` SharedPrefs, fires `Intent.makeRestartActivityTask` with both activity transitions suppressed via `overridePendingTransition(0,0)`, calls `finishAffinity()`, then `Runtime.getRuntime().exit(0)`. Starting the relaunch intent from the Activity (not from app context via AlarmManager) bypasses Android 12+ background-launch restrictions that otherwise leave the process dead. Next launch reopens cleanly with the restored DB passphrase. Live install is untouched if the passphrase is wrong or the file is corrupt — staging happens before any destructive write.
+
+The relaunch UX is a custom in-Activity splash. `MainActivity` checks `restored_pending` in `onCreate`, clears it, and overlays a `RestartSplash` composable on top of `AppRoot` — a centered launcher logo on `XpTokens.Bg`, held for ≥700ms after notes are ready, then fades out over 220ms. The system `Theme.SplashScreen` is still wired (`windowSplashScreenBackground = @color/splash_background` = `#06100F` = `XpTokens.Bg`), but the icon slot is empty on Vivo — `RestartSplash` is the load-bearing logo display. During the IO phase before restart, the Restore pill in Settings shows a hand-rolled `FrameSpinner` (Canvas + `withFrameMillis`) and "Restoring…" label so the user has continuous progress feedback.
+
+**Gotchas worth keeping:**
+- DB stays *open* during export. First attempt closed and nulled the singleton; every cached DAO in every repo held the old reference and broke. Fix: `PRAGMA wal_checkpoint(TRUNCATE)` collapses WAL into the main file, byte-copy is consistent, instance stays alive.
+- Biometric blob (`vault_bio_blob` / `vault_bio_iv`) is dropped at *export* time, not just on restore — Keystore-bound, useless on the new device, no point shipping dead bytes. Vault unlock falls back to passphrase on the restored device, which is the right behavior.
+- Restore order matters: write prefs before swapping the DB file, so the next launch reads the restored DB passphrase. Stage the DB to a sibling temp file first so the live `.db` survives any failure between decode and rename.
+- Process restart instead of in-place DI rebuild. The DAOs, ViewModels, and Flow subscriptions hold references to the old encrypted DB connection — rewiring all of that under load is fragile; a clean cold-start is one line.
+- First restart attempt scheduled the relaunch via `AlarmManager.set` from app context — looked correct on paper, did nothing on device. Android 12+ blocks the resulting activity start as a background launch. Has to come from a foreground Activity reference.
+- Vivo/Funtouch ignores `windowSplashScreenAnimatedIcon` — system splash background renders, icon never does. Drawable format (raw mipmap vs XML-wrapped bitmap) doesn't matter. The in-Activity `RestartSplash` composable is the workaround; the system splash theme is kept for its background color only.
+- Vivo also throttles Material's `CircularProgressIndicator` to a single static frame (the `InfiniteTransition` driving it gets paused). Hand-rolled `FrameSpinner` using `withFrameMillis` is Choreographer-driven and can't be disabled the same way. The two devices we test on (Samsung tablet + iQOO phone) made this visible — Samsung is not a representative baseline for animation behavior.
+- Two-splash intermediate design was abandoned. We tried covering the Settings page during IO with the same `RestartSplash` overlay, but the in-process overlay fading right before the cold-start overlay fading produced a visible "two splashes back-to-back" effect, with an unavoidable dark frame between processes. Switched to an in-place spinner on the Restore pill — one splash total, dark frame becomes a normal cold-start artifact rather than a seam between two splashes.
+- Restore errors are mapped to user-facing copy in `restoreErrorMessage`: `AEADBadTagException` (wrong passphrase or tampered ciphertext) → "Wrong passphrase or corrupted backup"; `BackupCodec.BadFormat` (magic mismatch, version mismatch, corrupt chunk lengths) → "This file isn't a valid xpotrack backup"; everything else → "Restore failed. Please try again." Don't leak raw exception messages — "Tag mismatch!" reads like a bug, not a fixable mistake.
+- Backup passphrase is unrecoverable, so the export sheet requires type-twice confirmation (≥8 chars, must match). Restore sheet uses one field — the help text leads with "Enter the passphrase used when this backup was created."
+
+---
+
 ## Categories
 
 User-created only. No built-ins, no "Inbox". A category has `name`, `colorHex`, `sortOrder`. Notes carry a nullable `categoryId`; orphaned notes (after a category delete) fall into a synthetic "Uncategorized" group on the list. Tasks have no category — a reminder isn't filed under "Work" the way a note is.
@@ -169,6 +191,7 @@ app/src/main/java/com/xpotrack/app/
 ├── MainActivity.kt · XpApp.kt
 ├── data/
 │   ├── alarm/{AlarmScheduler, AlarmReceiver, BootCompletedReceiver, NotificationChannels}.kt
+│   ├── backup/{BackupCodec, BackupManager}.kt
 │   ├── db/{Entities, Daos, XpDatabase, CipherFastKdf}.kt
 │   ├── model/{Task, Category, ReminderLevel}.kt
 │   ├── prefs/{ThemePrefs, EditorZoomPrefs}.kt
@@ -194,7 +217,7 @@ app/src/main/java/com/xpotrack/app/
     │          TaskDetailScreen, TaskDetailScreenParts, TaskDetailViewModel,
     │          TimeWheel, WheelPicker, RepeatPickerDialog, MonthPickerDialog,
     │          LinkNoteDialog, DialogCard, TaskDateUtils, TasksData}.kt
-    ├── settings/SettingsScreen.kt
+    ├── settings/{SettingsScreen, BackupSection}.kt
     └── vault/{VaultGate, VaultSetupScreen, VaultUnlockScreen, VaultListScreen, LockedNoteScreen,
                VaultViewModel, VaultBiometric, VaultData, PassInput}.kt
 ```
@@ -240,7 +263,5 @@ Seed data was removed (commit `6e0705e`). Fresh installs land on empty lists wit
 ## What's left
 
 **Ship-readiness.** Release signing is wired up — `signingConfigs.release` reads from `release.properties` (gitignored) with the keystore at `~/.keystores/xpotrack-release.jks` (PKCS12, 4096-bit RSA, 50-year validity). `assembleRelease` produces a v2-signed APK that `apksigner verify` accepts. `data-extraction-rules.xml` explicitly excludes all five storage domains from both `cloud-backup` and `device-transfer` so nothing leaves the device via Google Auto Backup or D2D migration. Still open: ProGuard audited against SQLCipher / Room / Compose (current build runs R8 with the default Android optimize rules and packages cleanly, but no targeted keep-rules audit), versioning + changelog, first reproducible release build. Crash reporting is explicitly out of scope per plan §1 — a local file logger could be useful instead.
-
-**Encrypted local export / restore.** Right now phone-loss = data-loss by design (Keystore master key dies with the install, DB becomes unreadable). For solo use that's fine, but a deliberate user-driven backup path would close the only remaining "I lost everything" failure mode without breaking the local-only stance. Shape: export the SQLCipher DB + the EncryptedSharedPreferences contents (DB passphrase, vault salt + verifier, biometric blob) into a single file encrypted under a user-supplied backup passphrase (PBKDF2 + AES-GCM, same primitives as the vault). Write it to a user-chosen SAF location — no auto-upload, no cloud, no MediaStore. Restore: open the file with the same passphrase, reconstitute prefs, swap the DB in place. Vault biometric blob is Keystore-bound so it can't survive a restore — vault unlock falls back to passphrase on the restored device, which is the right behavior anyway.
 
 **Remaining polish gaps.** None outstanding. FAB teal glow uses `Modifier.shadow` with `ambientColor`/`spotColor`; `0.5.dp` hairline borders are used consistently across cards and surfaces (the tab bar dropped its top hairline in favor of a 24dp fade-to-transparent edge so content dissolves into the bar instead of meeting a hard line). Empty-state placeholders show a blinking teal caret next to the title for a typing-prompt feel.
