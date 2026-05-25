@@ -7,11 +7,15 @@ import com.xpotrack.app.data.model.Task
 import com.xpotrack.app.data.repo.NotesRepository
 import com.xpotrack.app.data.repo.TasksRepository
 import com.xpotrack.app.ui.notes.NoteRow
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -24,7 +28,7 @@ data class TaskDetailState(
 
 class TaskDetailViewModel(
     private val repo: TasksRepository,
-    notesRepo: NotesRepository,
+    private val notesRepo: NotesRepository,
     private val id: Long,
 ) : ViewModel() {
 
@@ -36,9 +40,26 @@ class TaskDetailViewModel(
     private val _notesDraft = MutableStateFlow("")
     val notesDraft: StateFlow<String> = _notesDraft.asStateFlow()
 
-    // Live note list — feeds the link picker.
-    val allNotes: StateFlow<List<NoteRow>> = notesRepo.observeAll()
+    // Link-note picker. `pickerQuery` is the live text in the search box;
+    // `pickerResults` is a bounded slice (up to 200 rows) returned from
+    // SQLite. The full notes list is never materialized — at 1.25M notes the
+    // old `observeAll()` would OOM before the dialog opened.
+    private val _pickerQuery = MutableStateFlow("")
+    val pickerQuery: StateFlow<String> = _pickerQuery.asStateFlow()
+
+    @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
+    val pickerResults: StateFlow<List<NoteRow>> = _pickerQuery
+        .debounce(150)
+        .flatMapLatest { notesRepo.searchForPicker(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    // Currently-linked note resolved by id — fetched once per change so the
+    // picker chip can show the linked title without keeping a full list flow
+    // alive.
+    private val _linkedNote = MutableStateFlow<NoteRow?>(null)
+    val linkedNote: StateFlow<NoteRow?> = _linkedNote.asStateFlow()
+
+    fun setPickerQuery(q: String) { _pickerQuery.value = q }
 
     init { refresh() }
 
@@ -59,6 +80,7 @@ class TaskDetailViewModel(
                 totalToday = sorted.size,
                 indexToday = if (idx >= 0) idx + 1 else 0,
             )
+            _linkedNote.value = task?.linkedNoteId?.let { notesRepo.getById(it.toInt()) }
             // Only seed the draft on first load — refreshes after sheet edits
             // would otherwise clobber an in-progress notes edit.
             if (task != null && wasFirstLoad) _notesDraft.value = task.notes

@@ -21,10 +21,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,21 +34,19 @@ import com.xpotrack.app.R
 import com.xpotrack.app.ui.notes.NoteRow
 import com.xpotrack.app.ui.theme.XpTokens
 
-// Note picker. Lists every non-locked note; tap to link, tap the current
-// selection to unlink. Matches RepeatPickerDialog's card surface.
+// Note picker. Search-driven and bounded to ~200 results per query so it
+// stays usable at million-note scale. Caller owns the query state so the
+// VM can run the search through SQLite (LIKE on title) instead of filtering
+// a fully-materialized list in memory.
 @Composable
 fun LinkNoteDialog(
-    notes: List<NoteRow>,
+    results: List<NoteRow>,
+    query: String,
+    onQueryChange: (String) -> Unit,
     selectedId: Long?,
     onPick: (Long?) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var query by remember { mutableStateOf("") }
-    val filtered = remember(notes, query) {
-        if (query.isBlank()) notes
-        else notes.filter { it.title.contains(query, ignoreCase = true) ||
-            it.preview.contains(query, ignoreCase = true) }
-    }
     DialogCard(onDismiss) {
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -65,13 +59,13 @@ fun LinkNoteDialog(
                 }
             }
             Spacer(Modifier.height(12.dp))
-            SearchBox(value = query, onChange = { query = it })
+            SearchBox(value = query, onChange = onQueryChange)
             Spacer(Modifier.height(10.dp))
-            if (filtered.isEmpty()) {
-                EmptyState()
+            if (results.isEmpty()) {
+                EmptyState(query)
             } else {
                 LazyColumn(Modifier.heightIn(max = 360.dp)) {
-                    items(filtered, key = { it.id }) { row ->
+                    items(results, key = { it.id }) { row ->
                         NoteOption(row, isSelected = row.id.toLong() == selectedId,
                             onClick = { onPick(row.id.toLong()) })
                         Spacer(Modifier.height(4.dp))
@@ -129,11 +123,14 @@ private fun NoteOption(row: NoteRow, isSelected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun EmptyState() {
+private fun EmptyState(query: String) {
     Box(
         Modifier.fillMaxWidth().padding(vertical = 24.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text("No notes found", color = XpTokens.Ink3, fontSize = 13.sp)
+        Text(
+            if (query.isBlank()) "No notes yet" else "No notes match \"$query\"",
+            color = XpTokens.Ink3, fontSize = 13.sp,
+        )
     }
 }

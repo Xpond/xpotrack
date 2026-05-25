@@ -8,10 +8,14 @@ import com.xpotrack.app.data.model.Task
 import com.xpotrack.app.data.repo.NotesRepository
 import com.xpotrack.app.data.repo.TasksRepository
 import com.xpotrack.app.ui.notes.NoteRow
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -37,7 +41,7 @@ data class TaskEditState(
 
 class TaskCreateViewModel(
     private val repo: TasksRepository,
-    notesRepo: NotesRepository,
+    private val notesRepo: NotesRepository,
     private val id: Long,
     initialDate: Long,
 ) : ViewModel() {
@@ -49,12 +53,30 @@ class TaskCreateViewModel(
     )
     val state: StateFlow<TaskEditState> = _state.asStateFlow()
 
-    val allNotes: StateFlow<List<NoteRow>> = notesRepo.observeAll()
+    // Link-note picker. Bounded search via SQLite — see
+    // TaskDetailViewModel for the same pattern + rationale.
+    private val _pickerQuery = MutableStateFlow("")
+    val pickerQuery: StateFlow<String> = _pickerQuery.asStateFlow()
+
+    @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
+    val pickerResults: StateFlow<List<NoteRow>> = _pickerQuery
+        .debounce(150)
+        .flatMapLatest { notesRepo.searchForPicker(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    // Title chip for the currently-linked note — resolved by id, refetched
+    // when the linked id changes.
+    private val _linkedNote = MutableStateFlow<NoteRow?>(null)
+    val linkedNote: StateFlow<NoteRow?> = _linkedNote.asStateFlow()
+
+    fun setPickerQuery(q: String) { _pickerQuery.value = q }
 
     init {
         if (id != 0L) viewModelScope.launch {
-            repo.getById(id)?.let { _state.value = it.toEditState() }
+            repo.getById(id)?.let {
+                _state.value = it.toEditState()
+                _linkedNote.value = it.linkedNoteId?.let { lid -> notesRepo.getById(lid.toInt()) }
+            }
         }
     }
 
@@ -65,7 +87,12 @@ class TaskCreateViewModel(
     fun setNotes(s: String) { _state.value = _state.value.copy(notes = s) }
     fun setDate(epochDay: Long) { _state.value = _state.value.copy(dateEpochDay = epochDay) }
     fun setRepeat(rule: String) { _state.value = _state.value.copy(repeat = rule) }
-    fun setLinkedNote(noteId: Long?) { _state.value = _state.value.copy(linkedNoteId = noteId) }
+    fun setLinkedNote(noteId: Long?) {
+        _state.value = _state.value.copy(linkedNoteId = noteId)
+        viewModelScope.launch {
+            _linkedNote.value = noteId?.let { notesRepo.getById(it.toInt()) }
+        }
+    }
 
     suspend fun save(): Long? {
         val s = _state.value
