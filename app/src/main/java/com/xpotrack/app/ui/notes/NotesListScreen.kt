@@ -4,22 +4,23 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,8 +29,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.paging.LoadState
+import androidx.paging.compose.LazyPagingItems
+import androidx.paging.compose.itemKey
 import com.xpotrack.app.R
 import com.xpotrack.app.data.model.Category
+import com.xpotrack.app.data.repo.NotesRepository
 import com.xpotrack.app.ui.components.ConfirmDeleteDialog
 import com.xpotrack.app.ui.components.DateTimeStrip
 import com.xpotrack.app.ui.components.EmptyState
@@ -43,23 +48,26 @@ import com.xpotrack.app.ui.theme.XpTokens
 
 @Composable
 fun NotesListScreen(
-    notes: List<FeedItem.Note>,
+    notes: LazyPagingItems<FeedItem.Note>,
     quicks: List<FeedItem.Quick>,
     categories: List<Category>,
+    counts: NotesRepository.Counts,
+    filterId: Long?,
+    onSetFilter: (Long?) -> Unit,
+    query: String,
+    onSetQuery: (String) -> Unit,
     onOpenNote: (Int) -> Unit,
     onNewNote: (Long) -> Unit,
     onComposeQuick: () -> Unit,
     onOpenQuickNote: (Long) -> Unit,
     onKeepQuick: (Long) -> Unit,
     onDeleteQuick: (Long) -> Unit,
+    headerPx: Int,
+    onHeaderPx: (Int) -> Unit,
     modifier: Modifier = Modifier,
     onDeleteNote: (Int) -> Unit = {},
 ) {
-    // null = "All notes"; 0L = Uncategorized; >0 = a category id.
-    // Saveable so the filter survives navigating to the editor and back.
-    var filterId by rememberSaveable { mutableStateOf<Long?>(null) }
     var searchOpen by remember { mutableStateOf(false) }
-    var query by remember { mutableStateOf("") }
     var selectMode by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<Set<Int>>(emptySet()) }
     var pendingBulkDelete by remember { mutableStateOf(false) }
@@ -77,33 +85,40 @@ fun NotesListScreen(
         filterId == 0L -> "Uncategorized"
         else -> activeCategory?.name ?: "All notes"
     }
-    val notesOnly = notes.map { it.row }
-    // Merge here instead of in the VM so notes paint the instant they arrive,
-    // even if quick notes haven't emitted yet. Quick notes belong to "All".
-    val feed: List<FeedItem> = remember(notes, quicks) {
-        (notes + quicks).sortedByDescending { it.sortKey }
-    }
-    val byCategory: List<FeedItem> = when (filterId) {
-        null -> feed
-        0L -> feed.filter { it is FeedItem.Note && it.row.categoryId == 0L }
-        else -> feed.filter { it is FeedItem.Note && it.row.categoryId == filterId }
-    }
+
+    // Quicks are filtered in-UI: they belong to "All" only and don't participate
+    // in category filters. Search applies to both quicks (in-memory) and notes
+    // (via DAO LIKE, routed through the VM).
     val q = query.trim()
-    val filtered: List<FeedItem> = if (searchOpen && q.isNotEmpty()) {
-        byCategory.filter { item ->
-            when (item) {
-                is FeedItem.Note -> item.row.title.contains(q, ignoreCase = true)
-                is FeedItem.Quick -> item.row.text.contains(q, ignoreCase = true)
-            }
-        }
-    } else byCategory
-    // Multi-select operates on the currently visible notes — not the full
-    // collection. Select-All in a filtered view picks only what the user sees.
-    val visibleNotes: List<NoteRow> = filtered.mapNotNull { (it as? FeedItem.Note)?.row }
+    val visibleQuicks: List<FeedItem.Quick> = when {
+        filterId != null -> emptyList()
+        searchOpen && q.isNotEmpty() -> quicks.filter { it.row.text.contains(q, ignoreCase = true) }
+        else -> quicks
+    }
+
+    // "Loaded" notes — the currently materialized pages. Used for select-all
+    // and bulk-share, which can only operate on what the user can actually see.
+    val loadedNoteIds: List<Int> = remember(notes.itemSnapshotList) {
+        notes.itemSnapshotList.items.map { it.row.id }
+    }
 
     val density = LocalDensity.current
-    var headerPx by remember { mutableIntStateOf(0) }
     val headerDp = with(density) { headerPx.toDp() }
+
+    val listState = rememberLazyListState()
+
+    // Snap to top when the first loaded note changes (e.g., editor returns with
+    // a new note). Guarded on the user being near the top so we don't yank them
+    // out of a scrolled position.
+    val topNoteId = notes.itemSnapshotList.items.firstOrNull()?.row?.id
+    val topQuickId = visibleQuicks.firstOrNull()?.row?.id
+    LaunchedEffect(topNoteId, topQuickId) {
+        if (listState.firstVisibleItemIndex <= 1) listState.scrollToItem(0, 0)
+    }
+
+    val emptyAfterLoad = visibleQuicks.isEmpty() &&
+        notes.itemCount == 0 &&
+        notes.loadState.refresh !is LoadState.Loading
 
     Box(
         modifier = modifier
@@ -111,7 +126,7 @@ fun NotesListScreen(
             .background(XpTokens.Bg),
     ) {
         TopHalo()
-        if (filtered.isEmpty()) {
+        if (emptyAfterLoad) {
             Column(Modifier.fillMaxSize()) {
                 Spacer(Modifier.height(headerDp))
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -121,16 +136,29 @@ fun NotesListScreen(
                     EmptyState(title, helper)
                 }
             }
-        } else Column(
-            Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+        } else LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            state = listState,
+            contentPadding = PaddingValues(top = headerDp, bottom = 100.dp),
         ) {
-            Spacer(Modifier.height(headerDp))
-            filtered.forEachIndexed { i, item ->
-                val isLast = i == filtered.size - 1
-                when (item) {
-                    is FeedItem.Note -> ChronoNoteRow(
+            items(visibleQuicks, key = { "q${it.row.id}" }) { item ->
+                val isLast = item == visibleQuicks.last() && notes.itemCount == 0
+                QuickNoteEntry(
+                    row = item.row,
+                    isLast = isLast,
+                    onKeep = { onKeepQuick(item.row.id) },
+                    onOpen = { onOpenQuickNote(item.row.id) },
+                    onLongPress = { pendingDeleteQuick = item.row },
+                )
+            }
+            items(
+                count = notes.itemCount,
+                key = notes.itemKey { "n${it.row.id}" },
+            ) { i ->
+                val item = notes[i]
+                val isLast = i == notes.itemCount - 1
+                if (item != null) {
+                    ChronoNoteRow(
                         note = item.row,
                         showTag = filterId == null,
                         isLast = isLast,
@@ -145,50 +173,42 @@ fun NotesListScreen(
                         },
                         selected = item.row.id in selected,
                     )
-                    is FeedItem.Quick -> QuickNoteEntry(
-                        row = item.row,
-                        isLast = isLast,
-                        onKeep = { onKeepQuick(item.row.id) },
-                        onOpen = { onOpenQuickNote(item.row.id) },
-                        onLongPress = { pendingDeleteQuick = item.row },
-                    )
                 }
             }
-            Spacer(Modifier.height(100.dp))
         }
-        PinnedHeader(onSize = { headerPx = it.height }) {
+        PinnedHeader(onSize = { onHeaderPx(it.height) }) {
             if (searchOpen) {
                 NotesSearchBar(
                     query = query,
-                    onQueryChange = { query = it },
-                    onClose = { searchOpen = false; query = "" },
+                    onQueryChange = onSetQuery,
+                    onClose = { searchOpen = false; onSetQuery("") },
                 )
             } else {
                 NotesHeader(onSearch = { searchOpen = true })
                 NotesFilterBar(
                     label = filterLabel,
-                    totalCount = notesOnly.size,
                     categories = categories,
-                    notes = notesOnly,
+                    counts = counts,
                     activeColorHex = activeCategory?.colorHex,
-                    onPick = { filterId = it },
-                    onClear = { filterId = null },
+                    onPick = onSetFilter,
+                    onClear = { onSetFilter(null) },
                 )
             }
             QuickEntryStrip(onCompose = onComposeQuick)
         }
         if (selectMode) {
-            val visibleIds = visibleNotes.map { it.id }.toSet()
+            val loadedIdSet = loadedNoteIds.toSet()
             SelectionBar(
                 count = selected.size,
-                allSelected = visibleIds.isNotEmpty() && selected.containsAll(visibleIds),
+                allSelected = loadedIdSet.isNotEmpty() && selected.containsAll(loadedIdSet),
                 onToggleAll = {
-                    selected = if (selected.containsAll(visibleIds)) selected - visibleIds
-                    else selected + visibleIds
+                    selected = if (selected.containsAll(loadedIdSet)) selected - loadedIdSet
+                    else selected + loadedIdSet
                 },
                 onShare = {
-                    val pairs = visibleNotes.filter { it.id in selected }
-                        .map { it.title to it.preview }
+                    val pairs = notes.itemSnapshotList.items
+                        .filter { it.row.id in selected }
+                        .map { it.row.title to it.row.preview }
                     if (pairs.isNotEmpty()) shareNotesAsMarkdown(context, pairs)
                 },
                 onDelete = { if (selected.isNotEmpty()) pendingBulkDelete = true },
@@ -204,10 +224,11 @@ fun NotesListScreen(
     }
     if (pendingBulkDelete) {
         val n = selected.size
+        val firstSelected = notes.itemSnapshotList.items.firstOrNull { it.row.id in selected }?.row
         ConfirmDeleteDialog(
             title = if (n == 1) "Delete note?" else "Delete $n notes?",
             subject = if (n == 1)
-                notesOnly.firstOrNull { it.id in selected }?.title?.ifBlank { "Untitled" } ?: "Untitled"
+                firstSelected?.title?.ifBlank { "Untitled" } ?: "Untitled"
             else "$n notes",
             onCancel = { pendingBulkDelete = false },
             onConfirm = {
@@ -268,4 +289,3 @@ private fun NotesHeader(onSearch: () -> Unit) {
         XpIconBtn(R.drawable.ic_search, "Search", tint = XpTokens.Ink2, border = true, onClick = onSearch)
     }
 }
-

@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -63,6 +64,13 @@ fun AppRoot() {
 
     var activeTab by rememberSaveable { mutableStateOf(XpTab.Notes) }
 
+    // Hoisted so it survives NotesListScreen disposal (tab switches AND
+    // editor navigation). Without this, the LazyColumn composes with
+    // contentPadding=0 on every re-entry, scrolling rows under the header
+    // until PinnedHeader re-measures one frame later. rememberSaveable so
+    // it also survives process death / config change.
+    var notesHeaderPx by rememberSaveable { mutableIntStateOf(0) }
+
     // Picker/manager state lives here so the sheet can stack from any tab or
     // editor. `categoryRequest` bundles the caller's selected id and apply
     // callback into one atomic state write — opening the sheet must flip the
@@ -90,6 +98,8 @@ fun AppRoot() {
                     onLockExit = { activeTab = XpTab.Notes },
                     onComposeQuick = { nav.navigate("quick/edit/0") },
                     onOpenQuickNote = { id -> nav.navigate("quick/edit/$id") },
+                    notesHeaderPx = notesHeaderPx,
+                    onNotesHeaderPx = { notesHeaderPx = it },
                 )
             }
             composable(
@@ -222,12 +232,17 @@ private fun TabsScaffold(
     onLockExit: () -> Unit,
     onComposeQuick: () -> Unit,
     onOpenQuickNote: (Long) -> Unit,
+    notesHeaderPx: Int,
+    onNotesHeaderPx: (Int) -> Unit,
 ) {
     val app = LocalContext.current.applicationContext as XpApp
     val notesVm: NotesViewModel = viewModel(factory = NotesViewModel.Factory(app.notesRepo, app.categoryRepo, app.quickNotesRepo))
     val tasksVm: TasksViewModel = viewModel(factory = TasksViewModel.Factory(app.tasksRepo))
-    val notes by notesVm.notes.collectAsStateWithLifecycle()
+    val notes = notesVm.notes.collectAsLazyPagingItems()
     val quicks by notesVm.quicks.collectAsStateWithLifecycle()
+    val counts by notesVm.counts.collectAsStateWithLifecycle()
+    val filterId by notesVm.filterId.collectAsStateWithLifecycle()
+    val query by notesVm.query.collectAsStateWithLifecycle()
     val tasks by tasksVm.tasks.collectAsStateWithLifecycle()
     val cats by notesVm.categories.collectAsStateWithLifecycle()
     val selectedDate by tasksVm.selectedDate.collectAsStateWithLifecycle()
@@ -237,6 +252,11 @@ private fun TabsScaffold(
         when (active) {
             XpTab.Notes -> NotesListScreen(
                 notes = notes, quicks = quicks, categories = cats,
+                counts = counts,
+                filterId = filterId,
+                onSetFilter = notesVm::setFilter,
+                query = query,
+                onSetQuery = notesVm::setQuery,
                 onOpenNote = onOpenNote,
                 onNewNote = onNewNote,
                 onComposeQuick = onComposeQuick,
@@ -244,6 +264,8 @@ private fun TabsScaffold(
                 onKeepQuick = notesVm::keepQuick,
                 onDeleteQuick = notesVm::deleteQuick,
                 onDeleteNote = notesVm::delete,
+                headerPx = notesHeaderPx,
+                onHeaderPx = onNotesHeaderPx,
             )
             XpTab.Tasks -> TasksTimelineScreen(
                 tasks = tasks,
