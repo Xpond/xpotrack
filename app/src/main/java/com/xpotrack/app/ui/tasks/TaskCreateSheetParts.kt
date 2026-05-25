@@ -46,23 +46,6 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Composable
-internal fun SheetGrabber() {
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .padding(top = 10.dp, bottom = 8.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(
-            Modifier
-                .size(width = 38.dp, height = 4.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(XpTokens.Ink3.copy(alpha = 0.35f))
-        )
-    }
-}
-
-@Composable
 internal fun TitleField(value: String, onChange: (String) -> Unit) {
     Column(Modifier.fillMaxWidth()) {
         Box(Modifier.fillMaxWidth()) {
