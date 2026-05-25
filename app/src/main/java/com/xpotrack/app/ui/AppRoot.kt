@@ -71,6 +71,12 @@ fun AppRoot() {
     // it also survives process death / config change.
     var notesHeaderPx by rememberSaveable { mutableIntStateOf(0) }
 
+    // Search-bar visibility hoisted for the same reason — opening a note
+    // disposes NotesListScreen, and a local remember would lose the open
+    // state when the editor pops back. The query itself already lives in
+    // NotesViewModel, so the bar reopens with the user's text intact.
+    var notesSearchOpen by rememberSaveable { mutableStateOf(false) }
+
     // Picker/manager state lives here so the sheet can stack from any tab or
     // editor. `categoryRequest` bundles the caller's selected id and apply
     // callback into one atomic state write — opening the sheet must flip the
@@ -100,6 +106,8 @@ fun AppRoot() {
                     onOpenQuickNote = { id -> nav.navigate("quick/edit/$id") },
                     notesHeaderPx = notesHeaderPx,
                     onNotesHeaderPx = { notesHeaderPx = it },
+                    notesSearchOpen = notesSearchOpen,
+                    onNotesSearchOpen = { notesSearchOpen = it },
                 )
             }
             composable(
@@ -234,6 +242,8 @@ private fun TabsScaffold(
     onOpenQuickNote: (Long) -> Unit,
     notesHeaderPx: Int,
     onNotesHeaderPx: (Int) -> Unit,
+    notesSearchOpen: Boolean,
+    onNotesSearchOpen: (Boolean) -> Unit,
 ) {
     val app = LocalContext.current.applicationContext as XpApp
     val notesVm: NotesViewModel = viewModel(factory = NotesViewModel.Factory(app.notesRepo, app.categoryRepo, app.quickNotesRepo))
@@ -243,6 +253,7 @@ private fun TabsScaffold(
     val counts by notesVm.counts.collectAsStateWithLifecycle()
     val filterId by notesVm.filterId.collectAsStateWithLifecycle()
     val query by notesVm.query.collectAsStateWithLifecycle()
+    val notesStale by notesVm.isStale.collectAsStateWithLifecycle()
     val tasks by tasksVm.tasks.collectAsStateWithLifecycle()
     val cats by notesVm.categories.collectAsStateWithLifecycle()
     val selectedDate by tasksVm.selectedDate.collectAsStateWithLifecycle()
@@ -266,6 +277,10 @@ private fun TabsScaffold(
                 onDeleteNote = notesVm::delete,
                 headerPx = notesHeaderPx,
                 onHeaderPx = onNotesHeaderPx,
+                searchOpen = notesSearchOpen,
+                onSearchOpenChange = onNotesSearchOpen,
+                isStale = notesStale,
+                onMarkFresh = notesVm::markFresh,
             )
             XpTab.Tasks -> TasksTimelineScreen(
                 tasks = tasks,

@@ -20,7 +20,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,8 +31,10 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xpotrack.app.R
@@ -42,6 +47,18 @@ fun NotesSearchBar(
     onClose: () -> Unit,
 ) {
     val focus = remember { FocusRequester() }
+    // Mirror the hoisted query string into a local TextFieldValue so we can
+    // control caret position. When the bar re-enters composition (e.g. coming
+    // back from the editor), seed the caret at the end of the existing query
+    // instead of the default position 0.
+    var field by remember {
+        mutableStateOf(TextFieldValue(query, TextRange(query.length)))
+    }
+    // If the parent's query diverges from our local mirror (clear button,
+    // external reset), sync back into the field with caret at end.
+    if (field.text != query) {
+        field = TextFieldValue(query, TextRange(query.length))
+    }
     LaunchedEffect(Unit) { focus.requestFocus() }
     Row(
         modifier = Modifier
@@ -74,8 +91,11 @@ fun NotesSearchBar(
                     )
                 }
                 BasicTextField(
-                    value = query,
-                    onValueChange = onQueryChange,
+                    value = field,
+                    onValueChange = {
+                        field = it
+                        if (it.text != query) onQueryChange(it.text)
+                    },
                     singleLine = true,
                     textStyle = TextStyle(
                         color = XpTokens.Ink,

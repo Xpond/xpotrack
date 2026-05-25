@@ -64,10 +64,13 @@ fun NotesListScreen(
     onDeleteQuick: (Long) -> Unit,
     headerPx: Int,
     onHeaderPx: (Int) -> Unit,
+    searchOpen: Boolean,
+    onSearchOpenChange: (Boolean) -> Unit,
+    isStale: Boolean,
+    onMarkFresh: () -> Unit,
     modifier: Modifier = Modifier,
     onDeleteNote: (Int) -> Unit = {},
 ) {
-    var searchOpen by remember { mutableStateOf(false) }
     var selectMode by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<Set<Int>>(emptySet()) }
     var pendingBulkDelete by remember { mutableStateOf(false) }
@@ -90,10 +93,12 @@ fun NotesListScreen(
     // in category filters. Search applies to both quicks (in-memory) and notes
     // (via DAO LIKE, routed through the VM).
     val q = query.trim()
-    val visibleQuicks: List<FeedItem.Quick> = when {
-        filterId != null -> emptyList()
-        searchOpen && q.isNotEmpty() -> quicks.filter { it.row.text.contains(q, ignoreCase = true) }
-        else -> quicks
+    val visibleQuicks: List<FeedItem.Quick> = remember(quicks, filterId, searchOpen, q) {
+        when {
+            filterId != null -> emptyList()
+            searchOpen && q.isNotEmpty() -> quicks.filter { it.row.text.contains(q, ignoreCase = true) }
+            else -> quicks
+        }
     }
 
     // "Loaded" notes — the currently materialized pages. Used for select-all
@@ -116,6 +121,31 @@ fun NotesListScreen(
         if (listState.firstVisibleItemIndex <= 1) listState.scrollToItem(0, 0)
     }
 
+    // Hide the LazyColumn between a search cancel and the new (unfiltered)
+    // page being ready. `armed` is set in the CANCEL handler so this only
+    // triggers on cancel — typing keystrokes don't blank the list. The VM's
+    // isStale alone isn't enough because PagingData is emitted before SQLite
+    // returns rows; we watch loadState to call markFresh() only after a
+    // Loading → NotLoading cycle that started while isStale was true.
+    var armed by remember { mutableStateOf(false) }
+    var observedLoadingWhileStale by remember { mutableStateOf(false) }
+    LaunchedEffect(isStale) {
+        if (!isStale) {
+            armed = false
+            observedLoadingWhileStale = false
+        }
+    }
+    LaunchedEffect(searchOpen) { if (searchOpen) armed = false }
+    LaunchedEffect(isStale, notes.loadState.refresh) {
+        if (!isStale) return@LaunchedEffect
+        when (notes.loadState.refresh) {
+            is LoadState.Loading -> observedLoadingWhileStale = true
+            is LoadState.NotLoading -> if (observedLoadingWhileStale) onMarkFresh()
+            else -> Unit
+        }
+    }
+    val clearing = armed && isStale
+
     val emptyAfterLoad = visibleQuicks.isEmpty() &&
         notes.itemCount == 0 &&
         notes.loadState.refresh !is LoadState.Loading
@@ -126,7 +156,11 @@ fun NotesListScreen(
             .background(XpTokens.Bg),
     ) {
         TopHalo()
-        if (emptyAfterLoad) {
+        if (clearing) {
+            // Empty container during the transition out of search — hides
+            // stale filtered rows until Paging emits the unfiltered set.
+            Spacer(Modifier.fillMaxSize())
+        } else if (emptyAfterLoad) {
             Column(Modifier.fillMaxSize()) {
                 Spacer(Modifier.height(headerDp))
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -181,10 +215,14 @@ fun NotesListScreen(
                 NotesSearchBar(
                     query = query,
                     onQueryChange = onSetQuery,
-                    onClose = { searchOpen = false; onSetQuery("") },
+                    onClose = {
+                        if (q.isNotEmpty()) armed = true
+                        onSearchOpenChange(false)
+                        onSetQuery("")
+                    },
                 )
             } else {
-                NotesHeader(onSearch = { searchOpen = true })
+                NotesHeader(onSearch = { onSearchOpenChange(true) })
                 NotesFilterBar(
                     label = filterLabel,
                     categories = categories,
@@ -197,7 +235,7 @@ fun NotesListScreen(
             QuickEntryStrip(onCompose = onComposeQuick)
         }
         if (selectMode) {
-            val loadedIdSet = loadedNoteIds.toSet()
+            val loadedIdSet = remember(loadedNoteIds) { loadedNoteIds.toSet() }
             SelectionBar(
                 count = selected.size,
                 allSelected = loadedIdSet.isNotEmpty() && selected.containsAll(loadedIdSet),
