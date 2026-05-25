@@ -35,20 +35,21 @@ fun TaskDetailScreen(
 ) {
     val s by vm.state.collectAsStateWithLifecycle()
     val notesDraft by vm.notesDraft.collectAsStateWithLifecycle()
-    val allNotes by vm.allNotes.collectAsStateWithLifecycle()
+    val linkedNote by vm.linkedNote.collectAsStateWithLifecycle()
+    val pickerQuery by vm.pickerQuery.collectAsStateWithLifecycle()
+    val pickerResults by vm.pickerResults.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     var linkOpen by remember { mutableStateOf(false) }
     val task = s.task ?: return run { Box(Modifier.fillMaxSize().background(XpTokens.Bg).cutoutSafeTopPadding()) {} }
     val style = styleFor(task.level)
-    val linkedNote = remember(allNotes, task.linkedNoteId) {
-        task.linkedNoteId?.let { id -> allNotes.firstOrNull { it.id.toLong() == id } }
-    }
     val saveAndBack: () -> Unit = { scope.launch { vm.saveNotesIfDirty(); onBack() } }
     BackHandler(onBack = saveAndBack)
 
     if (linkOpen) {
         LinkNoteDialog(
-            notes = allNotes,
+            results = pickerResults,
+            query = pickerQuery,
+            onQueryChange = vm::setPickerQuery,
             selectedId = task.linkedNoteId,
             onPick = { vm.setLinkedNote(it); linkOpen = false },
             onDismiss = { linkOpen = false },

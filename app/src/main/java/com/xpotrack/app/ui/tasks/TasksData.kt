@@ -11,6 +11,8 @@ import java.util.Locale
 data class TaskRow(
     val id: Long,
     val time: String,           // "HH:mm"
+    val displayTime: String,    // "h:mm AM/PM" — precomputed so rows don't re-parse `time` every recompose
+    val sortKey: Int,           // minutes since midnight — drives Timeline ordering without re-parsing
     val label: String,
     val level: ReminderLevel,
     val durationMin: Int,
@@ -18,15 +20,20 @@ data class TaskRow(
     val dateEpochDay: Long = 0L,
 )
 
-fun Task.toRow(): TaskRow = TaskRow(
-    id = id,
-    time = time,
-    label = title,
-    level = level,
-    durationMin = durationMin,
-    done = isDone,
-    dateEpochDay = dateEpochDay,
-)
+fun Task.toRow(): TaskRow {
+    val (h24, m) = parseHHmm(time)
+    return TaskRow(
+        id = id,
+        time = time,
+        displayTime = formatHHmm12(h24, m),
+        sortKey = h24 * 60 + m,
+        label = title,
+        level = level,
+        durationMin = durationMin,
+        done = isDone,
+        dateEpochDay = dateEpochDay,
+    )
+}
 
 fun parseHHmm(s: String): Pair<Int, Int> {
     val (h, m) = s.split(":").map { it.toInt() }
@@ -35,6 +42,10 @@ fun parseHHmm(s: String): Pair<Int, Int> {
 
 fun formatTime12(time: String): String {
     val (h24, m) = parseHHmm(time)
+    return formatHHmm12(h24, m)
+}
+
+private fun formatHHmm12(h24: Int, m: Int): String {
     val h12 = ((h24 + 11) % 12) + 1
     return "%d:%02d %s".format(h12, m, if (h24 >= 12) "PM" else "AM")
 }

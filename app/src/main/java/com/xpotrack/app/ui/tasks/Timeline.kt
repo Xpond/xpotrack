@@ -19,6 +19,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -41,9 +42,7 @@ fun TimelineView(
     onTaskTap: (Long) -> Unit = {},
     onTaskLongPress: (TaskRow) -> Unit = {},
 ) {
-    val sorted = tasks.sortedBy {
-        val (h, m) = parseHHmm(it.time); h * 60 + m
-    }
+    val sorted = remember(tasks) { tasks.sortedBy { it.sortKey } }
     Column(modifier = modifier.padding(start = 22.dp, end = 22.dp, top = 12.dp)) {
         sorted.forEachIndexed { i, task ->
             TaskRowItem(
@@ -84,7 +83,7 @@ private fun TaskRowItem(task: TaskRow, onClick: () -> Unit, onLongClick: () -> U
                 .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                XpReminderPill(task.level, formatTime12(task.time), PillSize.Sm)
+                XpReminderPill(task.level, task.displayTime, PillSize.Sm)
                 if (task.done) {
                     Spacer(Modifier.width(8.dp))
                     Icon(

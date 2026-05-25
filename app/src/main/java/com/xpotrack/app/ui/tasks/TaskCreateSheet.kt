@@ -38,7 +38,9 @@ fun TaskCreateSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val state by vm.state.collectAsStateWithLifecycle()
-    val allNotes by vm.allNotes.collectAsStateWithLifecycle()
+    val linkedNote by vm.linkedNote.collectAsStateWithLifecycle()
+    val pickerQuery by vm.pickerQuery.collectAsStateWithLifecycle()
+    val pickerResults by vm.pickerResults.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     var calendarOpen by remember { mutableStateOf(false) }
     var repeatOpen by remember { mutableStateOf(false) }
@@ -65,7 +67,9 @@ fun TaskCreateSheet(
 
     if (linkOpen) {
         LinkNoteDialog(
-            notes = allNotes,
+            results = pickerResults,
+            query = pickerQuery,
+            onQueryChange = vm::setPickerQuery,
             selectedId = state.linkedNoteId,
             onPick = { vm.setLinkedNote(it); linkOpen = false },
             onDismiss = { linkOpen = false },
@@ -134,9 +138,7 @@ fun TaskCreateSheet(
             )
 
             LinkNoteRow(
-                title = state.linkedNoteId?.let { id ->
-                    allNotes.firstOrNull { it.id.toLong() == id }?.title?.ifBlank { "Untitled" }
-                },
+                title = linkedNote?.title?.ifBlank { "Untitled" },
                 onClick = { linkOpen = true },
             )
 

@@ -16,9 +16,6 @@ data class CategoryCount(
 
 @Dao
 interface NoteDao {
-    @Query("SELECT * FROM notes WHERE isLocked = 0 ORDER BY updatedAt DESC")
-    fun observeAll(): Flow<List<NoteEntity>>
-
     // catFilter: -1 = no filter, 0 = uncategorized (categoryId IS NULL),
     //            >0 = match that category id. Single query handles all three so
     // a filter change is a `Pager` re-source, not a different DAO method.
@@ -52,6 +49,20 @@ interface NoteDao {
 
     @Query("SELECT * FROM notes WHERE isLocked = 1 ORDER BY updatedAt DESC")
     fun observeLocked(): Flow<List<NoteEntity>>
+
+    // Bounded search for the link-note picker. Returns at most `limit` rows so
+    // the picker stays usable at million-note scale where loading every row
+    // OOMs the process. Empty `q` returns the most recent `limit` notes.
+    @Query(
+        """
+        SELECT * FROM notes
+        WHERE isLocked = 0
+          AND (:q = '' OR title LIKE '%' || :q || '%')
+        ORDER BY updatedAt DESC
+        LIMIT :limit
+        """
+    )
+    fun searchForPicker(q: String, limit: Int): Flow<List<NoteEntity>>
 
     @Query("SELECT * FROM notes WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): NoteEntity?

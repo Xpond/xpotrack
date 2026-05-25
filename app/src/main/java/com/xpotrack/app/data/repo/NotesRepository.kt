@@ -17,12 +17,11 @@ class NotesRepository(
     private val categories: CategoryRepository,
 ) {
 
-    // Joins the live note stream against the live category stream so renames /
-    // recolors propagate without manual cache invalidation. Still used by the
-    // task picker (TaskDetailViewModel, TaskCreateViewModel) which needs the
-    // full list to filter inline — the notes index uses `pagedNotes` instead.
-    fun observeAll(): Flow<List<NoteRow>> =
-        dao.observeAll().combine(categories.observeAll()) { rows, cats ->
+    // Bounded search for the link-note picker. Empty `q` returns the most
+    // recent `limit` notes; non-empty `q` filters by title LIKE. The DAO
+    // applies the LIMIT in SQLite so we never materialize the full table.
+    fun searchForPicker(q: String, limit: Int = 200): Flow<List<NoteRow>> =
+        dao.searchForPicker(q, limit).combine(categories.observeAll()) { rows, cats ->
             val byId = cats.associateBy { it.id }
             rows.map { toUi(it, byId) }
         }

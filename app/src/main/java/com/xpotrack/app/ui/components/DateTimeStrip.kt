@@ -17,6 +17,8 @@ import androidx.compose.ui.unit.dp
 import com.xpotrack.app.ui.theme.XpTokens
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.Date
 import java.util.Locale
 
@@ -32,7 +34,11 @@ fun DateTimeStrip() {
             now = System.currentTimeMillis()
         }
     }
-    val date = remember(now / 86_400_000L) {
+    // Key on local-zone day, not UTC day. `now / 86_400_000L` flips at UTC
+    // midnight, which lags local midnight by the user's offset (up to 14h)
+    // and would freeze the date string until the UTC day rolled over.
+    val localDay = LocalDate.now(ZoneId.systemDefault()).toEpochDay()
+    val date = remember(localDay) {
         SimpleDateFormat("EEEE · MMM d", Locale.getDefault()).format(Date(now))
     }
     val time = remember(now / 60_000L) {
