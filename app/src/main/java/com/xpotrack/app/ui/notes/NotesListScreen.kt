@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,8 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -24,8 +21,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -35,13 +30,10 @@ import androidx.paging.compose.itemKey
 import com.xpotrack.app.R
 import com.xpotrack.app.data.model.Category
 import com.xpotrack.app.data.repo.NotesRepository
-import com.xpotrack.app.ui.components.ConfirmDeleteDialog
-import com.xpotrack.app.ui.components.DateTimeStrip
 import com.xpotrack.app.ui.components.EmptyState
 import com.xpotrack.app.ui.components.PinnedHeader
 import com.xpotrack.app.ui.components.SelectionBar
 import com.xpotrack.app.ui.components.XpFab
-import com.xpotrack.app.ui.components.XpIconBtn
 import com.xpotrack.app.ui.quick.QuickNoteEntry
 import com.xpotrack.app.ui.quick.QuickRow
 import com.xpotrack.app.ui.theme.XpTokens
@@ -121,30 +113,7 @@ fun NotesListScreen(
         if (listState.firstVisibleItemIndex <= 1) listState.scrollToItem(0, 0)
     }
 
-    // Hide the LazyColumn between a search cancel and the new (unfiltered)
-    // page being ready. `armed` is set in the CANCEL handler so this only
-    // triggers on cancel — typing keystrokes don't blank the list. The VM's
-    // isStale alone isn't enough because PagingData is emitted before SQLite
-    // returns rows; we watch loadState to call markFresh() only after a
-    // Loading → NotLoading cycle that started while isStale was true.
-    var armed by remember { mutableStateOf(false) }
-    var observedLoadingWhileStale by remember { mutableStateOf(false) }
-    LaunchedEffect(isStale) {
-        if (!isStale) {
-            armed = false
-            observedLoadingWhileStale = false
-        }
-    }
-    LaunchedEffect(searchOpen) { if (searchOpen) armed = false }
-    LaunchedEffect(isStale, notes.loadState.refresh) {
-        if (!isStale) return@LaunchedEffect
-        when (notes.loadState.refresh) {
-            is LoadState.Loading -> observedLoadingWhileStale = true
-            is LoadState.NotLoading -> if (observedLoadingWhileStale) onMarkFresh()
-            else -> Unit
-        }
-    }
-    val clearing = armed && isStale
+    val staleness = rememberSearchStaleness(notes, isStale, searchOpen, onMarkFresh)
 
     val emptyAfterLoad = visibleQuicks.isEmpty() &&
         notes.itemCount == 0 &&
@@ -156,7 +125,7 @@ fun NotesListScreen(
             .background(XpTokens.Bg),
     ) {
         TopHalo()
-        if (clearing) {
+        if (staleness.clearing) {
             // Empty container during the transition out of search — hides
             // stale filtered rows until Paging emits the unfiltered set.
             Spacer(Modifier.fillMaxSize())
@@ -216,7 +185,7 @@ fun NotesListScreen(
                     query = query,
                     onQueryChange = onSetQuery,
                     onClose = {
-                        if (q.isNotEmpty()) armed = true
+                        if (q.isNotEmpty()) staleness.arm()
                         onSearchOpenChange(false)
                         onSetQuery("")
                     },
@@ -261,13 +230,9 @@ fun NotesListScreen(
         }
     }
     if (pendingBulkDelete) {
-        val n = selected.size
-        val firstSelected = notes.itemSnapshotList.items.firstOrNull { it.row.id in selected }?.row
-        ConfirmDeleteDialog(
-            title = if (n == 1) "Delete note?" else "Delete $n notes?",
-            subject = if (n == 1)
-                firstSelected?.title?.ifBlank { "Untitled" } ?: "Untitled"
-            else "$n notes",
+        BulkDeleteDialog(
+            selected = selected,
+            notes = notes,
             onCancel = { pendingBulkDelete = false },
             onConfirm = {
                 selected.forEach(onDeleteNote)
@@ -278,52 +243,13 @@ fun NotesListScreen(
         )
     }
     pendingDeleteQuick?.let { row ->
-        ConfirmDeleteDialog(
-            title = "Delete quick note?",
-            subject = row.text.lineSequence().firstOrNull()?.take(60).orEmpty().ifBlank { "Untitled" },
+        QuickDeleteDialog(
+            row = row,
             onCancel = { pendingDeleteQuick = null },
             onConfirm = {
                 onDeleteQuick(row.id)
                 pendingDeleteQuick = null
             },
         )
-    }
-}
-
-private fun emptyCopy(filterId: Long?, categoryName: String?): Pair<String, String> = when {
-    filterId == null -> "No notes yet" to "Tap + to write your first"
-    filterId == 0L -> "Nothing uncategorized" to "Notes without a category land here"
-    else -> "Nothing in ${categoryName ?: "this category"}" to "Tap + to add the first"
-}
-
-@Composable
-private fun TopHalo() {
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .height(120.dp)
-            .background(
-                Brush.radialGradient(
-                    0f to XpTokens.TealGlow,
-                    0.7f to Color.Transparent,
-                )
-            )
-    )
-}
-
-@Composable
-private fun NotesHeader(onSearch: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 22.dp, end = 18.dp),
-        verticalAlignment = Alignment.Bottom,
-    ) {
-        Column(Modifier.weight(1f)) {
-            DateTimeStrip()
-            Spacer(Modifier.height(14.dp))
-            Text("Notes", style = MaterialTheme.typography.displayLarge, color = XpTokens.Ink)
-        }
-        XpIconBtn(R.drawable.ic_search, "Search", tint = XpTokens.Ink2, border = true, onClick = onSearch)
     }
 }
