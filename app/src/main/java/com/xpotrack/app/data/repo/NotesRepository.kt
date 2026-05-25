@@ -1,11 +1,16 @@
 package com.xpotrack.app.data.repo
 
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
+import androidx.paging.map
 import com.xpotrack.app.data.db.NoteDao
 import com.xpotrack.app.data.db.NoteEntity
 import com.xpotrack.app.data.model.Category
 import com.xpotrack.app.ui.notes.NoteRow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 
 class NotesRepository(
     private val dao: NoteDao,
@@ -13,12 +18,36 @@ class NotesRepository(
 ) {
 
     // Joins the live note stream against the live category stream so renames /
-    // recolors propagate without manual cache invalidation.
+    // recolors propagate without manual cache invalidation. Still used by the
+    // task picker (TaskDetailViewModel, TaskCreateViewModel) which needs the
+    // full list to filter inline — the notes index uses `pagedNotes` instead.
     fun observeAll(): Flow<List<NoteRow>> =
         dao.observeAll().combine(categories.observeAll()) { rows, cats ->
             val byId = cats.associateBy { it.id }
             rows.map { toUi(it, byId) }
         }
+
+    // catFilter: -1 = no filter, 0 = uncategorized, >0 = that category id.
+    // q: "" disables search.
+    fun pagedNotes(catFilter: Long, q: String): Flow<PagingData<NoteRow>> {
+        // Categories are snapshotted once per emitted PagingData. Renames/recolors
+        // mid-scroll won't propagate to pages that have already loaded — the
+        // alternative (joining the category flow) would recreate the Pager on
+        // every category edit and lose scroll position. Acceptable trade-off.
+        val pager = Pager(
+            config = PagingConfig(
+                pageSize = 50,
+                prefetchDistance = 30,
+                initialLoadSize = 100,
+                enablePlaceholders = true,
+            ),
+            pagingSourceFactory = { dao.pagingSource(catFilter, q) },
+        )
+        return pager.flow.map { data: PagingData<NoteEntity> ->
+            val byId = categories.all().associateBy { it.id }
+            data.map { entity -> toUi(entity, byId) }
+        }
+    }
 
     suspend fun getById(id: Int): NoteRow? {
         val e = dao.getById(id.toLong()) ?: return null
@@ -40,6 +69,19 @@ class NotesRepository(
         )
         return dao.upsert(entity)
     }
+
+    // Counts for the filter bar menu. Streamed directly from SQLite so the
+    // numbers stay fresh without ever loading the full note list.
+    data class Counts(val total: Int, val uncategorized: Int, val byCategory: Map<Long, Int>)
+
+    fun observeCounts(): Flow<Counts> =
+        combine(
+            dao.observeCount(),
+            dao.observeUncategorizedCount(),
+            dao.observePerCategoryCounts(),
+        ) { total, uncat, perCat ->
+            Counts(total = total, uncategorized = uncat, byCategory = perCat.associate { it.id to it.n })
+        }
 
     suspend fun delete(id: Int) = dao.delete(id.toLong())
 

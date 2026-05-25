@@ -25,15 +25,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xpotrack.app.data.model.Category
+import com.xpotrack.app.data.repo.NotesRepository
 import com.xpotrack.app.ui.categories.parseHexColor
 import com.xpotrack.app.ui.theme.XpTokens
 
 @Composable
 fun NotesFilterBar(
     label: String?,
-    totalCount: Int,
     categories: List<Category>,
-    notes: List<NoteRow>,
+    counts: NotesRepository.Counts,
     activeColorHex: String?,
     onPick: (Long?) -> Unit,
     onClear: () -> Unit,
@@ -55,7 +55,7 @@ fun NotesFilterBar(
                 if (label == null) {
                     Text("All notes", style = barStyle, color = XpTokens.Ink2)
                     Spacer(Modifier.width(6.dp))
-                    Text(totalCount.toString(), style = barStyle, color = XpTokens.Ink3)
+                    Text(counts.total.toString(), style = barStyle, color = XpTokens.Ink3)
                 } else {
                     val labelColor = activeColorHex?.let { parseHexColor(it) } ?: XpTokens.Teal
                     Text(label, style = barStyle, color = labelColor)
@@ -67,7 +67,7 @@ fun NotesFilterBar(
                 expanded = menuOpen,
                 onDismiss = { menuOpen = false },
                 categories = categories,
-                notes = notes,
+                counts = counts,
                 onPick = { id -> onPick(id); menuOpen = false },
             )
         }
@@ -93,7 +93,7 @@ private fun FilterMenu(
     expanded: Boolean,
     onDismiss: () -> Unit,
     categories: List<Category>,
-    notes: List<NoteRow>,
+    counts: NotesRepository.Counts,
     onPick: (Long?) -> Unit,
 ) {
     DropdownMenu(
@@ -103,14 +103,13 @@ private fun FilterMenu(
             .background(XpTokens.Surface1)
             .border(0.5.dp, XpTokens.Hair2, RoundedCornerShape(10.dp)),
     ) {
-        FilterMenuRow("All notes", notes.size, XpTokens.Ink, onClick = { onPick(null) })
+        FilterMenuRow("All notes", counts.total, XpTokens.Ink, onClick = { onPick(null) })
         FilterMenuHeader("BUILT-IN")
-        val uncatCount = notes.count { it.categoryId == 0L }
-        FilterMenuRow("Uncategorized", uncatCount, XpTokens.Ink, onClick = { onPick(0L) })
+        FilterMenuRow("Uncategorized", counts.uncategorized, XpTokens.Ink, onClick = { onPick(0L) })
         if (categories.isNotEmpty()) {
             FilterMenuHeader("CUSTOM")
             categories.forEach { cat ->
-                val c = notes.count { it.categoryId == cat.id }
+                val c = counts.byCategory[cat.id] ?: 0
                 FilterMenuRow(cat.name, c, parseHexColor(cat.colorHex), onClick = { onPick(cat.id) })
             }
         }

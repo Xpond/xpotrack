@@ -1,5 +1,7 @@
 package com.xpotrack.app.data.db
 
+import androidx.paging.PagingSource
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
@@ -7,10 +9,46 @@ import androidx.room.Query
 import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
+data class CategoryCount(
+    @ColumnInfo(name = "id") val id: Long,
+    @ColumnInfo(name = "n") val n: Int,
+)
+
 @Dao
 interface NoteDao {
     @Query("SELECT * FROM notes WHERE isLocked = 0 ORDER BY updatedAt DESC")
     fun observeAll(): Flow<List<NoteEntity>>
+
+    // catFilter: -1 = no filter, 0 = uncategorized (categoryId IS NULL),
+    //            >0 = match that category id. Single query handles all three so
+    // a filter change is a `Pager` re-source, not a different DAO method.
+    // `q` of "" disables the LIKE branch (every row matches).
+    @Query(
+        """
+        SELECT * FROM notes
+        WHERE isLocked = 0
+          AND (:catFilter = -1
+               OR (:catFilter = 0 AND categoryId IS NULL)
+               OR categoryId = :catFilter)
+          AND (:q = '' OR title LIKE '%' || :q || '%')
+        ORDER BY updatedAt DESC
+        """
+    )
+    fun pagingSource(catFilter: Long, q: String): PagingSource<Int, NoteEntity>
+
+    @Query("SELECT COUNT(*) FROM notes WHERE isLocked = 0")
+    suspend fun count(): Int
+
+    @Query("SELECT COUNT(*) FROM notes WHERE isLocked = 0")
+    fun observeCount(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM notes WHERE isLocked = 0 AND categoryId IS NULL")
+    fun observeUncategorizedCount(): Flow<Int>
+
+    // Per-category counts as id→count rows. UI joins against the live category
+    // list to render the menu without ever materializing 50k notes.
+    @Query("SELECT categoryId AS id, COUNT(*) AS n FROM notes WHERE isLocked = 0 AND categoryId IS NOT NULL GROUP BY categoryId")
+    fun observePerCategoryCounts(): Flow<List<CategoryCount>>
 
     @Query("SELECT * FROM notes WHERE isLocked = 1 ORDER BY updatedAt DESC")
     fun observeLocked(): Flow<List<NoteEntity>>

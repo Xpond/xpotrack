@@ -102,4 +102,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.core.splashscreen)
+    implementation(libs.androidx.paging.runtime.ktx)
+    implementation(libs.androidx.paging.compose)
+    implementation(libs.androidx.room.paging)
 }

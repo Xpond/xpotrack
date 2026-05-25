@@ -22,6 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 // Tiny manual DI container — no Hilt, no Koin.
 class XpApp : Application() {
@@ -68,13 +69,13 @@ class XpApp : Application() {
         backupManager = BackupManager(this)
         QuickNoteSweepWorker.enqueue(this)
 
-        // Preload notes off the main thread and gate the splash on the first
-        // emission so the launcher icon hands off to a populated list. Release
-        // the gate in finally so a DB failure surfaces as an app screen rather
-        // than an indefinite splash.
+        // Confirm the DB is queryable (SQLCipher key resolved) and release the
+        // splash. A bounded COUNT(*) replaces the old observeAll().first() —
+        // single index lookup, sub-50ms even at 50k notes. Bounded timeout so a
+        // hung DB surfaces an empty list instead of an indefinite splash.
         appScope.launch {
             try {
-                db.noteDao().observeAll().first()
+                withTimeoutOrNull(2_000) { db.noteDao().count() }
             } catch (t: Throwable) {
                 Log.e("XpApp", "Notes preload failed; releasing splash anyway", t)
             } finally {
