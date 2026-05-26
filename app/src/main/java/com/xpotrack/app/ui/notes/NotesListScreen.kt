@@ -28,6 +28,7 @@ import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.itemKey
 import com.xpotrack.app.R
+import com.xpotrack.app.SplashGate
 import com.xpotrack.app.data.model.Category
 import com.xpotrack.app.data.repo.NotesRepository
 import com.xpotrack.app.ui.components.EmptyState
@@ -115,9 +116,32 @@ fun NotesListScreen(
 
     val staleness = rememberSearchStaleness(notes, isStale, searchOpen, onMarkFresh)
 
+    // Shared close action — used by the search bar's X button and by Back so
+    // both paths arm the staleness gate identically. Arming hides filtered
+    // rows until Paging emits the unfiltered set.
+    val closeSearch = {
+        if (q.isNotEmpty()) staleness.arm()
+        onSearchOpenChange(false)
+        onSetQuery("")
+    }
+    BackHandler(enabled = !selectMode && searchOpen) { closeSearch() }
+    // Active category filter? Back returns to "All notes" rather than exiting.
+    // Gated on no select-mode and no open search so those keep priority.
+    BackHandler(enabled = !selectMode && !searchOpen && filterId != null) {
+        onSetFilter(null)
+    }
+
     val emptyAfterLoad = visibleQuicks.isEmpty() &&
         notes.itemCount == 0 &&
         notes.loadState.refresh !is LoadState.Loading
+
+    // Release the cold-start splash only once the first page has actually
+    // settled, so the launcher hands off to populated rows instead of a
+    // bare header with an empty list. XpApp arms a 1.5s watchdog as backup.
+    val refreshSettled = notes.loadState.refresh !is LoadState.Loading
+    LaunchedEffect(refreshSettled) {
+        if (refreshSettled) SplashGate.notesReady = true
+    }
 
     Box(
         modifier = modifier
@@ -184,11 +208,7 @@ fun NotesListScreen(
                 NotesSearchBar(
                     query = query,
                     onQueryChange = onSetQuery,
-                    onClose = {
-                        if (q.isNotEmpty()) staleness.arm()
-                        onSearchOpenChange(false)
-                        onSetQuery("")
-                    },
+                    onClose = closeSearch,
                 )
             } else {
                 NotesHeader(onSearch = { onSearchOpenChange(true) })
