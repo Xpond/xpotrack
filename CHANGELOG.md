@@ -15,10 +15,11 @@ Initial release. Local-only notes + tasks + vault, no network, no analytics.
 
 ### Artifacts
 
-Built from commit `4c97820` on the `stable` branch.
+Rebuilt from commit `c61af57` on the `stable` branch after the editor
+caret-scroll fix. Supersedes the original `4c97820` build of v1.0.0.
 
-- `app-release.apk` — 10,013,208 bytes — SHA-256 `615e6d91d9543606dc4dcd99b014052ab61fdd3c2ea910462a9963c1d47c8a78`
-- `app-release.aab` — 7,535,582 bytes — SHA-256 `bcebeeb3f0569fc677adc30c7625eab48e6d1b495dab12ca294647c5b6d6e2e8`
+- `app-release.apk` — 10,013,208 bytes — SHA-256 `41d359f2dc461e5c2a1046472421e8cc4be0572da7dfd8d6eac32b95e65e7d94`
+- `app-release.aab` — 7,536,459 bytes — SHA-256 `9f5aca0a97375f1fec4b45628493cd08ff3db985810ad575b95d5411998619a4`
 
 APK signed with v2 scheme using the personal release keystore. Re-builds from the same source will not produce byte-identical artifacts until the steps in `docs/reproduciblebuild.md` land — these SHAs are an integrity record, not a reproducibility contract.
 
