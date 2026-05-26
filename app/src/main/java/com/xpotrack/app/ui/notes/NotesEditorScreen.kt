@@ -75,7 +75,7 @@ fun NotesEditorScreen(vm: NotesEditorViewModel, onBack: () -> Unit, onPickCatego
     // Local TextFieldValue keeps cursor/selection state; seeded once when the
     // VM finishes loading, then mirrored back via onBodyChange. Toolbar inserts
     // mutate this directly so the caret can land in the right spot.
-    var bodyTfv by remember(s.loaded, s.id) { mutableStateOf(TextFieldValue(s.body, TextRange(s.body.length))) }
+    var bodyTfv by remember(s.loaded, s.id) { mutableStateOf(TextFieldValue(s.body, TextRange.Zero)) }
     val imeVisible = WindowInsets.isImeVisible
 
     val zoomPrefs = (LocalContext.current.applicationContext as XpApp).editorZoomPrefs
@@ -87,7 +87,7 @@ fun NotesEditorScreen(vm: NotesEditorViewModel, onBack: () -> Unit, onPickCatego
 
     val bodyScroll = rememberScrollState()
     val caret = rememberCaretScroll(bodyScroll)
-    CaretScrollEffect(caret, selectionKey = bodyTfv.selection)
+    CaretScrollEffect(caret, caretOffset = bodyTfv.selection.start)
 
     val density = LocalDensity.current
     var headerPx by remember { mutableIntStateOf(0) }
@@ -96,10 +96,7 @@ fun NotesEditorScreen(vm: NotesEditorViewModel, onBack: () -> Unit, onPickCatego
     Box(Modifier.fillMaxSize().background(XpTokens.Bg).imePadding()) {
         Column(
             Modifier.fillMaxSize()
-                // Pinned header overlays the top of this scroll container, so
-                // subtract its height: the visible runway for the caret is
-                // below the header, not the full Column.
-                .onGloballyPositioned { caret.viewportHeightPx = it.size.height - headerPx }
+                .onGloballyPositioned { caret.viewportHeightPx = it.size.height }
                 .verticalScroll(bodyScroll)
                 .pinchZoom(
                     zoom = zoom,
@@ -123,11 +120,7 @@ fun NotesEditorScreen(vm: NotesEditorViewModel, onBack: () -> Unit, onPickCatego
                             bodyTfv = tfv
                             if (tfv.text != s.body) vm.onBodyChange(tfv.text)
                         },
-                        onTextLayout = { layout ->
-                            caret.caretRect = layout.getCursorRect(
-                                bodyTfv.selection.start.coerceIn(0, bodyTfv.text.length)
-                            )
-                        },
+                        onTextLayout = { caret.layout = it },
                         onFieldPositioned = { caret.fieldTopInScrollPx = it },
                     )
                 }
@@ -138,7 +131,7 @@ fun NotesEditorScreen(vm: NotesEditorViewModel, onBack: () -> Unit, onPickCatego
                 Spacer(Modifier.height(120.dp))
             }
         }
-        PinnedHeader(onSize = { headerPx = it.height }) {
+        PinnedHeader(onSize = { headerPx = it.height; caret.topInsetPx = it.height }) {
             TopBar(
                 previewMode = s.previewMode,
                 categoryName = s.categoryName,
@@ -149,11 +142,19 @@ fun NotesEditorScreen(vm: NotesEditorViewModel, onBack: () -> Unit, onPickCatego
                 onPreview = { vm.setPreview(true) },
             )
         }
-        if (!s.previewMode && imeVisible) {
-            NotesFormatBar(bodyTfv, modifier = Modifier.align(Alignment.BottomCenter)) { tfv ->
+        val formatBarVisible = !s.previewMode && imeVisible
+        if (formatBarVisible) {
+            NotesFormatBar(
+                bodyTfv,
+                modifier = Modifier.align(Alignment.BottomCenter)
+                    .onGloballyPositioned { caret.bottomInsetPx = it.size.height },
+            ) { tfv ->
                 bodyTfv = tfv
                 vm.onBodyChange(tfv.text)
             }
+        }
+        LaunchedEffect(formatBarVisible) {
+            if (!formatBarVisible) caret.bottomInsetPx = 0
         }
     }
 }
@@ -265,6 +266,7 @@ private fun BodyField(
         cursorBrush = SolidColor(XpTokens.Teal),
         onTextLayout = onTextLayout,
         modifier = Modifier.fillMaxWidth()
+            .swallowBringIntoView()
             .onGloballyPositioned { onFieldPositioned(it.positionInParent().y.toInt()) },
         decorationBox = { inner ->
             if (value.text.isEmpty()) Text(

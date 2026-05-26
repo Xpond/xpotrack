@@ -50,6 +50,7 @@ import com.xpotrack.app.ui.components.PinnedHeader
 import com.xpotrack.app.ui.notes.CaretScrollEffect
 import com.xpotrack.app.ui.notes.CaretScrollState
 import com.xpotrack.app.ui.notes.rememberCaretScroll
+import com.xpotrack.app.ui.notes.swallowBringIntoView
 import com.xpotrack.app.ui.theme.GeistMono
 import com.xpotrack.app.ui.theme.XpTokens
 import kotlinx.coroutines.launch
@@ -98,7 +99,7 @@ fun LockedNoteScreen(vm: VaultViewModel, noteId: Long, onBack: () -> Unit) {
 
     val bodyScroll = rememberScrollState()
     val caret = rememberCaretScroll(bodyScroll)
-    CaretScrollEffect(caret, selectionKey = body.selection)
+    CaretScrollEffect(caret, caretOffset = body.selection.start)
 
     val density = LocalDensity.current
     var headerPx by remember { mutableIntStateOf(0) }
@@ -122,7 +123,7 @@ fun LockedNoteScreen(vm: VaultViewModel, noteId: Long, onBack: () -> Unit) {
             BodyField(body, { body = it }, caret)
             Spacer(Modifier.height(120.dp))
         }
-        PinnedHeader(onSize = { headerPx = it.height }) {
+        PinnedHeader(onSize = { headerPx = it.height; caret.topInsetPx = it.height }) {
             TopBar()
         }
     }
@@ -178,12 +179,9 @@ private fun BodyField(value: TextFieldValue, onChange: (TextFieldValue) -> Unit,
             fontFamily = GeistMono,
         ),
         cursorBrush = SolidColor(XpTokens.Teal),
-        onTextLayout = { layout ->
-            caret.caretRect = layout.getCursorRect(
-                value.selection.start.coerceIn(0, value.text.length)
-            )
-        },
+        onTextLayout = { caret.layout = it },
         modifier = Modifier.fillMaxWidth()
+            .swallowBringIntoView()
             .onGloballyPositioned { caret.fieldTopInScrollPx = it.positionInParent().y.toInt() },
         decorationBox = { inner ->
             if (value.text.isEmpty()) Text(

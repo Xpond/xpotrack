@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import com.xpotrack.app.ui.components.cutoutSafeTopPadding
 import com.xpotrack.app.ui.notes.CaretScrollEffect
 import com.xpotrack.app.ui.notes.rememberCaretScroll
+import com.xpotrack.app.ui.notes.swallowBringIntoView
 import com.xpotrack.app.ui.theme.XpTokens
 
 @Composable
@@ -71,7 +72,7 @@ fun QuickEditorScreen(
 
     val bodyScroll = rememberScrollState()
     val caret = rememberCaretScroll(bodyScroll)
-    CaretScrollEffect(caret, selectionKey = tfv.selection)
+    CaretScrollEffect(caret, caretOffset = tfv.selection.start)
 
     Column(Modifier.fillMaxSize().background(XpTokens.Bg).cutoutSafeTopPadding().imePadding()) {
         Column(
@@ -93,12 +94,9 @@ fun QuickEditorScreen(
                 onValueChange = { tfv = it },
                 textStyle = LocalTextStyle.current.copy(fontSize = 16.sp, lineHeight = 26.sp, color = XpTokens.BodyInk),
                 cursorBrush = SolidColor(XpTokens.Teal),
-                onTextLayout = { layout ->
-                    caret.caretRect = layout.getCursorRect(
-                        tfv.selection.start.coerceIn(0, tfv.text.length)
-                    )
-                },
+                onTextLayout = { caret.layout = it },
                 modifier = Modifier.fillMaxWidth().focusRequester(focus)
+                    .swallowBringIntoView()
                     .onGloballyPositioned { caret.fieldTopInScrollPx = it.positionInParent().y.toInt() },
                 decorationBox = { inner ->
                     if (tfv.text.isEmpty()) Text(
