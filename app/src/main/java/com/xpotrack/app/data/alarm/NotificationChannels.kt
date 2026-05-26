@@ -7,24 +7,33 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.RingtoneManager
 
-// Two channels: quiet "Notify" reminders and high-importance "Alarm".
-// Both set lockscreenVisibility = PUBLIC so the content shows on the lock
-// screen, matching how stock clocks behave for alarms.
+// Two channels: heads-up "Notify" reminders (vibration, no sound) and the
+// louder "Alarm" channel (alarm sound + vibration + full-screen intent).
+// Both PUBLIC on the lockscreen, matching how stock clocks behave.
 object NotificationChannels {
 
     // Bump the version suffix any time channel config changes — Android
     // ignores edits to an existing channel's importance / sound, so a fresh
     // ID is the only way to make them apply.
-    const val NOTIFY_ID = "reminders.notify.v3"
+    const val NOTIFY_ID = "reminders.notify.v5"
     const val ALARM_ID = "reminders.alarm.v3"
+
+    // Short two-pulse pattern for Notify reminders: feels distinct from
+    // generic system pings without escalating to the long Alarm buzz.
+    private val NOTIFY_VIBRATION = longArrayOf(0L, 200L, 150L, 200L)
 
     fun ensure(context: Context) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (nm.getNotificationChannel(NOTIFY_ID) == null) {
             nm.createNotificationChannel(
-                NotificationChannel(NOTIFY_ID, "Reminders", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                // IMPORTANCE_HIGH (not DEFAULT) so the reminder pops up as a
+                // heads-up banner over other apps / the lockscreen instead of
+                // sitting silently in the tray.
+                NotificationChannel(NOTIFY_ID, "Reminders", NotificationManager.IMPORTANCE_HIGH).apply {
                     description = "Notify-level task reminders"
                     lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                    enableVibration(true)
+                    vibrationPattern = NOTIFY_VIBRATION
                 }
             )
         }
