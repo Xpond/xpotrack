@@ -131,7 +131,11 @@ fun NotesEditorScreen(vm: NotesEditorViewModel, onBack: () -> Unit, onPickCatego
                         onFieldPositioned = { caret.fieldTopInScrollPx = it },
                     )
                 }
-                Spacer(Modifier.height(16.dp))
+                // Runway under the body so scroll.maxValue is large enough to
+                // pull the caret out from under the IME — without this, a few
+                // Enters at the top of an empty note leave overflow positive
+                // but scroll clamped at 0.
+                Spacer(Modifier.height(120.dp))
             }
         }
         PinnedHeader(onSize = { headerPx = it.height }) {
