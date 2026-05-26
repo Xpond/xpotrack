@@ -13,6 +13,15 @@ Versioning follows SemVer for a single-user, local-only app:
 
 Initial release. Local-only notes + tasks + vault, no network, no analytics.
 
+### Artifacts
+
+Built from commit `4c97820` on the `stable` branch.
+
+- `app-release.apk` — 10,013,208 bytes — SHA-256 `615e6d91d9543606dc4dcd99b014052ab61fdd3c2ea910462a9963c1d47c8a78`
+- `app-release.aab` — 7,535,582 bytes — SHA-256 `bcebeeb3f0569fc677adc30c7625eab48e6d1b495dab12ca294647c5b6d6e2e8`
+
+APK signed with v2 scheme using the personal release keystore. Re-builds from the same source will not produce byte-identical artifacts until the steps in `docs/reproduciblebuild.md` land — these SHAs are an integrity record, not a reproducibility contract.
+
 ### Features
 - Notes: chronological list, categories, search, multi-select, share, markdown editor with Write/Preview toggle, pinch-to-zoom
 - Tasks: per-day timeline, three-column time wheel, recurrence (none/daily/weekly/weekdays), Silent/Notify/Alarm reminders
