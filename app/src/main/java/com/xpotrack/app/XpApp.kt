@@ -1,7 +1,6 @@
 package com.xpotrack.app
 
 import android.app.Application
-import android.util.Log
 import com.xpotrack.app.data.alarm.AlarmScheduler
 import com.xpotrack.app.data.alarm.NotificationChannels
 import com.xpotrack.app.data.backup.BackupManager
@@ -20,9 +19,9 @@ import com.xpotrack.app.data.security.VaultSession
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 
 // Tiny manual DI container — no Hilt, no Koin.
 class XpApp : Application() {
@@ -69,19 +68,10 @@ class XpApp : Application() {
         backupManager = BackupManager(this)
         QuickNoteSweepWorker.enqueue(this)
 
-        // Confirm the DB is queryable (SQLCipher key resolved) and release the
-        // splash. A bounded COUNT(*) replaces the old observeAll().first() —
-        // single index lookup, sub-50ms even at 50k notes. Bounded timeout so a
-        // hung DB surfaces an empty list instead of an indefinite splash.
-        appScope.launch {
-            try {
-                withTimeoutOrNull(2_000) { db.noteDao().count() }
-            } catch (t: Throwable) {
-                Log.e("XpApp", "Notes preload failed; releasing splash anyway", t)
-            } finally {
-                SplashGate.notesReady = true
-            }
-        }
+        // Watchdog: NotesListScreen flips notesReady once the first paged page
+        // settles. Release after 1.5s no matter what so a hung Paging refresh
+        // can't leave the splash stuck forever.
+        appScope.launch { delay(1500); SplashGate.notesReady = true }
 
         appScope.launch {
             tasksRepo.observeAll().first().forEach { task ->
@@ -94,11 +84,12 @@ class XpApp : Application() {
     }
 }
 
-// Splash screen keep-on-screen flag. Flipped once notes are queryable so
-// MainActivity can hand off from the launcher icon to a populated list.
-// `taskReady` covers the notification cold-start path — splash holds until
-// the deep-linked TaskDetailScreen has data, otherwise the first frame is
-// an empty XpTokens.Bg box that reads as a black flash.
+// Splash screen keep-on-screen flag. Flipped by NotesListScreen once the
+// first paged page settles, so MainActivity can hand off from the launcher
+// icon to a populated list (not just a bare header). XpApp also arms a 1.5s
+// watchdog. `taskReady` covers the notification cold-start path — splash
+// holds until the deep-linked TaskDetailScreen has data, otherwise the
+// first frame is an empty XpTokens.Bg box that reads as a black flash.
 object SplashGate {
     @Volatile var notesReady: Boolean = false
     @Volatile var taskReady: Boolean = true

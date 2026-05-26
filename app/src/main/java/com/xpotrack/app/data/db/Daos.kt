@@ -34,9 +34,6 @@ interface NoteDao {
     fun pagingSource(catFilter: Long, q: String): PagingSource<Int, NoteEntity>
 
     @Query("SELECT COUNT(*) FROM notes WHERE isLocked = 0")
-    suspend fun count(): Int
-
-    @Query("SELECT COUNT(*) FROM notes WHERE isLocked = 0")
     fun observeCount(): Flow<Int>
 
     @Query("SELECT COUNT(*) FROM notes WHERE isLocked = 0 AND categoryId IS NULL")
