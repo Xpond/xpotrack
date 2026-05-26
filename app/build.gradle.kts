@@ -22,8 +22,12 @@ android {
         applicationId = "com.xpotrack.app"
         minSdk = 29
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        // Single source of truth: bump versionName, versionCode derives from it.
+        // See CHANGELOG.md for what each release contains.
+        versionName = "1.0.0"
+        versionCode = versionName!!.split('.').let { (maj, min, pat) ->
+            maj.toInt() * 10_000 + min.toInt() * 100 + pat.toInt()
+        }
 
         ndk { abiFilters += "arm64-v8a" }
         vectorDrawables { useSupportLibrary = true }
