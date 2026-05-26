@@ -1,11 +1,5 @@
 package com.xpotrack.app.ui.components
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.keyframes
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,7 +8,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -23,22 +22,22 @@ import com.xpotrack.app.ui.theme.XpTokens
 
 @Composable
 fun EmptyState(title: String, helper: String, modifier: Modifier = Modifier) {
-    val transition = rememberInfiniteTransition(label = "caret")
-    val caretAlpha by transition.animateFloat(
-        initialValue = 1f,
-        targetValue = 0f,
-        animationSpec = infiniteRepeatable(
-            animation = keyframes {
-                durationMillis = 1000
-                1f at 0 using LinearEasing
-                1f at 500 using LinearEasing
-                0f at 500 using LinearEasing
-                0f at 999 using LinearEasing
-            },
-            repeatMode = RepeatMode.Restart,
-        ),
-        label = "caretAlpha",
-    )
+    // Hand-rolled blink driven by withFrameMillis. Vivo/Funtouch pauses
+    // InfiniteTransition (same family as the CircularProgressIndicator
+    // throttle), so the caret never animated on the test device. The
+    // Choreographer-backed withFrameMillis loop can't be throttled the same way.
+    var caretOn by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        var lastFlipMs = 0L
+        while (true) {
+            withFrameMillis { now ->
+                if (now - lastFlipMs >= 500L) {
+                    caretOn = !caretOn
+                    lastFlipMs = now
+                }
+            }
+        }
+    }
     Column(
         modifier.fillMaxWidth().padding(horizontal = 22.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -47,7 +46,7 @@ fun EmptyState(title: String, helper: String, modifier: Modifier = Modifier) {
             Text(title, color = XpTokens.Ink2, fontSize = 14.sp)
             Text(
                 " |",
-                color = XpTokens.Teal.copy(alpha = caretAlpha),
+                color = if (caretOn) XpTokens.Teal else XpTokens.Teal.copy(alpha = 0f),
                 fontSize = 14.sp,
             )
         }
