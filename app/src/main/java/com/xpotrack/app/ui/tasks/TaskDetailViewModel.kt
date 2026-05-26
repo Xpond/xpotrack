@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.xpotrack.app.data.model.Task
+import com.xpotrack.app.SplashGate
 import com.xpotrack.app.data.repo.NotesRepository
 import com.xpotrack.app.data.repo.TasksRepository
 import com.xpotrack.app.ui.notes.NoteRow
@@ -84,6 +85,9 @@ class TaskDetailViewModel(
             // Only seed the draft on first load — refreshes after sheet edits
             // would otherwise clobber an in-progress notes edit.
             if (task != null && wasFirstLoad) _notesDraft.value = task.notes
+            // Release the notification cold-start splash gate as soon as we
+            // have data to render. No-op when not holding.
+            SplashGate.taskReady = true
         }
     }
 

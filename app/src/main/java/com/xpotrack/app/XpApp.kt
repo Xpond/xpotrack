@@ -96,6 +96,10 @@ class XpApp : Application() {
 
 // Splash screen keep-on-screen flag. Flipped once notes are queryable so
 // MainActivity can hand off from the launcher icon to a populated list.
+// `taskReady` covers the notification cold-start path — splash holds until
+// the deep-linked TaskDetailScreen has data, otherwise the first frame is
+// an empty XpTokens.Bg box that reads as a black flash.
 object SplashGate {
     @Volatile var notesReady: Boolean = false
+    @Volatile var taskReady: Boolean = true
 }

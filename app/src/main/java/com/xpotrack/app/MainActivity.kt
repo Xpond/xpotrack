@@ -38,19 +38,35 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.lifecycleScope
+import com.xpotrack.app.data.alarm.AlarmScheduler
 import com.xpotrack.app.ui.AppRoot
 import com.xpotrack.app.ui.theme.XpTheme
 import com.xpotrack.app.ui.theme.XpTokens
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class MainActivity : FragmentActivity() {
 
     private val requestNotificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* result ignored */ }
 
+    // Notification tap → task detail. Set from launch intent or onNewIntent;
+    // AppRoot gates consumption itself so rotation doesn't replay.
+    private var pendingTaskId by mutableStateOf(0L)
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Notification cold-start: hold the splash until the deep-linked task
+        // is loaded so the first frame isn't an empty XpTokens.Bg (black flash).
+        val deepLinkTaskId = intent?.getLongExtra(AlarmScheduler.EXTRA_TASK_ID, 0L) ?: 0L
+        if (deepLinkTaskId != 0L) {
+            SplashGate.taskReady = false
+            // Watchdog: release after 1.5s no matter what so a hung DB doesn't
+            // leave the splash stuck forever.
+            lifecycleScope.launch { delay(1500); SplashGate.taskReady = true }
+        }
         val splash = installSplashScreen()
-        splash.setKeepOnScreenCondition { !SplashGate.notesReady }
+        splash.setKeepOnScreenCondition { !SplashGate.notesReady || !SplashGate.taskReady }
         // Vivo/Funtouch (and other OEMs) ignore windowSplashScreenAnimatedIcon,
         // so on a restore-driven relaunch we paint our own logo splash inside
         // the activity instead of relying on the system splash.
@@ -61,14 +77,30 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         hideStatusBarImmersive()
         maybeRequestNotificationPermission()
+        pendingTaskId = deepLinkTaskId
+        // Funtouch suppresses the system splash on notification-launched intents
+        // (same OEM quirk that already required RestartSplash for the restore
+        // relaunch). Paint the Compose overlay on the deep-link path too so the
+        // user sees the logo, not a dark window-background flash.
+        val showDeepLinkSplash = deepLinkTaskId != 0L
         setContent {
             XpTheme {
                 Box(Modifier.fillMaxSize()) {
-                    AppRoot()
-                    if (showRestartSplash) RestartSplash()
+                    AppRoot(
+                        openTaskId = pendingTaskId,
+                        onTaskOpened = { pendingTaskId = 0L },
+                    )
+                    if (showRestartSplash || showDeepLinkSplash) RestartSplash()
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val id = intent.getLongExtra(AlarmScheduler.EXTRA_TASK_ID, 0L)
+        if (id != 0L) pendingTaskId = id
     }
 
     override fun onResume() {
@@ -96,7 +128,10 @@ class MainActivity : FragmentActivity() {
         val minVisibleUntil = remember { SystemClock.uptimeMillis() + 700 }
         var visible by remember { mutableStateOf(true) }
         LaunchedEffect(Unit) {
-            while (!SplashGate.notesReady || SystemClock.uptimeMillis() < minVisibleUntil) {
+            while (!SplashGate.notesReady ||
+                !SplashGate.taskReady ||
+                SystemClock.uptimeMillis() < minVisibleUntil
+            ) {
                 delay(50)
             }
             visible = false

@@ -50,7 +50,10 @@ import com.xpotrack.app.ui.theme.XpTokens
 import com.xpotrack.app.ui.vault.VaultGate
 
 @Composable
-fun AppRoot() {
+fun AppRoot(
+    openTaskId: Long = 0L,
+    onTaskOpened: () -> Unit = {},
+) {
     val nav = rememberNavController()
     var sheetTaskId by rememberSaveable { mutableStateOf<Long?>(null) }
     // Date the create sheet should default to when opening a brand-new task.
@@ -62,7 +65,30 @@ fun AppRoot() {
         sheetInitialDate = date; sheetToken += 1; sheetTaskId = 0L
     }
 
-    var activeTab by rememberSaveable { mutableStateOf(XpTab.Notes) }
+    // Notification deep-link. The id captured on first composition becomes the
+    // NavHost startDestination so cold-start lands directly on task/{id} with
+    // no Tasks-tab flash. Warm-start (onNewIntent) and repeat taps go through
+    // the LaunchedEffect below; onTaskOpened() clears upstream so the next tap
+    // re-triggers even when the id hasn't changed.
+    val coldStartTaskId = rememberSaveable { openTaskId }
+    val startRoute = if (coldStartTaskId != 0L) "task/$coldStartTaskId" else "tabs"
+    var coldStartHandled by rememberSaveable { mutableStateOf(coldStartTaskId == 0L) }
+
+    var activeTab by rememberSaveable {
+        mutableStateOf(if (coldStartTaskId != 0L) XpTab.Tasks else XpTab.Notes)
+    }
+
+    LaunchedEffect(openTaskId) {
+        if (openTaskId == 0L) return@LaunchedEffect
+        if (!coldStartHandled && openTaskId == coldStartTaskId) {
+            // NavHost startDestination already opened the task — just consume.
+            coldStartHandled = true
+        } else {
+            activeTab = XpTab.Tasks
+            nav.navigate("task/$openTaskId") { launchSingleTop = true }
+        }
+        onTaskOpened()
+    }
 
     // Hoisted so it survives NotesListScreen disposal (tab switches AND
     // editor navigation). Without this, the LazyColumn composes with
@@ -92,7 +118,7 @@ fun AppRoot() {
             .background(XpTokens.Bg)
             .navigationBarsPadding(),
     ) {
-        NavHost(navController = nav, startDestination = "tabs") {
+        NavHost(navController = nav, startDestination = startRoute) {
             composable("tabs") {
                 TabsScaffold(
                     active = activeTab,
@@ -166,7 +192,14 @@ fun AppRoot() {
                 LaunchedEffect(sheetToken) { vm.refresh() }
                 TaskDetailScreen(
                     vm = vm,
-                    onBack = { nav.popBackStack(route = "tabs", inclusive = false) },
+                    onBack = {
+                        // Cold-start deep-link launches directly into task/{id},
+                        // so tabs isn't on the stack to pop back to — navigate
+                        // there instead. Normal in-app flow pops cleanly.
+                        if (!nav.popBackStack(route = "tabs", inclusive = false)) {
+                            nav.navigate("tabs") { popUpTo(0) { inclusive = true } }
+                        }
+                    },
                     onEdit = { openSheet(it) },
                     onOpenNote = { noteId -> nav.navigate("editor/$noteId") },
                 )

@@ -38,12 +38,17 @@ class AlarmReceiver : BroadcastReceiver() {
     }
 
     private fun postNotification(context: Context, nm: NotificationManager, taskId: Long, title: String, time: String) {
-        val tap = PendingIntent.getActivity(
-            context,
-            taskId.toInt(),
-            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
-            PI_FLAGS,
-        )
+        // ACTION_MAIN + CATEGORY_LAUNCHER mirrors the launcher icon's intent
+        // so Android treats the tap as a fresh app launch (correct task stack
+        // reuse, splash treatment on stock OEMs). Funtouch still suppresses
+        // the system splash; the Compose RestartSplash overlay covers that.
+        val tapIntent = Intent(Intent.ACTION_MAIN).apply {
+            setClass(context, MainActivity::class.java)
+            addCategory(Intent.CATEGORY_LAUNCHER)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            putExtra(AlarmScheduler.EXTRA_TASK_ID, taskId)
+        }
+        val tap = PendingIntent.getActivity(context, taskId.toInt(), tapIntent, PI_FLAGS)
         val n = NotificationCompat.Builder(context, NotificationChannels.NOTIFY_ID)
             .setSmallIcon(R.drawable.ic_reminder_notify)
             .setContentTitle(title)
@@ -52,7 +57,7 @@ class AlarmReceiver : BroadcastReceiver() {
             .setAutoCancel(true)
             .setColor(TEAL_ARGB)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .build()
         nm.notify(taskId.toInt(), n)
     }
