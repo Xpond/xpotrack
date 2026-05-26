@@ -4,6 +4,7 @@ Local-only Android notes + tasks app. Kotlin + Compose, Room behind SQLCipher, n
 
 ## Read these first
 - `docs/progress.md` — feature-by-feature snapshot of what ships + the gotchas worth keeping
+- `CHANGELOG.md` — per-release notes + the versioning scheme (SemVer, single-user local-only app)
 
 ## Non-negotiable rules
 - **Local only.** No network code. No analytics. No cloud.
@@ -34,6 +35,12 @@ adb shell am start -n com.xpotrack.app/.MainActivity
 Phone is iQOO Neo 7 (Android 14, SDK 34) over wireless adb on LAN. Tailscale + Arch's adb do not pair (mDNS stripped from `android-tools 35.0.2` + CGNAT mDNS quirks). For a fresh device: pair on same Wi-Fi with `adb pair IP:PORT CODE` then `adb connect IP:PORT`.
 
 `local.properties` (gitignored) must set `sdk.dir=/home/xpo/Android/Sdk`.
+
+## Cutting a release
+1. Add a new section to `CHANGELOG.md` above the previous release.
+2. Bump `versionName` in `app/build.gradle.kts`. `versionCode` derives from it (`MAJOR*10000 + MINOR*100 + PATCH`), so don't set it by hand.
+3. `./gradlew assembleRelease` → `app/build/outputs/apk/release/app-release.apk`.
+4. Smoke-test on device (uninstall + install when the previous build was debug-signed).
 
 ## Layering
 ```
