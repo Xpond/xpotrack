@@ -34,6 +34,7 @@ import com.xpotrack.app.ui.theme.XpTokens
 enum class XpTab(val label: String, val iconRes: Int) {
     Notes("Notes",  R.drawable.ic_tab_notes),
     Tasks("Tasks",  R.drawable.ic_tab_tasks),
+    Expense("Expense", R.drawable.ic_tab_expense),
     Vault("Vault",  R.drawable.ic_tab_vault),
     // Enum value stays `More` to avoid churning every call site; the user-
     // facing label was renamed to "Settings" when milestone 13 replaced the

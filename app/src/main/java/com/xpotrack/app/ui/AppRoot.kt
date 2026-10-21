@@ -33,6 +33,8 @@ import com.xpotrack.app.ui.categories.CategorySheet
 import com.xpotrack.app.ui.categories.CategorySheetMode
 import com.xpotrack.app.ui.components.XpBottomTabs
 import com.xpotrack.app.ui.components.XpTab
+import com.xpotrack.app.ui.expense.ExpenseScreen
+import com.xpotrack.app.ui.expense.ExpenseViewModel
 import com.xpotrack.app.ui.settings.SettingsScreen
 import com.xpotrack.app.ui.notes.NotesEditorScreen
 import com.xpotrack.app.ui.notes.NotesEditorViewModel
@@ -323,6 +325,7 @@ private fun TabsScaffold(
                 onOpenTask = { id -> if (id == 0L) onNewTask(selectedDate) else onOpenTask(id) },
                 onDeleteTask = tasksVm::delete,
             )
+            XpTab.Expense -> ExpenseScreen(viewModel(factory = ExpenseViewModel.Factory(app.expenseRepo)))
             XpTab.Vault -> VaultGate(onLockExit = onLockExit)
             XpTab.More  -> SettingsScreen()
         }

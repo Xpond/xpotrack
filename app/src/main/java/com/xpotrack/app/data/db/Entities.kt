@@ -64,3 +64,11 @@ data class QuickNoteEntity(
     val createdAt: Long,
     val expiresAt: Long,
 )
+
+// One row per logged day. `text` is the day exactly as typed, one expense per
+// line ("Lunch 260"). Totals are parsed on read (ExpenseLine.kt), not stored.
+@Entity(tableName = "expense_days")
+data class ExpenseDayEntity(
+    @PrimaryKey val dateEpochDay: Long,
+    val text: String,
+)

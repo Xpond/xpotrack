@@ -160,3 +160,21 @@ interface MetaDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun put(row: MetaEntity)
 }
+
+@Dao
+interface ExpenseDao {
+    @Query("SELECT * FROM expense_days WHERE dateEpochDay BETWEEN :from AND :to")
+    fun observeRange(from: Long, to: Long): Flow<List<ExpenseDayEntity>>
+
+    @Query("SELECT dateEpochDay FROM expense_days")
+    fun observeDates(): Flow<List<Long>>
+
+    @Query("SELECT text FROM expense_days WHERE dateEpochDay = :day LIMIT 1")
+    suspend fun getText(day: Long): String?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(row: ExpenseDayEntity)
+
+    @Query("DELETE FROM expense_days WHERE dateEpochDay = :day")
+    suspend fun delete(day: Long)
+}
