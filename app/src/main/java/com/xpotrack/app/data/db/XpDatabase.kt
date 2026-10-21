@@ -12,8 +12,8 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 @Database(
-    entities = [NoteEntity::class, TaskEntity::class, CategoryEntity::class, MetaEntity::class, QuickNoteEntity::class],
-    version = 11,
+    entities = [NoteEntity::class, TaskEntity::class, CategoryEntity::class, MetaEntity::class, QuickNoteEntity::class, ExpenseDayEntity::class],
+    version = 12,
     exportSchema = false,
 )
 abstract class XpDatabase : RoomDatabase() {
@@ -22,6 +22,7 @@ abstract class XpDatabase : RoomDatabase() {
     abstract fun categoryDao(): CategoryDao
     abstract fun metaDao(): MetaDao
     abstract fun quickNoteDao(): QuickNoteDao
+    abstract fun expenseDao(): ExpenseDao
 
     companion object {
         @Volatile private var instance: XpDatabase? = null
@@ -53,7 +54,7 @@ abstract class XpDatabase : RoomDatabase() {
             return Room.databaseBuilder(appContext, XpDatabase::class.java, "xpotrack.db")
                 .openHelperFactory(factory)
                 .fallbackToDestructiveMigrationFrom(1, 2, 3, 4, 5, 6, 7)
-                .addMigrations(MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
+                .addMigrations(MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
                 .build()
         }
 
@@ -79,6 +80,16 @@ abstract class XpDatabase : RoomDatabase() {
         private val MIGRATION_10_11 = object : Migration(10, 11) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE tasks ADD COLUMN linkedNoteId INTEGER")
+            }
+        }
+
+        // v11→v12: expense tab. One row per logged day, keyed by local epoch day.
+        private val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `expense_days` (`dateEpochDay` INTEGER NOT NULL, " +
+                        "`text` TEXT NOT NULL, PRIMARY KEY(`dateEpochDay`))"
+                )
             }
         }
     }

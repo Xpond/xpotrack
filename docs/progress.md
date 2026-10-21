@@ -63,6 +63,19 @@ Expiry runs via `repo.sweepExpired()` on screen open + a 24h `WorkManager` `Peri
 
 ---
 
+## Expense
+
+Middle tab. One free-text entry per day, typed in one go at the end of the day: one expense per line, amount at the end (`Lunch 260`). `parseExpenseLine` (`data/model/ExpenseLine.kt`) takes the trailing number — commas, up to 2 decimals, optional `₹` / `rs` / `/-`; the number must stand alone, so `Covid19` isn't an amount. Lines without one are notes and count zero. Amounts tint teal; uncounted lines dim.
+
+The tab is the month: header total top-right (Tasks' counter slot), tapping the month title opens the Tasks `MonthPickerDialog` (dots = logged days). Below, one row per logged day with a label preview and day total. Today is expanded on entry; tapping a row expands it inline on ruled rows (one open at a time). Every keystroke saves (FIFO `Mutex` so writes land in order); clearing a day deletes its row. Picking a day in the picker jumps to its month and opens it, which is how an unlogged past day gets filled in.
+
+**Gotchas worth keeping:**
+- Totals are parsed from `text` on read, never stored — nothing to drift out of sync.
+- The open field is `readOnly` until its text loads, same reason as the vault editor's pristine guard: early keystrokes on a blank draft would overwrite the stored day.
+- Two earlier designs were cut: a per-expense form with tags (too slow for a batch at day's end), and a separate full-screen day editor (most of the screen stayed empty).
+
+---
+
 ## Vault
 
 A four-phase tab (Setup → Unlock → List → LockedNote) gated by a single passphrase. PBKDF2-HMAC-SHA256 (210k iter, 256-bit key) derives an AES-256-GCM key; each note ciphertext is `[salt(16) | iv(12) | ct+tag]`. HMAC-SHA256 stretches the vault key with the per-note salt so every note gets a unique AES key without re-running PBKDF2. A verifier (`PBKDF2(passphrase, salt)`) is stored once at setup; unlock re-derives and constant-time compares.
@@ -193,10 +206,10 @@ app/src/main/java/com/xpotrack/app/
 │   ├── alarm/{AlarmScheduler, AlarmReceiver, BootCompletedReceiver, NotificationChannels}.kt
 │   ├── backup/{BackupCodec, BackupManager}.kt
 │   ├── db/{Entities, Daos, XpDatabase, CipherFastKdf}.kt
-│   ├── model/{Task, Category, ReminderLevel}.kt
+│   ├── model/{Task, Category, ReminderLevel, ExpenseLine}.kt
 │   ├── prefs/{ThemePrefs, EditorZoomPrefs}.kt
 │   ├── quick/QuickNoteSweepWorker.kt
-│   ├── repo/{Notes, Tasks, Vault, Categories, QuickNotes}Repository.kt
+│   ├── repo/{Notes, Tasks, Vault, Categories, QuickNotes, Expense}Repository.kt
 │   ├── repo/RelativeWhen.kt
 │   └── security/{PassphraseStore, VaultCrypto, VaultKeyStore, VaultMetaStore, VaultSession, EspHelper}.kt
 └── ui/
@@ -217,6 +230,7 @@ app/src/main/java/com/xpotrack/app/
     │          TaskDetailScreen, TaskDetailScreenParts, TaskDetailViewModel,
     │          TimeWheel, WheelPicker, RepeatPickerDialog, MonthPickerDialog,
     │          LinkNoteDialog, DialogCard, TaskDateUtils, TasksData}.kt
+    ├── expense/{ExpenseScreen, ExpenseDayField, ExpenseViewModel}.kt
     ├── settings/{SettingsScreen, BackupSection}.kt
     └── vault/{VaultGate, VaultSetupScreen, VaultUnlockScreen, VaultListScreen, LockedNoteScreen,
                VaultViewModel, VaultBiometric, VaultData, PassInput}.kt
@@ -239,7 +253,7 @@ app/src/main/java/com/xpotrack/app/
 
 ---
 
-## Data model (schema v11)
+## Data model (schema v12)
 
 ```
 notes         id, title, bodyMarkdown, categoryId?, isPinned, isLocked,
@@ -249,10 +263,11 @@ tasks         id, title, time, level, durationMin, notes, isDone,
               createdAt, updatedAt
 categories    id, name, colorHex, sortOrder
 quick_notes   id, text, createdAt, expiresAt
+expense_days  dateEpochDay (PK), text
 meta          key, value                                    # KV bag
 ```
 
-**Migration history:** pre-v8 → destructive (`fallbackToDestructiveMigrationFrom(1..7)`). v8 → v9 adds `tasks.dateEpochDay` (backfilled to today). v9 → v10 adds `tasks.repeat` (default `none`). v10 → v11 adds `tasks.linkedNoteId` (nullable). The earlier milestones did destructive bumps freely because there were no real users; real `Migration` objects started landing once the schema stabilized.
+**Migration history:** pre-v8 → destructive (`fallbackToDestructiveMigrationFrom(1..7)`). v8 → v9 adds `tasks.dateEpochDay` (backfilled to today). v9 → v10 adds `tasks.repeat` (default `none`). v10 → v11 adds `tasks.linkedNoteId` (nullable). v11 → v12 creates `expense_days`. The earlier milestones did destructive bumps freely because there were no real users; real `Migration` objects started landing once the schema stabilized.
 
 Uninstall destroys the Keystore key and the DB is unrecoverable — feature, not bug.
 
