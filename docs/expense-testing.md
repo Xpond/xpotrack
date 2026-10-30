@@ -3,7 +3,7 @@
 Use a test installation with separate data. Run the build checks with:
 
 ```sh
-./gradlew assembleDebug assembleRelease lintDebug
+./gradlew testDebugUnitTest assembleDebug assembleRelease lintDebug
 ```
 
 ## Keyboard and saving
@@ -16,6 +16,17 @@ Use a test installation with separate data. Run the build checks with:
    following the caret after its stored text loads.
 5. Collapse/reopen and restart the app. Text and totals must survive.
 6. Clear the older day's text and collapse it. Its row and calendar dot must disappear.
+
+## Date state
+
+- Switch between months containing different entries. The old month's rows and
+  total must disappear as soon as the header changes, before the next Room result.
+- `ExpenseDatesTest` reproduces that delayed-query case (two tests failed before
+  the fix). `ExpenseViewModelTest` covers next-day/year rollover, preserving an
+  active draft on a midnight tick, and keeping deliberate historical selections.
+- Re-entering Expense on the same day preserves the user's collapsed state.
+- Day blocks are keyed by epoch day; switching dates must not reuse another
+  editor's remembered focus or layout state.
 
 ## Collapsed previews
 
@@ -44,3 +55,14 @@ backdated entry, note-only preview, landscape calendar including all six weeks,
 portrait calendar, and unchanged vault-note ordering. Debug/release builds and lint passed (existing warnings).
 The initial PR review also verified encrypted v11→v12 migration and persistence
 using a temporary on-device harness; that harness is excluded from app source.
+
+Follow-up review: all nine JVM regression tests pass. Notes and Quick Notes were
+checked with 25 lines, including first-line caret placement. Vault was checked
+through accessibility bounds while retaining screenshot protection; upward
+caret movement scrolled correctly and the resulting position remained stable.
+An initial lint Kotlin-analyzer failure cleared on a separate rerun with no
+source changes or disabled checks.
+The final tablet build also passed August/September switching: each date retained
+its own text and total, clearing removed the test rows, and the original October
+day remained unchanged. Midnight/year rollover was simulated in JVM tests;
+the device clock was not changed.

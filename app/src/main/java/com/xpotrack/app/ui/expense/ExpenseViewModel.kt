@@ -21,11 +21,15 @@ import java.time.ZoneId
 
 class ExpenseViewModel(private val repo: ExpenseRepository) : ViewModel() {
 
-    private val _month = MutableStateFlow(YearMonth.now(ZoneId.systemDefault()))
+    private val _today = MutableStateFlow(LocalDate.now(ZoneId.systemDefault()).toEpochDay())
+    val today: StateFlow<Long> = _today.asStateFlow()
+    private var entryDay = _today.value
+
+    private val _month = MutableStateFlow(YearMonth.from(LocalDate.ofEpochDay(_today.value)))
     val month: StateFlow<YearMonth> = _month.asStateFlow()
 
     // The one day expanded for editing. Today on entry; null when collapsed.
-    private val _openDay = MutableStateFlow<Long?>(LocalDate.now(ZoneId.systemDefault()).toEpochDay())
+    private val _openDay = MutableStateFlow<Long?>(_today.value)
     val openDay: StateFlow<Long?> = _openDay.asStateFlow()
 
     // epochDay → text for every logged day in the shown month.
@@ -49,6 +53,23 @@ class ExpenseViewModel(private val repo: ExpenseRepository) : ViewModel() {
     }
 
     suspend fun load(day: Long): String = lock.withLock { repo.get(day) }
+
+    // Refresh the marker at midnight without moving an active draft to a new day.
+    fun refreshToday(day: Long = LocalDate.now(ZoneId.systemDefault()).toEpochDay()) {
+        _today.value = day
+    }
+
+    // On tab entry/foreground return, follow today if that was the day being viewed.
+    // Deliberately browsing history should keep its selected date.
+    fun onEnter(day: Long = LocalDate.now(ZoneId.systemDefault()).toEpochDay()) {
+        val previous = entryDay
+        entryDay = day
+        refreshToday(day)
+        if (day != previous && (
+                _openDay.value == previous ||
+                    (_openDay.value == null && _month.value == YearMonth.from(LocalDate.ofEpochDay(previous)))
+            )) pick(day)
+    }
 
     fun toggle(day: Long) {
         _openDay.value = if (_openDay.value == day) null else day

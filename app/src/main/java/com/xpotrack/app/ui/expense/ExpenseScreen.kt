@@ -1,26 +1,19 @@
 package com.xpotrack.app.ui.expense
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -33,18 +26,14 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.xpotrack.app.R
 import com.xpotrack.app.data.model.expenseTotalPaise
-import com.xpotrack.app.ui.components.DateTimeStrip
 import com.xpotrack.app.ui.components.EmptyState
 import com.xpotrack.app.ui.components.PinnedHeader
 import com.xpotrack.app.ui.notes.CaretScrollEffect
@@ -52,11 +41,7 @@ import com.xpotrack.app.ui.notes.rememberCaretScroll
 import com.xpotrack.app.ui.notes.TopHalo
 import com.xpotrack.app.ui.tasks.MonthPickerDialog
 import com.xpotrack.app.ui.theme.XpTokens
-import java.time.LocalDate
-import java.time.YearMonth
-import java.time.ZoneId
-import java.time.format.TextStyle as JTextStyle
-import java.util.Locale
+import kotlinx.coroutines.delay
 
 @Composable
 fun ExpenseScreen(vm: ExpenseViewModel) {
@@ -64,11 +49,21 @@ fun ExpenseScreen(vm: ExpenseViewModel) {
     val openDay by vm.openDay.collectAsStateWithLifecycle()
     val days by vm.days.collectAsStateWithLifecycle()
     val loggedDates by vm.loggedDates.collectAsStateWithLifecycle()
-    val today = remember { LocalDate.now(ZoneId.systemDefault()).toEpochDay() }
+    val today by vm.today.collectAsStateWithLifecycle()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(vm, lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            vm.onEnter()
+            while (true) {
+                delay(60_000L - System.currentTimeMillis() % 60_000L)
+                vm.refreshToday()
+            }
+        }
+    }
     var pickerOpen by remember { mutableStateOf(false) }
 
     // The open day's text lives here, loaded once per open and saved on every
-    // edit (same model as LockedNoteScreen). readOnly until the load lands so
+    // edit. readOnly until the load lands so
     // early keystrokes can't overwrite the stored day with a blank draft.
     var draft by remember(openDay) { mutableStateOf(TextFieldValue("")) }
     var loaded by remember(openDay) { mutableStateOf(false) }
@@ -82,9 +77,8 @@ fun ExpenseScreen(vm: ExpenseViewModel) {
         loaded = true
     }
 
-    val inMonth = { d: Long -> YearMonth.from(LocalDate.ofEpochDay(d)) == month }
-    val listed = remember(days, openDay, month) {
-        (days.keys + listOfNotNull(openDay, today).filter(inMonth)).sortedDescending()
+    val listed = remember(days, openDay, month, today) {
+        expenseDates(days.keys, openDay, today, month)
     }
     val textOf = { d: Long -> if (d == openDay && loaded) draft.text else days[d].orEmpty() }
     val monthTotal = listed.sumOf { expenseTotalPaise(textOf(it)) }
@@ -116,36 +110,38 @@ fun ExpenseScreen(vm: ExpenseViewModel) {
                 }
             }
             listed.forEachIndexed { i, day ->
-                val open = day == openDay
-                ExpenseDayBlock(
-                    day = day,
-                    isToday = day == today,
-                    open = open,
-                    text = textOf(day),
-                    first = i == 0,
-                    onToggle = { if (!open) focusDay = day; vm.toggle(day) },
-                ) {
-                    ExpenseDayField(
-                        value = draft,
-                        caret = caret,
-                        modifier = Modifier
-                            .onFocusChanged { focused = it.isFocused }
-                            .onGloballyPositioned {
-                                caret.fieldTopInScrollPx = (it.positionInRoot().y - viewportTop + scroll.value).toInt()
+                key(day) {
+                    val open = day == openDay
+                    ExpenseDayBlock(
+                        day = day,
+                        isToday = day == today,
+                        open = open,
+                        text = textOf(day),
+                        first = i == 0,
+                        onToggle = { if (!open) focusDay = day; vm.toggle(day) },
+                    ) {
+                        ExpenseDayField(
+                            value = draft,
+                            caret = caret,
+                            modifier = Modifier
+                                .onFocusChanged { focused = it.isFocused }
+                                .onGloballyPositioned {
+                                    caret.fieldTopInScrollPx = (it.positionInRoot().y - viewportTop + scroll.value).toInt()
+                                },
+                            onValueChange = { v ->
+                                if (v.text != draft.text) vm.save(day, v.text)
+                                draft = v
                             },
-                        onValueChange = { v ->
-                            if (v.text != draft.text) vm.save(day, v.text)
-                            draft = v
-                        },
-                        readOnly = !loaded,
-                        focusNow = loaded && focusDay == day,
-                    )
+                            readOnly = !loaded,
+                            focusNow = loaded && focusDay == day,
+                        )
+                    }
                 }
             }
             Spacer(Modifier.height(120.dp))
         }
         PinnedHeader(onSize = { headerPx = it.height; caret.topInsetPx = it.height }) {
-            Header(month = month, totalPaise = monthTotal, onPickMonth = { pickerOpen = true })
+            ExpenseHeader(month = month, totalPaise = monthTotal, onPickMonth = { pickerOpen = true })
         }
     }
     if (pickerOpen) {
@@ -156,45 +152,4 @@ fun ExpenseScreen(vm: ExpenseViewModel) {
             onDismiss = { pickerOpen = false },
         )
     }
-}
-
-@Composable
-private fun Header(month: YearMonth, totalPaise: Long, onPickMonth: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(start = 22.dp, end = 18.dp, bottom = 18.dp),
-        verticalAlignment = Alignment.Bottom,
-    ) {
-        Column(Modifier.weight(1f)) {
-            DateTimeStrip()
-            Spacer(Modifier.height(14.dp))
-            Row(
-                Modifier.clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onPickMonth,
-                ),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(monthTitle(month), style = MaterialTheme.typography.displayLarge, color = XpTokens.Ink, maxLines = 1)
-                Spacer(Modifier.width(8.dp))
-                Icon(painterResource(R.drawable.ic_caret_down), "Pick month", tint = XpTokens.Ink3, modifier = Modifier.size(14.dp))
-            }
-        }
-        Column(horizontalAlignment = Alignment.End) {
-            Text(
-                buildAnnotatedString {
-                    withStyle(SpanStyle(color = XpTokens.Ink3)) { append("₹") }
-                    withStyle(SpanStyle(color = XpTokens.Teal)) { append(expenseAmount(totalPaise)) }
-                },
-                style = MaterialTheme.typography.labelSmall.copy(fontSize = 26.sp),
-            )
-            Spacer(Modifier.height(4.dp))
-            Text("SPENT", style = MaterialTheme.typography.labelMedium, color = XpTokens.Ink3)
-        }
-    }
-}
-
-private fun monthTitle(m: YearMonth): String {
-    val name = m.month.getDisplayName(JTextStyle.FULL, Locale.getDefault())
-    return if (m.year == YearMonth.now(ZoneId.systemDefault()).year) name else "$name ${m.year}"
 }

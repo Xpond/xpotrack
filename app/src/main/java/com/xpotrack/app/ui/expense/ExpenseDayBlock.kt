@@ -25,6 +25,7 @@ import com.xpotrack.app.data.model.parseExpenseLine
 import com.xpotrack.app.ui.theme.XpTokens
 import java.math.BigDecimal
 import java.text.NumberFormat
+import java.time.YearMonth
 import java.time.LocalDate
 import java.time.format.TextStyle as JTextStyle
 import java.util.Locale
@@ -87,3 +88,8 @@ private fun preview(text: String): String =
 private val rupees = NumberFormat.getNumberInstance(Locale("en", "IN")).apply { maximumFractionDigits = 2 }
 
 internal fun expenseAmount(paise: Long): String = rupees.format(BigDecimal.valueOf(paise, 2))
+
+internal fun expenseDates(days: Set<Long>, openDay: Long?, today: Long, month: YearMonth): List<Long> =
+    (days + listOfNotNull(openDay, today))
+        .filter { YearMonth.from(LocalDate.ofEpochDay(it)) == month }
+        .sortedDescending()
