@@ -11,6 +11,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -56,8 +59,8 @@ fun MonthPickerDialog(
     val selected = remember(selectedEpochDay) { LocalDate.ofEpochDay(selectedEpochDay) }
     var month by remember { mutableStateOf(YearMonth.from(selected)) }
 
-    DialogCard(onDismiss) {
-        Column {
+    DialogCard(onDismiss, modifier = Modifier.widthIn(max = 420.dp)) {
+        Column(Modifier.verticalScroll(rememberScrollState())) {
             MonthHeader(
                 month = month,
                 onPrev = { month = month.minusMonths(1) },

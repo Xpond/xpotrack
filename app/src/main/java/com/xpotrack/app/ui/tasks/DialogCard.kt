@@ -19,6 +19,7 @@ import com.xpotrack.app.ui.theme.XpTokens
 @Composable
 internal fun DialogCard(
     onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     Dialog(
@@ -28,6 +29,7 @@ internal fun DialogCard(
         Box(
             Modifier
                 .padding(horizontal = 24.dp)
+                .then(modifier)
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(20.dp))
                 .background(XpTokens.Surface1)

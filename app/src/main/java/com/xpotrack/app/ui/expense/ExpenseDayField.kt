@@ -27,11 +27,12 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.TransformedText
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xpotrack.app.data.model.parseExpenseLine
+import com.xpotrack.app.ui.notes.CaretScrollState
+import com.xpotrack.app.ui.notes.swallowBringIntoView
 import com.xpotrack.app.ui.theme.GeistMono
 import com.xpotrack.app.ui.theme.XpTokens
 
@@ -40,10 +41,12 @@ import com.xpotrack.app.ui.theme.XpTokens
 @Composable
 internal fun ExpenseDayField(
     value: TextFieldValue,
+    caret: CaretScrollState,
     onValueChange: (TextFieldValue) -> Unit,
     readOnly: Boolean,
     // Raise the keyboard once composed — only when the user opened this day.
     focusNow: Boolean,
+    modifier: Modifier = Modifier,
 ) {
     val focus = remember { FocusRequester() }
     LaunchedEffect(focusNow) { if (focusNow) focus.requestFocus() }
@@ -65,8 +68,9 @@ internal fun ExpenseDayField(
         visualTransformation = { text ->
             TransformedText(highlight(text.text, amountInk, noteInk), OffsetMapping.Identity)
         },
-        onTextLayout = { layout = it },
-        modifier = Modifier
+        onTextLayout = { layout = it; caret.layout = it },
+        modifier = modifier
+            .swallowBringIntoView()
             .fillMaxWidth()
             .focusRequester(focus)
             .drawBehind {

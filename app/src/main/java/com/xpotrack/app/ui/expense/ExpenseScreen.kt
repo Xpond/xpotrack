@@ -22,35 +22,36 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xpotrack.app.R
 import com.xpotrack.app.data.model.expenseTotalPaise
-import com.xpotrack.app.data.model.parseExpenseLine
 import com.xpotrack.app.ui.components.DateTimeStrip
 import com.xpotrack.app.ui.components.EmptyState
 import com.xpotrack.app.ui.components.PinnedHeader
+import com.xpotrack.app.ui.notes.CaretScrollEffect
+import com.xpotrack.app.ui.notes.rememberCaretScroll
 import com.xpotrack.app.ui.notes.TopHalo
 import com.xpotrack.app.ui.tasks.MonthPickerDialog
 import com.xpotrack.app.ui.theme.XpTokens
-import java.math.BigDecimal
-import java.text.NumberFormat
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
@@ -88,13 +89,26 @@ fun ExpenseScreen(vm: ExpenseViewModel) {
     val textOf = { d: Long -> if (d == openDay && loaded) draft.text else days[d].orEmpty() }
     val monthTotal = listed.sumOf { expenseTotalPaise(textOf(it)) }
 
+    val scroll = rememberScrollState()
+    val caret = rememberCaretScroll(scroll)
+    var focused by remember { mutableStateOf(false) }
+    var viewportTop by remember { mutableFloatStateOf(0f) }
+    if (focused && loaded) CaretScrollEffect(caret, draft.selection.start)
+
     val density = LocalDensity.current
     var headerPx by remember { mutableIntStateOf(0) }
     val headerDp = with(density) { headerPx.toDp() }
 
     Box(Modifier.fillMaxSize().background(XpTokens.Bg)) {
         TopHalo()
-        Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState())) {
+        Column(
+            Modifier.fillMaxSize().imePadding()
+                .onGloballyPositioned {
+                    caret.viewportHeightPx = it.size.height
+                    viewportTop = it.positionInRoot().y
+                }
+                .verticalScroll(scroll),
+        ) {
             Spacer(Modifier.height(headerDp))
             if (listed.isEmpty()) {
                 Box(Modifier.fillMaxWidth().padding(top = 160.dp), contentAlignment = Alignment.Center) {
@@ -103,7 +117,7 @@ fun ExpenseScreen(vm: ExpenseViewModel) {
             }
             listed.forEachIndexed { i, day ->
                 val open = day == openDay
-                DayBlock(
+                ExpenseDayBlock(
                     day = day,
                     isToday = day == today,
                     open = open,
@@ -113,6 +127,12 @@ fun ExpenseScreen(vm: ExpenseViewModel) {
                 ) {
                     ExpenseDayField(
                         value = draft,
+                        caret = caret,
+                        modifier = Modifier
+                            .onFocusChanged { focused = it.isFocused }
+                            .onGloballyPositioned {
+                                caret.fieldTopInScrollPx = (it.positionInRoot().y - viewportTop + scroll.value).toInt()
+                            },
                         onValueChange = { v ->
                             if (v.text != draft.text) vm.save(day, v.text)
                             draft = v
@@ -124,7 +144,7 @@ fun ExpenseScreen(vm: ExpenseViewModel) {
             }
             Spacer(Modifier.height(120.dp))
         }
-        PinnedHeader(onSize = { headerPx = it.height }) {
+        PinnedHeader(onSize = { headerPx = it.height; caret.topInsetPx = it.height }) {
             Header(month = month, totalPaise = monthTotal, onPickMonth = { pickerOpen = true })
         }
     }
@@ -164,7 +184,7 @@ private fun Header(month: YearMonth, totalPaise: Long, onPickMonth: () -> Unit) 
             Text(
                 buildAnnotatedString {
                     withStyle(SpanStyle(color = XpTokens.Ink3)) { append("₹") }
-                    withStyle(SpanStyle(color = XpTokens.Teal)) { append(amount(totalPaise)) }
+                    withStyle(SpanStyle(color = XpTokens.Teal)) { append(expenseAmount(totalPaise)) }
                 },
                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 26.sp),
             )
@@ -174,65 +194,7 @@ private fun Header(month: YearMonth, totalPaise: Long, onPickMonth: () -> Unit) 
     }
 }
 
-@Composable
-private fun DayBlock(
-    day: Long,
-    isToday: Boolean,
-    open: Boolean,
-    text: String,
-    first: Boolean,
-    onToggle: () -> Unit,
-    field: @Composable () -> Unit,
-) {
-    val date = remember(day) { LocalDate.ofEpochDay(day) }
-    Column(Modifier.fillMaxWidth().padding(horizontal = 22.dp)) {
-        if (!first) Box(Modifier.fillMaxWidth().height(0.5.dp).background(XpTokens.Hair))
-        Row(
-            Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(vertical = 13.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.width(34.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    date.dayOfMonth.toString(), fontSize = 18.sp, fontWeight = FontWeight.Medium,
-                    color = if (isToday) XpTokens.Teal else XpTokens.Ink,
-                )
-                Text(
-                    date.dayOfWeek.getDisplayName(JTextStyle.SHORT, Locale.getDefault()).uppercase(),
-                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 9.5.sp), color = XpTokens.Ink3,
-                )
-            }
-            Spacer(Modifier.width(16.dp))
-            if (open) {
-                Text(
-                    if (isToday) "TODAY" else "EDITING", style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp),
-                    color = XpTokens.Teal, modifier = Modifier.weight(1f),
-                )
-            } else {
-                Text(
-                    preview(text), fontSize = 12.5.sp, color = XpTokens.Ink2,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
-                )
-            }
-            Spacer(Modifier.width(12.dp))
-            Text(
-                "₹" + amount(expenseTotalPaise(text)), fontSize = 14.sp, fontWeight = FontWeight.Medium,
-                color = if (open) XpTokens.Teal else XpTokens.Ink,
-            )
-        }
-        if (open) Box(Modifier.padding(start = 50.dp, bottom = 10.dp)) { field() }
-    }
-}
-
-private fun preview(text: String): String =
-    text.split('\n').mapNotNull { line -> parseExpenseLine(line)?.label?.takeIf { it.isNotEmpty() } }
-        .joinToString(", ")
-
 private fun monthTitle(m: YearMonth): String {
     val name = m.month.getDisplayName(JTextStyle.FULL, Locale.getDefault())
     return if (m.year == YearMonth.now(ZoneId.systemDefault()).year) name else "$name ${m.year}"
 }
-
-// Indian digit grouping (1,23,456). Paise only shown when non-zero.
-private val rupees = NumberFormat.getNumberInstance(Locale("en", "IN")).apply { maximumFractionDigits = 2 }
-
-private fun amount(paise: Long): String = rupees.format(BigDecimal.valueOf(paise, 2))
