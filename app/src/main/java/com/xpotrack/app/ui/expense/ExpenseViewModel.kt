@@ -12,9 +12,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
@@ -44,15 +41,9 @@ class ExpenseViewModel(private val repo: ExpenseRepository) : ViewModel() {
         .map { it.toSet() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
-    // Every keystroke saves. Mutex is FIFO, so writes land in typing order and
-    // a reload of a day waits for that day's pending writes.
-    private val lock = Mutex()
+    fun save(day: Long, text: String) = repo.save(day, text)
 
-    fun save(day: Long, text: String) {
-        viewModelScope.launch { lock.withLock { repo.save(day, text) } }
-    }
-
-    suspend fun load(day: Long): String = lock.withLock { repo.get(day) }
+    suspend fun load(day: Long): String = repo.get(day)
 
     // Refresh the marker at midnight without moving an active draft to a new day.
     fun refreshToday(day: Long = LocalDate.now(ZoneId.systemDefault()).toEpochDay()) {

@@ -69,7 +69,7 @@ class XpApp : Application() {
         vaultSession = VaultSession()
         quickNotesRepo = QuickNotesRepository(db, db.quickNoteDao())
         backupManager = BackupManager(this)
-        expenseRepo = ExpenseRepository(db.expenseDao())
+        expenseRepo = ExpenseRepository(db.expenseDao(), appScope)
         QuickNoteSweepWorker.enqueue(this)
 
         // Watchdog: NotesListScreen flips notesReady once the first paged page

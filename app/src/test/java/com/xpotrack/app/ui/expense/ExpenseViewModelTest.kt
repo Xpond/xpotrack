@@ -1,13 +1,17 @@
 package com.xpotrack.app.ui.expense
 
+import androidx.lifecycle.ViewModelStore
 import com.xpotrack.app.data.db.ExpenseDao
 import com.xpotrack.app.data.db.ExpenseDayEntity
 import com.xpotrack.app.data.repo.ExpenseRepository
 import java.time.LocalDate
 import java.time.YearMonth
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -18,16 +22,37 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ExpenseViewModelTest {
+    private val store = ViewModelStore()
+    private val dispatcher = StandardTestDispatcher()
+    private val dao = RecordingExpenseDao()
     private lateinit var vm: ExpenseViewModel
     private fun day(date: String) = LocalDate.parse(date).toEpochDay()
 
     @Before fun setUp() {
-        Dispatchers.setMain(StandardTestDispatcher())
-        vm = ExpenseViewModel(ExpenseRepository(EmptyExpenseDao()))
+        Dispatchers.setMain(dispatcher)
+        vm = ExpenseViewModel(ExpenseRepository(dao, CoroutineScope(dispatcher)))
+        store.put("expense", vm)
     }
 
     @After fun tearDown() {
+        store.clear()
         Dispatchers.resetMain()
+    }
+
+    @Test fun queuedSaveSurvivesLeavingTheApp() {
+        vm.save(1L, "Lunch 260")
+        store.clear()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(listOf(ExpenseDayEntity(1L, "Lunch 260")), dao.saved)
+    }
+
+    @Test fun savesLandInTypingOrderOnAThreadPool() = runBlocking {
+        val job = Job()
+        val repo = ExpenseRepository(dao, CoroutineScope(Dispatchers.Default + job))
+        val typed = (1..2_000).map { "Item $it" }
+        typed.forEach { repo.save(1L, it) }
+        job.children.forEach { it.join() }
+        assertEquals(typed, dao.saved.map { it.text })
     }
 
     @Test fun returningOnANewDayOpensToday() {
@@ -78,10 +103,11 @@ class ExpenseViewModelTest {
     }
 }
 
-private class EmptyExpenseDao : ExpenseDao {
+private class RecordingExpenseDao : ExpenseDao {
+    val saved = mutableListOf<ExpenseDayEntity>()
     override fun observeRange(from: Long, to: Long) = flowOf(emptyList<ExpenseDayEntity>())
     override fun observeDates() = flowOf(emptyList<Long>())
     override suspend fun getText(day: Long): String? = null
-    override suspend fun upsert(row: ExpenseDayEntity) = error("Not used in date-navigation tests")
-    override suspend fun delete(day: Long) = error("Not used in date-navigation tests")
+    override suspend fun upsert(row: ExpenseDayEntity) { saved += row }
+    override suspend fun delete(day: Long) = error("Not used in these tests")
 }
