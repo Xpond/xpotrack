@@ -3,7 +3,7 @@
 Local-only Android notes + tasks app. Kotlin + Compose, Room behind SQLCipher, no network.
 
 ## Read these first
-- `docs/progress.md` — feature-by-feature snapshot of what ships + the gotchas worth keeping
+- `misc/progress.md` — feature-by-feature snapshot of what ships + the gotchas worth keeping
 - `CHANGELOG.md` — per-release notes + the versioning scheme (SemVer, single-user local-only app)
 
 ## Non-negotiable rules
@@ -23,7 +23,7 @@ Local-only Android notes + tasks app. Kotlin + Compose, Room behind SQLCipher, n
 - `data/` — `alarm/`, `db/`, `model/`, `prefs/`, `quick/`, `repo/`, `security/`. Pure Kotlin and Android; no Compose imports.
 - `ui/` — `AppRoot.kt` + per-tab packages (`notes`, `tasks`, `expense`, `quick`, `vault`, `categories`, `settings`, `alarm`) + `theme/` + `components/`. Imports from `data/`, never the reverse.
 
-For the full file tree see `docs/progress.md` (Architecture section).
+For the full file tree see `misc/progress.md` (Architecture section).
 
 ## Build & deploy
 ```
