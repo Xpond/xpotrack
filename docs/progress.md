@@ -72,11 +72,8 @@ The tab is the month: header total top-right (Tasks' counter slot), tapping the 
 **Gotchas worth keeping:**
 - Totals are parsed from `text` on read, never stored — nothing to drift out of sync.
 - Filter every displayed date by the selected month, including the cached Room rows: the old query can still be showing when the month changes. Day blocks use `key(day)` so focus/layout state belongs to the date.
-- Refresh the local "today" marker each minute while visible. On tab entry/foreground return after a date change, follow today if the previous today was selected; preserve deliberate historical browsing. A midnight tick does not switch the date underneath an active draft.
-- Immediate serialized saves are intentional. Debouncing would extend the unsaved window; only revisit it with measured typing/write pressure and an explicit flush strategy.
-- Expense uses the shared manual caret scrolling, including nested day positions. The calendar is capped at 420dp wide and can scroll in short windows. Note-only and amount-only entries retain a collapsed preview.
+- Refresh local today at midnight without switching an active draft; on re-entry, follow today unless browsing history. See [regression checks](expense-testing.md).
 - Parsing remains a trailing positive-number rule: `Rs 60` has label `Rs`; `Refund -200` is a note; `Paid on 2026` counts 2026; malformed comma grouping such as `1,,2` currently counts 12. These are existing limitations, not natural-language interpretation.
-- Repeatable device checks and verified results: [expense-testing.md](expense-testing.md). Automated tests cover stale month rows and day/year rollover.
 - The open field is `readOnly` until its text loads, same reason as the vault editor's pristine guard: early keystrokes on a blank draft would overwrite the stored day.
 - Two earlier designs were cut: a per-expense form with tags (too slow for a batch at day's end), and a separate full-screen day editor (most of the screen stayed empty).
 

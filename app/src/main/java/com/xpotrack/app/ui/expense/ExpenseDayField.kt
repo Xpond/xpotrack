@@ -7,10 +7,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
@@ -20,7 +17,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -57,7 +53,6 @@ internal fun ExpenseDayField(
     val amountInk = XpTokens.Teal
     val noteInk = XpTokens.Ink3
     val rule = XpTokens.Hair2
-    var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
     BasicTextField(
         value = value,
         onValueChange = onValueChange,
@@ -68,13 +63,13 @@ internal fun ExpenseDayField(
         visualTransformation = { text ->
             TransformedText(highlight(text.text, amountInk, noteInk), OffsetMapping.Identity)
         },
-        onTextLayout = { layout = it; caret.layout = it },
+        onTextLayout = { caret.layout = it },
         modifier = modifier
             .swallowBringIntoView()
             .fillMaxWidth()
             .focusRequester(focus)
             .drawBehind {
-                val l = layout ?: return@drawBehind
+                val l = caret.layout ?: return@drawBehind
                 val stroke = 0.5.dp.toPx()
                 for (i in 0 until l.lineCount) {
                     val y = l.getLineBottom(i) - stroke / 2

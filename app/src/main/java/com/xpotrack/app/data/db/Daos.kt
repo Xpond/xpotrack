@@ -169,7 +169,7 @@ interface ExpenseDao {
     @Query("SELECT dateEpochDay FROM expense_days")
     fun observeDates(): Flow<List<Long>>
 
-    @Query("SELECT text FROM expense_days WHERE dateEpochDay = :day LIMIT 1")
+    @Query("SELECT text FROM expense_days WHERE dateEpochDay = :day")
     suspend fun getText(day: Long): String?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

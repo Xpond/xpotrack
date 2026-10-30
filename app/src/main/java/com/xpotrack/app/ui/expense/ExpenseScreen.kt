@@ -41,6 +41,10 @@ import com.xpotrack.app.ui.notes.rememberCaretScroll
 import com.xpotrack.app.ui.notes.TopHalo
 import com.xpotrack.app.ui.tasks.MonthPickerDialog
 import com.xpotrack.app.ui.theme.XpTokens
+import java.time.Duration
+import java.time.LocalDate
+import java.time.YearMonth
+import java.time.ZonedDateTime
 import kotlinx.coroutines.delay
 
 @Composable
@@ -55,7 +59,7 @@ fun ExpenseScreen(vm: ExpenseViewModel) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             vm.onEnter()
             while (true) {
-                delay(60_000L - System.currentTimeMillis() % 60_000L)
+                delay(millisUntilNextDay(ZonedDateTime.now()))
                 vm.refreshToday()
             }
         }
@@ -63,8 +67,8 @@ fun ExpenseScreen(vm: ExpenseViewModel) {
     var pickerOpen by remember { mutableStateOf(false) }
 
     // The open day's text lives here, loaded once per open and saved on every
-    // edit. readOnly until the load lands so
-    // early keystrokes can't overwrite the stored day with a blank draft.
+    // edit. readOnly until the load lands so early keystrokes can't overwrite
+    // the stored day with a blank draft.
     var draft by remember(openDay) { mutableStateOf(TextFieldValue("")) }
     var loaded by remember(openDay) { mutableStateOf(false) }
     // Set when the user opens a day by tapping it — the default-open today
@@ -153,3 +157,12 @@ fun ExpenseScreen(vm: ExpenseViewModel) {
         )
     }
 }
+
+internal fun expenseDates(days: Set<Long>, openDay: Long?, today: Long, month: YearMonth): List<Long> =
+    (days + listOfNotNull(openDay, today))
+        .filter { YearMonth.from(LocalDate.ofEpochDay(it)) == month }
+        .sortedDescending()
+
+internal fun millisUntilNextDay(now: ZonedDateTime): Long =
+    Duration.between(now, now.toLocalDate().plusDays(1).atStartOfDay(now.zone))
+        .toMillis().coerceAtLeast(1)
