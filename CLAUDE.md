@@ -3,7 +3,7 @@
 Local-only Android notes + tasks app. Kotlin + Compose, Room behind SQLCipher, no network.
 
 ## Read these first
-- `docs/progress.md` — feature-by-feature snapshot of what ships + the gotchas worth keeping
+- `misc/progress.md` — feature-by-feature snapshot of what ships + the gotchas worth keeping
 - `CHANGELOG.md` — per-release notes + the versioning scheme (SemVer, single-user local-only app)
 
 ## Non-negotiable rules
@@ -14,16 +14,16 @@ Local-only Android notes + tasks app. Kotlin + Compose, Room behind SQLCipher, n
 ## Stack
 - Kotlin 2.1.0, Compose BOM 2024.12, AGP 8.7.3, Gradle 8.10.2. Builds on JDK 21; compiles to JVM 17 bytecode.
 - `compileSdk = 35`, `minSdk = 29`, `targetSdk = 35`. APK pinned to `arm64-v8a`.
-- Room 2.6.1 + SQLCipher 4.6.1 (whole-DB encryption). Schema currently at v11.
+- Room 2.6.1 + SQLCipher 4.6.1 (whole-DB encryption). Schema currently at v12.
 - AndroidX EncryptedSharedPreferences for the 32-byte DB passphrase + vault metadata.
 - KSP for Room codegen, no Hilt (manual DI via `XpApp`).
 
 ## Project shape
 
 - `data/` — `alarm/`, `db/`, `model/`, `prefs/`, `quick/`, `repo/`, `security/`. Pure Kotlin and Android; no Compose imports.
-- `ui/` — `AppRoot.kt` + per-tab packages (`notes`, `tasks`, `quick`, `vault`, `categories`, `settings`, `alarm`) + `theme/` + `components/`. Imports from `data/`, never the reverse.
+- `ui/` — `AppRoot.kt` + per-tab packages (`notes`, `tasks`, `expense`, `quick`, `vault`, `categories`, `settings`, `alarm`) + `theme/` + `components/`. Imports from `data/`, never the reverse.
 
-For the full file tree see `docs/progress.md` (Architecture section).
+For the full file tree see `misc/progress.md` (Architecture section).
 
 ## Build & deploy
 ```

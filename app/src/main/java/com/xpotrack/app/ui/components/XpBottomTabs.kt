@@ -3,7 +3,6 @@ package com.xpotrack.app.ui.components
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -34,6 +33,7 @@ import com.xpotrack.app.ui.theme.XpTokens
 enum class XpTab(val label: String, val iconRes: Int) {
     Notes("Notes",  R.drawable.ic_tab_notes),
     Tasks("Tasks",  R.drawable.ic_tab_tasks),
+    Expense("Expense", R.drawable.ic_tab_expense),
     Vault("Vault",  R.drawable.ic_tab_vault),
     // Enum value stays `More` to avoid churning every call site; the user-
     // facing label was renamed to "Settings" when milestone 13 replaced the
@@ -76,11 +76,10 @@ fun XpBottomTabs(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 14.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             XpTab.entries.forEach { t ->
-                TabItem(tab = t, active = active == t, onClick = { onSelect(t) })
+                TabItem(tab = t, active = active == t, onClick = { onSelect(t) }, modifier = Modifier.weight(1f))
             }
         }
         Spacer(Modifier.height(4.dp))
@@ -88,18 +87,18 @@ fun XpBottomTabs(
 }
 
 @Composable
-private fun TabItem(tab: XpTab, active: Boolean, onClick: () -> Unit) {
+private fun TabItem(tab: XpTab, active: Boolean, onClick: () -> Unit, modifier: Modifier) {
     val color = if (active) XpTokens.Teal else XpTokens.Ink3
     val interactionSource = remember { MutableInteractionSource() }
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
+        modifier = modifier
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
                 onClick = onClick,
             )
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(vertical = 6.dp),
     ) {
         Icon(
             painter = painterResource(tab.iconRes),
@@ -112,6 +111,7 @@ private fun TabItem(tab: XpTab, active: Boolean, onClick: () -> Unit) {
             tab.label.uppercase(),
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
             color = color,
+            maxLines = 1,
         )
     }
 }

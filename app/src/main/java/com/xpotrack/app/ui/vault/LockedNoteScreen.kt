@@ -60,6 +60,8 @@ fun LockedNoteScreen(vm: VaultViewModel, noteId: Long, onBack: () -> Unit) {
     var loaded by remember(noteId) { mutableStateOf(false) }
     var title by remember(noteId) { mutableStateOf("") }
     var body by remember(noteId) { mutableStateOf(TextFieldValue("")) }
+    // Loaded (title, body) — back without edits skips the upsert so the row keeps its place.
+    var pristine by remember(noteId) { mutableStateOf<Pair<String, String>?>(null) }
     val category = "Vault"  // category picker deferred per milestone 11
     val titleFocus = remember(noteId) { FocusRequester() }
     val scope = rememberCoroutineScope()
@@ -70,6 +72,7 @@ fun LockedNoteScreen(vm: VaultViewModel, noteId: Long, onBack: () -> Unit) {
         if (existing != null) {
             title = existing.title
             body = TextFieldValue(existing.body, TextRange(existing.body.length))
+            pristine = existing.title to existing.body
         }
         loaded = true
     }
@@ -84,6 +87,8 @@ fun LockedNoteScreen(vm: VaultViewModel, noteId: Long, onBack: () -> Unit) {
             val hasContent = trimmed.isNotEmpty() || body.text.isNotEmpty()
             if (noteId == 0L && !hasContent) {
                 // Empty new note — discard.
+            } else if (noteId > 0L && (pristine == null || (hasContent && pristine == (trimmed.ifEmpty { "Untitled" } to body.text)))) {
+                // Unchanged, or failed to load (session locked) — never overwrite or delete.
             } else if (noteId > 0L && !hasContent) {
                 vm.deleteNote(noteId)
             } else {

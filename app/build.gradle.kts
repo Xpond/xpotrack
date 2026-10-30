@@ -24,7 +24,7 @@ android {
         targetSdk = 35
         // Single source of truth: bump versionName, versionCode derives from it.
         // See CHANGELOG.md for what each release contains.
-        versionName = "1.0.0"
+        versionName = "1.1.0"
         versionCode = versionName!!.split('.').let { (maj, min, pat) ->
             maj.toInt() * 10_000 + min.toInt() * 100 + pat.toInt()
         }
@@ -80,6 +80,9 @@ android {
 }
 
 dependencies {
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)

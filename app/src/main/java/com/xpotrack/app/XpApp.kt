@@ -10,6 +10,7 @@ import com.xpotrack.app.data.prefs.EditorZoomPrefs
 import com.xpotrack.app.data.prefs.ThemePrefs
 import com.xpotrack.app.data.quick.QuickNoteSweepWorker
 import com.xpotrack.app.data.repo.CategoryRepository
+import com.xpotrack.app.data.repo.ExpenseRepository
 import com.xpotrack.app.data.repo.NotesRepository
 import com.xpotrack.app.data.repo.QuickNotesRepository
 import com.xpotrack.app.data.repo.TasksRepository
@@ -48,6 +49,8 @@ class XpApp : Application() {
         private set
     lateinit var backupManager: BackupManager
         private set
+    lateinit var expenseRepo: ExpenseRepository
+        private set
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -66,6 +69,7 @@ class XpApp : Application() {
         vaultSession = VaultSession()
         quickNotesRepo = QuickNotesRepository(db, db.quickNoteDao())
         backupManager = BackupManager(this)
+        expenseRepo = ExpenseRepository(db.expenseDao(), appScope)
         QuickNoteSweepWorker.enqueue(this)
 
         // Watchdog: NotesListScreen flips notesReady once the first paged page

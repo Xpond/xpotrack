@@ -9,6 +9,25 @@ Versioning follows SemVer for a single-user, local-only app:
 `versionCode` is derived from `versionName` in `app/build.gradle.kts`
 (`MAJOR*10000 + MINOR*100 + PATCH`), so bumping the name updates the code automatically.
 
+## [1.1.0] - 2026-10-30
+
+Adds the Expense tab.
+
+### Features
+- Expense: one free-text entry per day, one expense per line with a trailing amount (`Lunch 260`, `Groceries 1,240.50`, `Lunch Rs.260`, `Bus 20 rupees`). Lines without an amount stay as notes and count zero
+- Live day and month totals, parsed from the text and never stored
+- Month picker opens past or future days and marks logged dates
+- Every edit saves in order and survives leaving the app; clearing a day removes it
+
+### Fixes
+- Vault: opening a note and returning without edits no longer changes its timestamp or list position; returning before it loads no longer overwrites or deletes it
+- Dialogs: cap width at 420dp on tablets; the month picker scrolls in short windows
+- Bottom tabs use equal widths so five labels fit on narrow phones
+
+### Data
+- Room schema v12 adds `expense_days` through a non-destructive v11→v12 migration
+- Expenses are included in backups; a 1.1.0 backup can't be restored on 1.0.0
+
 ## [1.0.0] - 2026-05-26
 
 Initial release. Local-only notes + tasks + vault, no network, no analytics.

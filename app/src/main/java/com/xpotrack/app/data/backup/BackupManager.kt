@@ -10,7 +10,7 @@ import org.json.JSONObject
 import java.io.File
 import java.time.Instant
 
-private const val CURRENT_SCHEMA = 11
+private const val CURRENT_SCHEMA = 12
 
 class BackupManager(private val appContext: Context) {
 

@@ -1,11 +1,12 @@
 # xpotrack
 
-Local-only Android notes + tasks app. Single user, single device, no network.
+Local-only Android notes, tasks + expenses app. Single user, single device, no network.
 
 ## What's in it
 
 - **Notes** — chronological list, categories, search, multi-select, share, markdown editor with Write/Preview toggle, pinch-to-zoom
 - **Tasks** — per-day timeline, three-column time wheel, recurrence (none/daily/weekly/weekdays), Silent/Notify/Alarm reminders
+- **Expense** — one free-text entry per day, one expense per line with a trailing amount (`Lunch 260`), live day and month totals, month picker for past or future days
 - **Quick notes** — 24h ephemeral scratch with countdown chip; Keep promotes into regular notes
 - **Vault** — passphrase + optional biometric, AES-256-GCM per note, FLAG_SECURE, 1-min auto-lock
 - **Backup** — encrypted `.xpb` export/restore via SAF, in-app relaunch splash
