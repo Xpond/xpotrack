@@ -13,6 +13,15 @@ Versioning follows SemVer for a single-user, local-only app:
 
 Adds the Expense tab.
 
+### Artifacts
+
+Built from commit `9f4fbc5` on `main`.
+
+- `app-release.apk` — 10,046,568 bytes — SHA-256 `5ae7d8467af4ef12cd4a1a679b4cf7c1b973fc4617694848cc46ec3876e31e12`
+- `app-release.aab` — 7,578,158 bytes — SHA-256 `2b0e9a3d80caf39749acfd15768a4b37ba1a8f9728b5df4830ab1d168f3e21ea`
+
+Signed with the personal release keystore. As with 1.0.0, these SHAs are an integrity record, not a reproducibility contract.
+
 ### Features
 - Expense: one free-text entry per day, one expense per line with a trailing amount (`Lunch 260`, `Groceries 1,240.50`, `Lunch Rs.260`, `Bus 20 rupees`). Lines without an amount stay as notes and count zero
 - Live day and month totals, parsed from the text and never stored
