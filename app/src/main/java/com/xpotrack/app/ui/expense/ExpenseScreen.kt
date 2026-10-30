@@ -81,9 +81,7 @@ fun ExpenseScreen(vm: ExpenseViewModel) {
         loaded = true
     }
 
-    val listed = remember(days, openDay, month, today) {
-        expenseDates(days.keys, openDay, today, month)
-    }
+    val listed = expenseDates(days.keys, openDay, today, month)
     val textOf = { d: Long -> if (d == openDay && loaded) draft.text else days[d].orEmpty() }
     val monthTotal = listed.sumOf { expenseTotalPaise(textOf(it)) }
 
@@ -91,7 +89,11 @@ fun ExpenseScreen(vm: ExpenseViewModel) {
     val caret = rememberCaretScroll(scroll)
     var focused by remember { mutableStateOf(false) }
     var viewportTop by remember { mutableFloatStateOf(0f) }
-    if (focused && loaded) CaretScrollEffect(caret, draft.selection.start)
+    if (focused && loaded) {
+        CaretScrollEffect(caret, draft.selection.start)
+        // Day rows above the field shift it as they load, unlike the other editors.
+        LaunchedEffect(caret.fieldTopInScrollPx) { caret.bringCaretIntoView(draft.selection.start) }
+    }
 
     val density = LocalDensity.current
     var headerPx by remember { mutableIntStateOf(0) }

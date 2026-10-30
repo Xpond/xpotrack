@@ -57,7 +57,7 @@ fun rememberCaretScroll(scroll: ScrollState): CaretScrollState =
 fun CaretScrollEffect(state: CaretScrollState, caretOffset: Int) {
     LaunchedEffect(
         caretOffset, state.layout, state.viewportHeightPx,
-        state.topInsetPx, state.bottomInsetPx, state.fieldTopInScrollPx,
+        state.topInsetPx, state.bottomInsetPx,
     ) {
         state.bringCaretIntoView(caretOffset)
     }

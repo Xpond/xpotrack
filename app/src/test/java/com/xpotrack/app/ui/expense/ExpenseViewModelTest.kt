@@ -1,6 +1,5 @@
 package com.xpotrack.app.ui.expense
 
-import androidx.lifecycle.ViewModelStore
 import com.xpotrack.app.data.db.ExpenseDao
 import com.xpotrack.app.data.db.ExpenseDayEntity
 import com.xpotrack.app.data.repo.ExpenseRepository
@@ -19,18 +18,15 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ExpenseViewModelTest {
-    private val store = ViewModelStore()
     private lateinit var vm: ExpenseViewModel
     private fun day(date: String) = LocalDate.parse(date).toEpochDay()
 
     @Before fun setUp() {
         Dispatchers.setMain(StandardTestDispatcher())
         vm = ExpenseViewModel(ExpenseRepository(EmptyExpenseDao()))
-        store.put("expense", vm)
     }
 
     @After fun tearDown() {
-        store.clear()
         Dispatchers.resetMain()
     }
 

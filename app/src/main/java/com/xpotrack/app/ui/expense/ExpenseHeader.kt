@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,36 +34,35 @@ import java.util.Locale
 
 @Composable
 internal fun ExpenseHeader(month: YearMonth, totalPaise: Long, onPickMonth: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(start = 22.dp, end = 18.dp, bottom = 18.dp),
-        verticalAlignment = Alignment.Bottom,
-    ) {
-        Column(Modifier.weight(1f)) {
-            DateTimeStrip()
-            Spacer(Modifier.height(14.dp))
+    Column(Modifier.fillMaxWidth().padding(start = 22.dp, end = 18.dp, bottom = 18.dp)) {
+        DateTimeStrip()
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
             Row(
-                Modifier.clickable(
+                Modifier.weight(1f).padding(end = 12.dp).clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClick = onPickMonth,
                 ),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(monthTitle(month), style = MaterialTheme.typography.displayLarge, color = XpTokens.Ink, maxLines = 1)
+                Text(
+                    monthTitle(month), style = MaterialTheme.typography.displayLarge, color = XpTokens.Ink,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
+                )
                 Spacer(Modifier.width(8.dp))
                 Icon(painterResource(R.drawable.ic_caret_down), "Pick month", tint = XpTokens.Ink3, modifier = Modifier.size(14.dp))
             }
-        }
-        Column(horizontalAlignment = Alignment.End) {
-            Text(
-                buildAnnotatedString {
-                    withStyle(SpanStyle(color = XpTokens.Ink3)) { append("₹") }
-                    withStyle(SpanStyle(color = XpTokens.Teal)) { append(expenseAmount(totalPaise)) }
-                },
-                style = MaterialTheme.typography.labelSmall.copy(fontSize = 26.sp),
-            )
-            Spacer(Modifier.height(4.dp))
-            Text("SPENT", style = MaterialTheme.typography.labelMedium, color = XpTokens.Ink3)
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    buildAnnotatedString {
+                        withStyle(SpanStyle(color = XpTokens.Ink3)) { append("₹") }
+                        withStyle(SpanStyle(color = XpTokens.Teal)) { append(expenseAmount(totalPaise)) }
+                    },
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 26.sp),
+                )
+                Spacer(Modifier.height(4.dp))
+                Text("SPENT", style = MaterialTheme.typography.labelMedium, color = XpTokens.Ink3)
+            }
         }
     }
 }

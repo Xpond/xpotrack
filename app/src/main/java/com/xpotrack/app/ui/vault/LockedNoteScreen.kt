@@ -87,7 +87,7 @@ fun LockedNoteScreen(vm: VaultViewModel, noteId: Long, onBack: () -> Unit) {
             val hasContent = trimmed.isNotEmpty() || body.text.isNotEmpty()
             if (noteId == 0L && !hasContent) {
                 // Empty new note — discard.
-            } else if (noteId > 0L && (pristine == null || pristine == (trimmed.ifEmpty { "Untitled" } to body.text))) {
+            } else if (noteId > 0L && (pristine == null || (hasContent && pristine == (trimmed.ifEmpty { "Untitled" } to body.text)))) {
                 // Unchanged, or failed to load (session locked) — never overwrite or delete.
             } else if (noteId > 0L && !hasContent) {
                 vm.deleteNote(noteId)
